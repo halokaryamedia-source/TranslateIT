@@ -15,11 +15,13 @@ from typing import Any
 MODEL_SPECS = [
     {
         "key": "milmmt_1b",
+        "label": "Scenario A — MiLMMT-46-1B-v1.0 BF16",
         "repo": "xiaomi-research/MiLMMT-46-1B-v1.0",
         "precision": "bf16",
     },
     {
         "key": "milmmt_4b",
+        "label": "Scenario B — MiLMMT-46-4B-v1.0 INT8",
         "repo": "xiaomi-research/MiLMMT-46-4B-v1.0",
         "precision": "int8",
     },
@@ -42,12 +44,10 @@ def percentile(values: list[float], fraction: float) -> float | None:
 
 
 class JsonWorker:
-    def __init__(self, command: list[str], cwd: Path, stderr_path: Path, env: dict[str, str] | None = None) -> None:
+    def __init__(self, command: list[str], cwd: Path, stderr_path: Path) -> None:
         stderr_path.parent.mkdir(parents=True, exist_ok=True)
         self.stderr_handle = stderr_path.open("w", encoding="utf-8")
         runtime_env = dict(os.environ)
-        if env:
-            runtime_env.update(env)
         runtime_env["PYTHONIOENCODING"] = "utf-8"
         runtime_env["PYTHONUTF8"] = "1"
         self.process = subprocess.Popen(
@@ -132,6 +132,7 @@ def acquire_model(spec: dict[str, str], output_root: Path) -> dict[str, Any]:
 
     return {
         "key": key,
+        "label": spec["label"],
         "repo": repo,
         "precision": spec["precision"],
         "resolved_revision": revision,
@@ -164,7 +165,7 @@ def request_translation(worker: JsonWorker, case: dict[str, Any]) -> dict[str, A
     }
 
 
-def run_milmmt_candidate(
+def run_candidate(
     repo_root: Path,
     candidate_python: Path,
     worker_script: Path,
@@ -190,62 +191,11 @@ def run_milmmt_candidate(
     try:
         preload = worker.read()
         if not preload.get("ok"):
-            return {"candidate": key, "provenance": provenance, "preload": preload, "results": []}
-
-        # One neutral warmup is excluded from the measured representative cases.
-        warmup_case = {
-            "id": "warmup",
-            "direction": "id->en",
-            "category": "warmup",
-            "source": "Terima kasih, saya akan cek hasilnya setelah meeting selesai.",
-            "reference": "Thank you, I will check the results after the meeting ends.",
-            "protected_literals": [],
-        }
-        _ = request_translation(worker, warmup_case)
-
-        results: list[dict[str, Any]] = []
-        for index, case in enumerate(cases, 1):
-            row = request_translation(worker, case)
-            results.append(row)
-            print(f"[{key}] realtime case {index}/{len(cases)}", flush=True)
-        return {"candidate": key, "provenance": provenance, "preload": preload, "results": results}
-    finally:
-        worker.close()
-
-
-def run_baseline(
-    repo_root: Path,
-    baseline_python: Path,
-    cases: list[dict[str, Any]],
-    output_root: Path,
-) -> dict[str, Any]:
-    worker_script = (
-        repo_root
-        / "EngineData"
-        / "Backend"
-        / "LocalWorker"
-        / "WorkerRuntime"
-        / "realtime_local_worker.py"
-    )
-    env = {
-        "TRANSLATEIT_RUNTIME_ROOT": str(repo_root),
-        "TRANSLATEIT_USER_DATA_ROOT": str(repo_root / "UserData"),
-    }
-    worker = JsonWorker(
-        [str(baseline_python), str(worker_script)],
-        repo_root,
-        output_root / "m2m100_418m_stderr.log",
-        env,
-    )
-    try:
-        preload, preload_wall_ms = worker.request(
-            {"command": "translation_preload", "source_language": "id", "target_language": "en"}
-        )
-        if not preload.get("ok"):
             return {
-                "candidate": "m2m100_418m",
+                "candidate": key,
+                "label": provenance["label"],
+                "provenance": provenance,
                 "preload": preload,
-                "preload_wall_ms": preload_wall_ms,
                 "results": [],
             }
 
@@ -263,11 +213,12 @@ def run_baseline(
         for index, case in enumerate(cases, 1):
             row = request_translation(worker, case)
             results.append(row)
-            print(f"[m2m100_418m] realtime case {index}/{len(cases)}", flush=True)
+            print(f"[{key}] realtime case {index}/{len(cases)}", flush=True)
         return {
-            "candidate": "m2m100_418m",
+            "candidate": key,
+            "label": provenance["label"],
+            "provenance": provenance,
             "preload": preload,
-            "preload_wall_ms": preload_wall_ms,
             "results": results,
         }
     finally:
@@ -342,19 +293,21 @@ def write_review(path: Path, cases: list[dict[str, Any]], candidates: dict[str, 
         for key, value in candidates.items()
     }
     labels = {
-        "m2m100_418m": "M2M100-418M (current production)",
-        "milmmt_1b": "MiLMMT-46-1B-v1.0 BF16",
-        "milmmt_4b": "MiLMMT-46-4B-v1.0 INT8",
+        "milmmt_1b": "Scenario A — MiLMMT-46-1B-v1.0 BF16",
+        "milmmt_4b": "Scenario B — MiLMMT-46-4B-v1.0 INT8",
     }
     with path.open("w", encoding="utf-8", newline="\n") as handle:
-        handle.write("# TranslateIT Realtime Translation A/B Review\n\n")
-        handle.write("This pack is for aggregate human review. One isolated wording error is not an automatic rejection.\n\n")
+        handle.write("# TranslateIT MiLMMT 1B vs 4B Realtime Review\n\n")
+        handle.write(
+            "Only the two MiLMMT v1.0 scenarios are compared. Every scenario runs the same representative cases; "
+            "one isolated error is not an automatic rejection.\n\n"
+        )
         for index, case in enumerate(cases, 1):
             handle.write(f"## {index}. {case['id']} — {case['category']}\n\n")
             handle.write(f"**Direction:** {case['direction']}\n\n")
             handle.write(f"**Source:** {case['source']}\n\n")
             handle.write(f"**Reference anchor:** {case['reference']}\n\n")
-            for key in ("m2m100_418m", "milmmt_1b", "milmmt_4b"):
+            for key in ("milmmt_1b", "milmmt_4b"):
                 row = result_maps.get(key, {}).get(case["id"])
                 output = translated_text(row) if row else "[NO RESULT]"
                 latency = row.get("request_wall_ms") if row else None
@@ -365,12 +318,10 @@ def write_review(path: Path, cases: list[dict[str, Any]], candidates: dict[str, 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", required=True)
-    parser.add_argument("--baseline-python", required=True)
     parser.add_argument("--candidate-python", required=True)
     args = parser.parse_args()
 
     repo_root = Path(args.repo_root).resolve()
-    baseline_python = Path(args.baseline_python).resolve()
     candidate_python = Path(args.candidate_python).resolve()
     output_root = repo_root / "UserData" / "CacheData" / "TranslationQuality" / "MiLMMTRealtimeAB"
     output_root.mkdir(parents=True, exist_ok=True)
@@ -378,11 +329,11 @@ def main() -> int:
     review_path = output_root / "milmmt_realtime_ab_review.md"
 
     report: dict[str, Any] = {
-        "schema": "translateit.milmmt_realtime_ab.v1",
+        "schema": "translateit.milmmt_1b_vs_4b_realtime.v2",
         "decision_state": "HARNESS_FAILED",
         "production_modified": False,
         "automatic_rejection_enabled": False,
-        "new_model_search_after_run": False,
+        "scenarios": [spec["key"] for spec in MODEL_SPECS],
     }
     return_code = 1
     try:
@@ -407,15 +358,11 @@ def main() -> int:
         provenance = [acquire_model(spec, model_root) for spec in MODEL_SPECS]
         report["provenance"] = provenance
 
-        candidates: dict[str, dict[str, Any]] = {}
-        print("\nRunning current production baseline on representative realtime cases...", flush=True)
-        candidates["m2m100_418m"] = run_baseline(repo_root, baseline_python, cases, output_root)
-        time.sleep(2)
-
         worker_script = repo_root / "tools" / "translation_quality" / "milmmt_realtime_worker.py"
+        candidates: dict[str, dict[str, Any]] = {}
         for item in provenance:
-            print(f"\nRunning {item['repo']} ({item['precision']})...", flush=True)
-            candidates[item["key"]] = run_milmmt_candidate(
+            print(f"\nRunning {item['label']}...", flush=True)
+            candidates[item["key"]] = run_candidate(
                 repo_root,
                 candidate_python,
                 worker_script,
@@ -427,11 +374,10 @@ def main() -> int:
 
         report["candidates"] = candidates
         report["summary"] = {key: summarize_candidate(value) for key, value in candidates.items()}
-        report["decision_state"] = "REALTIME_REVIEW_REQUIRED"
+        report["decision_state"] = "MILMMT_1B_VS_4B_REVIEW_REQUIRED"
         report["decision_rule"] = (
-            "Do not replace production from age or one isolated error. Prefer MiLMMT only if aggregate representative "
-            "semantic/factual/naturalness quality is clearly better and latency/VRAM remain practical. If improvement "
-            "is marginal or mixed, retain M2M100-418M and stop model search."
+            "Compare MiLMMT-1B and MiLMMT-4B only. Choose from aggregate representative semantic correctness, "
+            "factual fidelity, naturalness, completeness, latency and memory. One isolated error does not decide the model."
         )
         write_review(review_path, cases, candidates)
         report["review_pack"] = str(review_path)
@@ -446,7 +392,7 @@ def main() -> int:
     finally:
         report["finished_utc_unix"] = time.time()
         report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-        print(f"\nMiLMMT realtime A/B report: {report_path}", flush=True)
+        print(f"\nMiLMMT 1B vs 4B realtime report: {report_path}", flush=True)
         if report.get("review_pack"):
             print(f"Review pack: {report['review_pack']}", flush=True)
         print(f"Decision state: {report.get('decision_state')}", flush=True)

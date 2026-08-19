@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRODUCTION M2M100-418M UNCHANGED / TRANSLATEGEMMA NO LONGER ACTIVE / MILMMT-46 v1.0 1B + 4B SELECTED FOR ONE REPRESENTATIVE REALTIME A/B / NO SHORT-CIRCUIT / NO SINGLE-ERROR REJECTION / NO AUTOMATIC MODEL 3`
+`MILMMT-46 v1.0 ONLY / SCENARIO A 1B BF16 / SCENARIO B 4B INT8 / SAME 24 REALISTIC CASES / NO M2M100 COMPARISON / NO TRANSLATEGEMMA COMPARISON / NO SHORT-CIRCUIT / NO SINGLE-ERROR REJECTION / PRODUCTION UNCHANGED`
 
 Authority:
 
@@ -11,50 +11,63 @@ Local      → current development authority
 Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-## Decision Boundary
+## Evaluation Scope
 
-The earlier rejection-only modality prescreen was useful for surfacing a semantic weakness but was too aggressive as a whole-model selection decision. Do not continue model hopping from one crafted failure.
-
-From this point, translation selection is based on representative product behavior:
+Only two translation scenarios remain active:
 
 ```text
-current production M2M100-418M
-vs
-MiLMMT-46-1B-v1.0 BF16
-vs
-MiLMMT-46-4B-v1.0 INT8
-```
-
-TranslateGemma is no longer an active challenger. Preserve its report as historical evidence; do not use its single `should -> harus` finding as a standalone model-rejection rule.
-
-## Why MiLMMT v1.0
-
-Official Xiaomi v1.0 was released in August 2026 and builds on Gemma 3 with multilingual continual pretraining, supervised fine-tuning, reinforcement learning and checkpoint merging. Indonesian and English are supported. Published v1.0 results report improvement over the earlier SFT model and strong recent open translation baselines including TranslateGemma. These are positive candidate signals, not production acceptance.
-
-## Practical Candidate Configurations
-
-```text
+Scenario A
 MiLMMT-46-1B-v1.0
-  official Xiaomi checkpoint
-  BF16
-  AutoModelForCausalLM
-  official Xiaomi translation prompt
-  deterministic generation
+official Xiaomi checkpoint
+BF16
 
+Scenario B
 MiLMMT-46-4B-v1.0
-  official Xiaomi checkpoint
-  bitsandbytes LLM.int8
-  non-quantized compute BF16
-  AutoModelForCausalLM
-  official Xiaomi translation prompt
-  deterministic generation
+official Xiaomi checkpoint
+bitsandbytes LLM.int8
+BF16 non-quantized compute
 ```
 
-No Q4/GGUF/community checkpoint, routing, fallback profile or phrase-specific output repair is part of this comparison.
+M2M100 and TranslateGemma are not part of this evaluation. Their old reports may remain as historical evidence, but they must not add runtime, download, or review work to the MiLMMT 1B-vs-4B decision.
 
-## Representative Realtime A/B
+## Representative Test
 
-Owner files:
+Both scenarios run the exact same 24 Meeting/Text utterances from:
+
+```text
+tools/translation_quality/realtime_use_cases.json
+```
+
+Coverage:
+
+```text
+12 Indonesian -> English
+12 English -> Indonesian
+status updates
+deadlines
+clarification/correction
+professional disagreement
+conditional planning
+technical handoff
+numbers/IP/version facts
+schedule
+branch instruction
+code switching
+questions
+scope constraints
+recommendation/prohibition in normal context
+```
+
+Rules:
+
+- run all 24 cases for both models unless the runtime itself cannot run;
+- no semantic short-circuit;
+- no one-error automatic rejection;
+- references are review anchors, not exact-output assertions;
+- compare semantic correctness, factual fidelity, naturalness, completeness, protected literals, chrF++/BLEU supporting metrics, latency p50/p90, and preload/VRAM evidence;
+- choose between 1B and 4B from aggregate behavior, not release date or one sentence.
+
+## Owners
 
 ```text
 tools/translation_quality/realtime_use_cases.json
@@ -63,53 +76,21 @@ tools/translation_quality/realtime_translation_ab.py
 tools/translation_quality/run_milmmt_realtime_ab.ps1
 ```
 
-The comparison uses 24 representative Meeting/Text utterances:
+The PowerShell wrapper uses a dedicated MiLMMT `.venv`; it does not reuse TranslateGemma or old model-specific evaluation environments.
+
+Output:
 
 ```text
-12 Indonesian -> English
-12 English -> Indonesian
-
-status updates
-client deadlines
-clarification/corrections
-professional disagreement
-conditional planning
-technical handoff
-numbers/IP/version facts
-schedule
-branch instructions
-code switching
-questions
-scope constraints
-natural recommendation/prohibition context
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/
+├─ models/
+│  ├─ milmmt_1b_model/
+│  └─ milmmt_4b_model/
+├─ milmmt_1b_revision.txt
+├─ milmmt_4b_revision.txt
+├─ milmmt_realtime_ab_report.json
+└─ milmmt_realtime_ab_review.md
 ```
-
-Rules:
-
-- every candidate runs all 24 cases unless the runtime itself cannot run;
-- no semantic short-circuit;
-- one minor/major wording issue is never an automatic candidate rejection;
-- references are review anchors, not exact-output assertions;
-- record completion, literal preservation, chrF++/BLEU as supporting signals, request wall-time p50/p90, load/VRAM evidence and all raw translations;
-- final quality decision requires aggregate human semantic/factual/naturalness review;
-- newer release date alone cannot authorize migration.
-
-## Decision Rule After A/B
-
-```text
-MiLMMT candidate clearly improves representative semantic/factual/naturalness quality
-AND latency/VRAM are practical
-→ candidate may proceed to final production migration proof.
-
-Improvement is marginal, mixed, or operationally too expensive
-→ retain M2M100-418M and STOP model search.
-
-Both MiLMMT candidates are materially poor
-→ do not automatically download another model; require a new explicit decision first.
-```
-
-Production `model_manifest.json`, production worker behavior, Meeting/VoiceLab behavior and installer remain unchanged during this comparison.
 
 ## Next Step
 
-**Fast-forward `Local` and run `tools/translation_quality/run_milmmt_realtime_ab.ps1` once. First run downloads and exact-revision-pins the official Xiaomi MiLMMT-46-1B-v1.0 and MiLMMT-46-4B-v1.0 checkpoints. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_realtime_ab_report.json` or `milmmt_realtime_ab_review.md`. Do not migrate production or download another model before aggregate review.**
+**Fast-forward `Local` and run `tools/translation_quality/run_milmmt_realtime_ab.ps1` once. The first run downloads only the official Xiaomi MiLMMT-46-1B-v1.0 and MiLMMT-46-4B-v1.0 checkpoints and pins their exact revisions. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_realtime_ab_review.md`. Do not add another model or migrate production before the aggregate 1B-vs-4B review.**
