@@ -276,3 +276,30 @@ The approved model-family audit prioritizes translation quality and low latency,
 
 **Boundary**  
 This is approval to evaluate LMT-60-1.7B, not permission to pre-promote it into `model_manifest.json`, RuntimeAssets, or the production worker. D-025 remains controlling: first freeze the general benchmark contract, then compare M2M100 and LMT-60-1.7B under the exact same unseen/holdout, quality, naturalness, latency, and VRAM procedure. Production changes occur only after that evidence passes.
+
+## D-027 — LMT Uses One Approved Runtime Configuration
+
+**Decision**  
+If LMT-60-1.7B proceeds through evaluation and production migration, use one approved execution configuration rather than a family of quality/speed profiles:
+
+```text
+PyTorch / compatible Transformers 4.x
+CUDA on the target Windows RTX 3070
+BF16 weights/compute path
+AutoModelForCausalLM
+upstream LMT translation prompt + chat template
+num_beams=5
+do_sample=False
+use_cache=True with DynamicCache
+native PyTorch SDPA attention
+resident model after preload
+model.eval() + torch.inference_mode()
+```
+
+Do not maintain CTranslate2, external FlashAttention2, `torch.compile`, static full-context cache, FP16, INT8/INT4, beam-reduced, speculative-decoding, or other alternate translation runtime profiles as normal options. There is no user-facing Realtime/Quality selection. If the single approved configuration fails semantic quality, practical target latency, or stable 8 GB VRAM operation, stop and reassess the model/runtime decision rather than accumulating additional production profiles.
+
+**Reason**  
+The product needs one understandable, reproducible translation behavior. Dynamic KV cache removes repeated autoregressive key/value computation while keeping the selected model weights, BF16 precision, prompt, and beam policy. Native PyTorch SDPA provides optimized CUDA attention dispatch without adding an external Windows attention package. Keeping one backend and one numeric/generation policy minimizes dependency and packaging risk and makes failures attributable instead of creating a matrix of partially equivalent configurations.
+
+**Boundary**  
+D-027 does not pre-approve production migration. D-025 still controls quality/holdout evidence and target-Windows latency/VRAM proof. M2M100 remains only the sequential pre-migration benchmark reference until LMT is accepted; after accepted migration it is retired rather than retained as fallback.
