@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CANONICAL / RELEASE PACKAGING MANIFEST-OWNED / LEGACY M2M WORKER CORE REMOVED / PACKAGED WORKER MODULE CLOSURE EXPLICIT / WORKERRUNTIME 4.50 EXECUTION PROVEN 24/24 BUT 8 OUTPUTS DRIFT + LARGE LATENCY REGRESSION / TARGET-PC TESTING DEFERRED`
+`MILMMT-46-1B-v1.0 CANONICAL / LEGACY TRANSLATOR RUNTIME + RELEASE PATHS REMOVED / MANIFEST-OWNED PACKAGING / WORKERRUNTIME TRANSFORMERS 4.57.6 CANONICAL LOCK RESOLVED / TOKENIZERS 0.22.2 LICENSE MATERIAL SYNCHRONIZED / TARGET-PC TESTING DEFERRED`
 
 ## Canonical translator
 
@@ -12,7 +12,7 @@ revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
 ID ↔ EN
 one resident causal model
 CUDA BF16 primary
-PyTorch / Transformers
+PyTorch / Transformers 4.57.6
 official Xiaomi prompt
 deterministic generation
 ```
@@ -21,24 +21,20 @@ Do not reopen model search or introduce M2M100/Marian/another translator as fall
 
 ## Repo-side migration completed
 
-- canonical entrypoint is `realtime_local_worker.py`;
-- translation-neutral protocol/runtime base is `realtime_local_worker_base.py`;
-- common path/device/token helpers are in `worker_runtime_common.py`;
-- ASR and Voice Actor runtime state/commands are in `worker_io_runtime.py`;
+- `realtime_local_worker.py` is the only application-facing worker entrypoint;
+- `realtime_local_worker_base.py`, `worker_runtime_common.py`, and `worker_io_runtime.py` own translation-neutral protocol/common/ASR/Voice responsibilities;
 - `milmmt_translation_provider.py` is the only canonical translation implementation;
-- the legacy `realtime_local_worker_core.py` and `_test_worker_contract_core.py` bridge substrate are removed;
-- one resident causal model services ID → EN and EN → ID;
-- translation decodes continuation only and rejects non-EOS/incomplete output;
-- RuntimeAssets manifest pins the exact MiLMMT revision and Gemma license metadata;
-- acquisition writes `.translateit_model_revision` and readiness requires the exact marker;
-- release staging acquires required Hugging Face assets from `model_manifest.json`, not a separate translator list;
-- release package validation requires MiLMMT and the packaged base/common/io/provider closure;
-- canonical smoke uses `voice_actor_preflight` and `voice_actor_synthesize`;
-- repo/static MiLMMT validation covers runtime, packaging, manifest, tests, and dependency-lock consistency.
+- the legacy translation core and legacy test substrate are removed;
+- RuntimeAssets and release staging use the exact MiLMMT manifest revision and revision marker;
+- release resource/package contracts explicitly package and validate the canonical worker module closure;
+- `pyproject.toml` pins `transformers==4.57.6`;
+- canonical `uv.lock` resolves Transformers 4.57.6 and Tokenizers 0.22.2 while retaining the reviewed Torch 2.11.0 / CUDA 12.6 boundary;
+- Tokenizers 0.22.2 release-license staging is pinned to the exact lock-resolved sdist; its Apache-2.0 LICENSE bytes are unchanged from the previously reviewed 0.21.4 material;
+- repo/static validation owns dependency-lock, runtime, packaging, manifest, and stale active-translation gates.
 
-## Compatibility evidence already obtained
+## Historical compatibility evidence
 
-Current frozen WorkerRuntime (`transformers 4.50.0`):
+The retired WorkerRuntime 4.50.0 boundary remains evidence only:
 
 ```text
 preload                PASS
@@ -50,19 +46,19 @@ p50                     3276.30 ms
 p90                     4012.25 ms
 ```
 
-Validated MiLMMT runtime authority (`transformers 4.57.6`):
+The selected MiLMMT authority under Transformers 4.57.6 measured approximately:
 
 ```text
 p50 674.51 ms
 p90 1133.81 ms
 ```
 
-Therefore 4.50.0 is executable/reproducible evidence, not final performance/quality authority.
+No target-PC rerun is requested during the current repo-cleanup phase.
 
 ## Closed optimization boundary
 
-Keep MiLMMT-1B, CUDA BF16, PyTorch/Transformers, default SDPA/attention path, default generation cache, and a persistent loaded model. Do not add StaticCache, torch.compile, speed-only quantization, alternate inference backends, speculative decoding, a second translator, or phrase rewriting.
+Keep MiLMMT-1B, CUDA BF16, PyTorch/Transformers, default SDPA/attention path, default generation cache, and a persistent loaded model. Do not add StaticCache, `torch.compile`, speed-only quantization, alternate inference backends, speculative decoding, a second translator, or phrase rewriting.
 
 ## Next Step
 
-**Continue repo-only convergence. First complete the active stale-reference/ownership sweep so no production/runtime/release owner points at retired M2M100 or Marian behavior. Then migrate the frozen WorkerRuntime dependency boundary from Transformers 4.50.0 to the validated 4.57.6 authority only through a canonical regenerated `uv.lock`, with `pyproject.toml`, `uv.lock`, CI contracts, release Python closure, and documentation changed together. Do not request target-PC execution until explicitly requested.**
+**Run the final repo-only stale-reference and release/source-contract sweep. Retired M2M100/Marian/Transformers-4.50 references may remain only where explicitly historical evidence or migration metadata requires them; no active runtime, packaging, test, dependency, or current-authority owner may point to them. Then close repo-side MiLMMT cleanup and keep target-PC/runtime acceptance deferred until explicitly requested.**

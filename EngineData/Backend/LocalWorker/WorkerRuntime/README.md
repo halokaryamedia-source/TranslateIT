@@ -74,15 +74,16 @@ uv.lock         = canonical resolved graph
 
 Normal setup consumes the lock frozen. Do not edit `pyproject.toml` without regenerating and reviewing `uv.lock` in the same dependency change.
 
-Current migration boundary intentionally remains:
+Canonical dependency boundary:
 
 ```text
 Python       3.12.x
 PyTorch      2.11.0 / 2.11.0+cu126 on Windows/Linux CUDA path
-Transformers 4.50.0 in the frozen canonical lock
+Transformers 4.57.6 exact pin
+Tokenizers   0.22.2 resolved by uv.lock
 ```
 
-The selected MiLMMT quality/latency authority was measured on Transformers 4.57.6. Compatibility proof established that 4.50.0 executes all 24 representative cases but changes 8 deterministic outputs and is materially slower. Therefore 4.50.0 is current reproducible execution state, not final performance authority. Move to 4.57.6 only with a canonical regenerated `uv.lock`.
+Transformers 4.57.6 is the canonical MiLMMT dependency authority because it is the validated quality/latency environment. The former 4.50.0 compatibility result remains historical evidence: it executed 24/24 cases but changed 8 deterministic outputs and was materially slower. `pyproject.toml` and `uv.lock` must move together; do not widen or drift this boundary without new compatibility evidence.
 
 ## Developer proof
 

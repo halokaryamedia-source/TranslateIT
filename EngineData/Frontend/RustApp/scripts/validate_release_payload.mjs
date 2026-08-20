@@ -65,8 +65,8 @@ const exceptionalPythonLicenseMaterials = {
     source: ["package=tensorboard-data-server==0.7.2", "source_repo=tensorflow/tensorboard", "source_commit=81150b898a306b89cde90e949358c2eefe018eaa", "source_commit_message=tensorboard-data-server 0.7.2"],
     files: { "LICENSE": "d7c9068d896188264b60827b8cd1e25fdb9f5b5cad0b1589e90b96c87729c404" },
   },
-  "tokenizers-0.21.4.dist-info": {
-    source: ["package=tokenizers==0.21.4", "sdist_sha256=fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880"],
+  "tokenizers-0.22.2.dist-info": {
+    source: ["package=tokenizers==0.22.2", "sdist_sha256=473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917"],
     files: { "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4" },
   },
   "wordsegment-1.3.1.dist-info": {
@@ -138,6 +138,10 @@ const hasAnyFile = (root) => {
 
 for (const file of [
   "realtime_local_worker.py",
+  "realtime_local_worker_base.py",
+  "milmmt_translation_provider.py",
+  "worker_runtime_common.py",
+  "worker_io_runtime.py",
   "translation_envelope.py",
   "voice_lab_build.py",
   "voice_lab_gpt_sovits.py",
@@ -357,4 +361,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-payload] Required private Python runtime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");
+console.log("[release-payload] Required private Python runtime, canonical modular WorkerRuntime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");

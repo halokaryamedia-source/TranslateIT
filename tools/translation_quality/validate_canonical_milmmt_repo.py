@@ -12,8 +12,8 @@ EXPECTED_MODEL_PATH = (
     "EngineData/Backend/RuntimeAssets/Translation/ModelData/"
     "xiaomi-research--MiLMMT-46-1B-v1.0"
 )
-CURRENT_TRANSFORMERS_VERSION = "4.50.0"
-CURRENT_TRANSFORMERS_SPEC = ">=4.44.0,<=4.50.0"
+CURRENT_TRANSFORMERS_VERSION = "4.57.6"
+CURRENT_TRANSFORMERS_SPEC = "==4.57.6"
 LEGACY_MARKERS = (
     "m2m100-418m",
     "facebook/m2m100_418m",
@@ -152,7 +152,6 @@ def validate_release_boundary(root: Path) -> None:
     require("validate_release_model_revisions.mjs" in release_workflow, "release:workflow_revision_gate_missing")
     require("validate_canonical_milmmt_repo.py" in efficiency_workflow, "release:efficiency_contract_missing")
 
-    # Negative guards in package_contract intentionally name retired models; scan only execution/config authorities.
     active = "\n".join((stage, optimizer, release_config, release_workflow, efficiency_workflow))
     for marker in LEGACY_MARKERS:
         require(marker not in active, f"release:legacy_marker:{marker}")

@@ -238,18 +238,18 @@ raw_package(
 )
 
 sdist_package(
-    "tokenizers-0.21.4.dist-info",
-    "https://files.pythonhosted.org/packages/c2/2f/402986d0823f8d7ca139d969af2917fefaa9b947d1fb32f6168c509f2492/tokenizers-0.21.4.tar.gz",
-    "fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880",
+    "tokenizers-0.22.2.dist-info",
+    "https://files.pythonhosted.org/packages/73/6f/f80cfef4a312e1fb34baf7d85c72d4411afde10978d4657f8cdd811d3ccc/tokenizers-0.22.2.tar.gz",
+    "473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917",
     {
         "LICENSE": (
-            "tokenizers-0.21.4/tokenizers/LICENSE",
+            "tokenizers-0.22.2/tokenizers/LICENSE",
             "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
         )
     },
     [
-        "package=tokenizers==0.21.4",
-        "sdist_sha256=fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880",
+        "package=tokenizers==0.22.2",
+        "sdist_sha256=473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917",
     ],
 )
 

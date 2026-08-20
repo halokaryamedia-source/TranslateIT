@@ -57,7 +57,7 @@ Canonical translator:
 xiaomi-research/MiLMMT-46-1B-v1.0
 revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
 one resident model for ID → EN and EN → ID
-PyTorch / Transformers
+PyTorch / Transformers 4.57.6
 CUDA BF16 primary
 CPU fallback remains explicit degraded operation
 ```
@@ -73,7 +73,7 @@ Runtime rules:
 - require the exact RuntimeAssets revision marker before declaring the model ready;
 - do not retain M2M100, Marian, or another translator as an automatic fallback/router.
 
-The selected target-PC quality/latency authority was measured under Transformers 4.57.6. The frozen canonical WorkerRuntime remains on 4.50.0 until the dependency lock is intentionally migrated. Compatibility evidence showed 4.50.0 can execute all 24 representative cases but changes 8 deterministic outputs and is materially slower. Do not interpret the current 4.50.0 pin as the final performance authority.
+The canonical WorkerRuntime pins Transformers 4.57.6, matching the selected MiLMMT quality/latency authority. The former 4.50.0 compatibility result remains historical evidence only: it executed all 24 representative cases but changed 8 deterministic outputs and was materially slower. Keep `pyproject.toml`, `uv.lock`, release-license material, and repo validators synchronized with the 4.57.6 boundary.
 
 ## ASR and VoiceLab
 

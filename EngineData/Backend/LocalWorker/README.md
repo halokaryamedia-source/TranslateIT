@@ -106,8 +106,8 @@ tensorboard-data-server==0.7.2
   exact upstream release commit 81150b898a306b89cde90e949358c2eefe018eaa (`tensorboard-data-server 0.7.2`)
   root LICENSE sha256 d7c9068d896188264b60827b8cd1e25fdb9f5b5cad0b1589e90b96c87729c404
 
-tokenizers==0.21.4
-  PyPI sdist sha256 fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880
+tokenizers==0.22.2
+  PyPI sdist sha256 473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917
   package LICENSE sha256 c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4
 
 wordsegment==1.3.1
