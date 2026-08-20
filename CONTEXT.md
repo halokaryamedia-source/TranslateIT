@@ -1,20 +1,17 @@
 # TranslateIT — Current Context
 
-Stable orientation for TranslateIT on branch `Local`. Active continuation belongs in `docs/knowledge/next-action.md`; durable reasoning belongs in `docs/knowledge/decision-log.md`; detailed ownership belongs in `docs/knowledge/source-ownership.md`.
+Stable orientation for branch `Local`. Active continuation belongs in `docs/knowledge/next-action.md`; durable historical reasoning remains in `docs/knowledge/decision-log.md`; detailed ownership remains in `docs/knowledge/source-ownership.md`.
 
 ## Authority
 
 - Development authority: `Local`.
-- `Developing` remains the GitHub default branch and is the only retained historical/recovery branch; it is not current product authority.
-- `DevelopingData`, old reports, generated proof artifacts, and Git history are bounded recovery evidence only.
-- Product policy is owned by `docs/foundation/01-product-overview.md` and `docs/foundation/02-product-requirements.md`.
-- GitHub execution discipline is owned by root `GITHUB_RULES.md`.
+- Product policy: `docs/foundation/01-product-overview.md` and `docs/foundation/02-product-requirements.md`.
+- GitHub execution discipline: `GITHUB_RULES.md`.
+- Target Windows evidence is required only for claims that depend on actual GPU, audio devices, installed runtime, or real Meeting applications.
 
 ## Product target
 
-TranslateIT is a local-first Windows translator focused on Indonesian and English.
-
-Approved top-level product:
+TranslateIT is a local-first Windows Indonesian ↔ English translator with four approved top-level areas:
 
 ```text
 Meeting
@@ -41,210 +38,78 @@ English Meeting Sound
 → Indonesian text
 ```
 
-Text supports explicit Indonesian ↔ English translation independently from Meeting audio and VoiceLab readiness.
-
-Normal Meeting lifecycle:
-
-```text
-Ready → Starting → Live → Stopping → Ended
-```
-
-Pause/Resume, Push to Talk, general History/Saved, Documents, Audio Studio/broadcast workflows, multiple voice engines/profiles, quick-clone/import-audio VoiceLab modes, additional languages, user-facing Realtime/Quality or tone/context modes, partial translated subtitles, incoming Indonesian TTS, and automatic mid-session Meeting Sound rebind remain outside the approved initial boundary.
-
 ## Runtime architecture
 
 ```text
 Tauri 2 desktop application
 ├─ Svelte 5 frontend
 ├─ Rust desktop/runtime backend
-└─ one canonical Python local worker for normal ASR / translation / TTS inference
+└─ one canonical Python WorkerRuntime for ASR / translation / Voice Actor inference
 ```
 
-Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration.
-
-The canonical Python worker owns local ASR, direction-based Indonesian ↔ English translation, and daily trained Voice Actor inference.
-
-VoiceLab training is a bounded occasional build operation. It does not create a second daily inference worker or a second product/runtime authority.
-
-## Frontend architecture
-
-Approved frontend stack:
-
-```text
-Tauri 2
-+ Svelte 5
-+ Vite
-+ TypeScript
-+ Tailwind CSS 4
-+ semantic CSS custom-property tokens
-+ selective Bits UI
-+ @lucide/svelte
-```
-
-Current application graph is one Svelte mount through `src/main.ts` and `src/App.svelte`, with normal product pages:
-
-```text
-FirstSetup
-Meeting
-Text
-VoiceLab
-Settings
-```
-
-Svelte owns presentation/application state, not duplicate Rust/runtime truth. Normal-user UI remains product-facing; runtime, worker, model, CUDA, provider, queue, checkpoint, and pipeline detail belongs in Advanced / Diagnostics.
+Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns local ASR, Indonesian ↔ English translation, and trained Voice Actor inference. VoiceLab training is a bounded build operation, not a second daily inference runtime.
 
 ## Translation contract
 
-- Meeting required outbound is Indonesian → English.
-- Text supports Indonesian → English and English → Indonesian.
-- One pinned `facebook/m2m100_418M` model at revision `55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636` is the canonical bidirectional translation model; Marian is retired from the production path rather than retained as a fallback.
-- Standalone Text preserves blank-line paragraphs and translates conservative semantic/sentence units before ordered reassembly; one oversized semantic unit may use bounded token-safe splitting.
-- The runtime uses the pinned model generation profile and verifies generation completion with trailing padding ignored only for EOS verification.
-- Finalized stable speech remains normal Meeting translation truth and is translated as one finalized utterance at a time.
-- Source text is not silently truncated and known incomplete generation is not promoted as complete.
-- Previous turns, general History, and standalone Text are not automatic model context.
-- Optional incoming may degrade/disable without blocking safe outbound.
-
-## VoiceLab and My Voice
-
-VoiceLab is required before final target-Windows release acceptance.
-
-Canonical direction:
+Canonical translator:
 
 ```text
-guided English recording
-→ replay / accept / retry
-→ GPT-SoVITS V2ProPlus fine-tuning
-→ held-out evaluation
-→ user listening approval
-→ atomic promotion to My Voice
+xiaomi-research/MiLMMT-46-1B-v1.0
+revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
+one resident model for ID → EN and EN → ID
+PyTorch / Transformers
+CUDA BF16 primary
+CPU fallback remains explicit degraded operation
 ```
 
-Approved engine baseline remains GPT-SoVITS V2ProPlus pinned to the repository-recorded upstream revision.
+Runtime rules:
 
-Quality is prioritized over instant creation. Normal application startup, Meeting startup, and each translated utterance do not retrain the actor.
+- use the official Xiaomi translation prompt;
+- deterministic generation (`do_sample=false`);
+- decode causal continuation only, never the prompt;
+- preserve semantic-unit planning for standalone Text;
+- never silently truncate source text;
+- reject known incomplete generation instead of promoting partial output;
+- require the exact RuntimeAssets revision marker before declaring the model ready;
+- do not retain M2M100, Marian, or another translator as an automatic fallback/router.
 
-Training and an active Meeting are mutually exclusive in the initial product.
+The selected target-PC quality/latency authority was measured under Transformers 4.57.6. The frozen canonical WorkerRuntime remains on 4.50.0 until the dependency lock is intentionally migrated. Compatibility evidence showed 4.50.0 can execute all 24 representative cases but changes 8 deterministic outputs and is materially slower. Do not interpret the current 4.50.0 pin as the final performance authority.
 
-One approved persistent actor exists:
+## ASR and VoiceLab
+
+ASR primary remains `dropbox-dash/faster-whisper-large-v3-turbo`, with the existing medium fallback boundary. Voice Actor inference remains GPT-SoVITS V2ProPlus and one approved persistent actor under:
 
 ```text
 UserData/SavedProject/VoiceLab/MyVoice
 ```
 
-Temporary recordings, prepared data, checkpoints, generated evaluations, and build evidence belong under:
+A rebuild cannot replace the approved actor until evaluation and explicit user approval complete. Meeting Start binds the approved actor identity to that Meeting generation and fails closed if it changes or becomes unavailable.
 
-```text
-UserData/CacheData/VoiceLab
-```
+## Runtime assets
 
-A rebuild cannot replace the approved actor until the new candidate has completed evaluation and explicit user approval.
-
-Meeting Start performs generation-bound My Voice readiness and binds the approved actor identity to that Meeting generation. Live synthesis fails closed if the approved identity changes or becomes unavailable; alternate fallback voices are not required outbound authority.
-
-## Meeting and audio ownership
-
-`commands/meeting_session.rs` + `engine/runtime_state.rs` remain the application Meeting authority.
-
-Start is transactional: required outbound readiness must succeed before `Live`. Stop revokes output authority before cleanup and converges capture, output, helper, and transient Meeting state through the canonical Stop path.
-
-The Meeting Microphone runtime route consumes one matched Windows virtual-audio playback/recording pair. Runtime detection/delivery remains owned by Rust/CPAL.
-
-The initial release provider direction is the standard VB-Audio VB-CABLE package. Provider distribution/installation is a release boundary, not a second audio runtime owner.
-
-Actual driver installation, elevation/restart behavior, endpoint appearance, matched-pair behavior, and Zoom/Meet/Teams reception remain target-Windows evidence.
-
-## Persisted settings
-
-The current persisted settings schema is version 6 and keeps the small Meeting-oriented settings boundary:
-
-```text
-schema_version
-source_language
-target_language
-meeting_setup_state
-meeting_setup_checkpoint
-audio.input_device_id
-audio.output_device_id
-```
-
-`engine/settings.rs` is the schema/sanitization owner. VoiceLab does not introduce a multi-profile selector or second settings store.
-
-## Release architecture
-
-Installed Python execution remains one private application runtime:
+Installed private runtime remains:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
 ├─ WorkerRuntime/
 └─ PythonRuntime/
-   └─ python.exe
 ```
 
-Models remain under `EngineData/Backend/RuntimeAssets`.
-
-The controlled release source path is:
-
-```text
-controlled payload staging
-→ release-input validation / notice generation
-→ deterministic release optimization
-→ final notice regeneration
-→ Tauri release resource input
-→ Windows distribution packaging
-```
-
-Release inputs include the private Python runtime, required ASR and bidirectional translation assets, GPT-SoVITS/VoiceLab assets, required local language data, the reviewed FFmpeg payload, the standard VB-CABLE provider payload, and required third-party notice material.
-
-Repository `.venv`, system-Python discovery, unrelated GPT-SoVITS WebUI/server/UVR tooling, and first-use model download are not the approved installed-runtime path.
-
-## Packaging boundary
-
-The classic Tauri/NSIS one-self-contained-executable direction is retired for the large offline payload because hosted R3 reproduced its mmap/offset boundary.
-
-The approved distribution boundary is now:
-
-```text
-one user-facing automatic fully offline Setup
-+
-TranslateIT-Setup.exe
-+
-colocated external payload file(s)
-```
-
-R3.2 measured the then-current optimized Tauri release resources at approximately **8.036 GB**, with lossless distribution measurements of approximately **5.635 GB as ZIP/Deflate** and **4.430 GB as solid 7z/LZMA2**. Those figures are preserved as a historical pre-M2M translation baseline. The M2M100 migration changes the translation release input, so the exact eventual release size must be remeasured only after target runtime scope is stable enough to re-freeze packaging inputs.
-
-The Setup implementation must consume its colocated payload automatically. Do not add first-use/core-model downloads, manual extraction, manual Python/model setup, a second installer, or a general package-manager/artifact-registry architecture merely to solve distribution.
+Models remain under `EngineData/Backend/RuntimeAssets`. Hugging Face assets are acquired from `WorkerRuntime/model_manifest.json` at immutable revisions. Successful acquisition writes `.translateit_model_revision`; model presence without the expected marker is not readiness proof.
 
 ## Evidence boundary
 
-GitHub/static/hosted proof may establish source ownership, compile/test behavior, bounded hosted execution, deterministic staging, packaging input structure, model/runtime behavior actually exercised by the runner, and lossless distribution-size measurements.
+Repository/static proof may establish source ownership, syntax/contracts, unit behavior with mocks, deterministic staging, dependency-lock consistency, and packaging structure.
 
-It does not establish:
+It does **not** establish real target GPU latency/VRAM, trained-speaker quality, physical microphone behavior, driver behavior, virtual-audio delivery, Zoom/Meet/Teams reception, installed private-runtime execution, or clean-machine operation.
 
-```text
-real trained-speaker quality
-target CUDA/VRAM practicality
-real custom-TTS latency
-physical microphone behavior
-driver installation/restart behavior
-Meeting virtual-audio delivery
-Zoom/Meet/Teams reception
-sleep/wake behavior on target hardware
-installed private-runtime execution on the target PC
-clean-machine operation
-```
-
-Target-Windows validation is active. STEP 1 application/worker startup has passed on the current target PC; translation STEP 2 is the active acceptance boundary after the M2M100 migration. Later audio, VoiceLab, Meeting, power-lifecycle, meeting-app, installed-runtime, and clean-machine claims remain unproven until their matching tests run.
+Target-PC validation is intentionally deferred while repo-side MiLMMT integration and hardening are completed.
 
 ## Repository operating direction
 
-- `Local` is pinned explicitly for current work.
-- Read only the minimum context that can change the decision.
+- Keep `Local` explicit for current work.
+- Prefer one canonical owner and one runtime path.
 - Diagnose the first wrong owner before editing.
-- Use `development-brief` for non-trivial Developing.
-- Use at most one TranslateIT project specialist per bounded Developing slice.
-- Prefer one canonical owner and the minimum complete solution.
-- Match proof to the exact claim.
-- Keep active continuation compact.
-- Stop when the requested acceptance boundary is satisfied.
+- Keep source, manifest, tests, smoke tooling, and continuity authority synchronized.
+- Match proof to the exact claim; never upgrade static evidence into a target-PC claim.
+- Avoid duplicate runtime environments, duplicate translator providers, and compatibility aliases that silently preserve retired production behavior.

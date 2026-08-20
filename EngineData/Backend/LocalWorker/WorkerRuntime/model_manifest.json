@@ -19,9 +19,7 @@
       "source_type": "huggingface",
       "repo_id": "dropbox-dash/faster-whisper-large-v3-turbo",
       "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
-      "legacy_paths": [
-        "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo"
-      ],
+      "legacy_paths": ["EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo"],
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": "https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo",
@@ -40,9 +38,7 @@
       "source_type": "huggingface",
       "repo_id": "Systran/faster-whisper-medium",
       "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium",
-      "legacy_paths": [
-        "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium"
-      ],
+      "legacy_paths": ["EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium"],
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": "https://huggingface.co/Systran/faster-whisper-medium",
@@ -52,31 +48,33 @@
       "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f"
     },
     {
-      "model_id": "m2m100-418m",
+      "model_id": "milmmt-46-1b-v1.0",
       "required": true,
       "stage": "translation_bidirectional_id_en",
-      "backend": "m2m100",
+      "backend": "milmmt",
       "source_type": "huggingface",
-      "repo_id": "facebook/m2m100_418M",
-      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/m2m100-418m",
-      "legacy_paths": [],
+      "repo_id": "xiaomi-research/MiLMMT-46-1B-v1.0",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/xiaomi-research--MiLMMT-46-1B-v1.0",
+      "legacy_paths": ["EngineData/Backend/RuntimeAssets/Translation/ModelData/m2m100-418m"],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": "https://huggingface.co/facebook/m2m100_418M",
+      "download_url": "https://huggingface.co/xiaomi-research/MiLMMT-46-1B-v1.0",
       "install_method": "huggingface_snapshot_download",
       "download_allow_patterns": [
         "README.md",
+        "added_tokens.json",
+        "chat_template.jinja",
         "config.json",
         "generation_config.json",
-        "pytorch_model.bin",
-        "sentencepiece.bpe.model",
+        "model.safetensors",
         "special_tokens_map.json",
-        "tokenizer_config.json",
-        "vocab.json"
+        "tokenizer.json",
+        "tokenizer.model",
+        "tokenizer_config.json"
       ],
-      "license": "mit",
-      "notes": "Single canonical bidirectional Indonesian-English translation model selected from target-Windows quality evidence. The acquisition allowlist intentionally excludes the duplicate Rust framework weight because the canonical WorkerRuntime uses PyTorch Transformers. Presence is installation evidence only; model quality, CUDA/CPU behavior, and combined Meeting practicality remain target-runtime claims.",
-      "revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636"
+      "license": "gemma",
+      "notes": "Canonical resident Indonesian-English translation model. The exact Hugging Face revision is required and acquisition writes .translateit_model_revision after snapshot staging. Runtime acceptance remains separate from installation evidence.",
+      "revision": "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"
     },
     {
       "model_id": "gpt-sovits-v2proplus-voicelab",
@@ -92,7 +90,7 @@
       "download_url": null,
       "install_method": "approved_release_asset",
       "license": "mit (RVC-Boss/GPT-SoVITS source); bundled pretrained and third-party runtime assets retain their own license/attribution requirements",
-      "notes": "Required full-product-release VoiceLab creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. The reviewed pretrained snapshot and key hashes above are release provenance, not model-quality proof. Preserve upstream and third-party notices; FFmpeg and the frozen Python dependency graph have separate release-license gates documented by the controlled payload owners.",
+      "notes": "Required full-product-release VoiceLab creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. Preserve upstream and third-party notices; FFmpeg and the frozen Python dependency graph have separate release-license gates documented by controlled payload owners.",
       "revision": "d523079fc05d9a8028d6085bffe4a2757c32abb6",
       "asset_repo_id": "lj1995/GPT-SoVITS",
       "asset_revision": "336b2ec4e8d4ac74740798dd40af44e74659ecaf",

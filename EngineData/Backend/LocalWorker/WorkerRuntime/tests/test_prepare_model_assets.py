@@ -15,37 +15,25 @@ def load_module():
 
 def test_required_huggingface_plan_is_revision_pinned_and_runtime_asset_scoped() -> None:
     module = load_module()
-    manifest = module.load_manifest()
-    selected, manual = module.build_plan(manifest)
-
+    selected, manual = module.build_plan(module.load_manifest())
     assert {item["model_id"] for item in selected} == {
         "faster-whisper-large-v3-turbo",
-        "m2m100-418m",
+        "milmmt-46-1b-v1.0",
     }
     assert all(module.FULL_REVISION.fullmatch(item["revision"]) for item in selected)
     assert all(item["target"].is_relative_to(module.RUNTIME_ASSETS_ROOT) for item in selected)
-    assert {item["model_id"] for item in manual} == {
-        "gpt-sovits-v2proplus-voicelab",
-    }
+    assert {item["model_id"] for item in manual} == {"gpt-sovits-v2proplus-voicelab"}
 
 
-def test_m2m100_plan_excludes_duplicate_unused_framework_weight() -> None:
+def test_milmmt_plan_pins_exact_revision_and_required_snapshot_files() -> None:
     module = load_module()
     selected, _manual = module.build_plan(module.load_manifest())
-    candidate = next(item for item in selected if item["model_id"] == "m2m100-418m")
-
-    assert candidate["revision"] == "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636"
-    assert candidate["download_allow_patterns"] == [
-        "README.md",
-        "config.json",
-        "generation_config.json",
-        "pytorch_model.bin",
-        "sentencepiece.bpe.model",
-        "special_tokens_map.json",
-        "tokenizer_config.json",
-        "vocab.json",
-    ]
-    assert "rust_model.ot" not in candidate["download_allow_patterns"]
+    candidate = next(item for item in selected if item["model_id"] == "milmmt-46-1b-v1.0")
+    assert candidate["revision"] == "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"
+    assert "model.safetensors" in candidate["download_allow_patterns"]
+    assert "tokenizer.json" in candidate["download_allow_patterns"]
+    assert "tokenizer.model" in candidate["download_allow_patterns"]
+    assert "pytorch_model.bin" not in candidate["download_allow_patterns"]
 
 
 def test_download_allow_pattern_cannot_escape_snapshot() -> None:
@@ -64,7 +52,7 @@ def test_optional_plan_adds_only_manifest_optional_huggingface_assets() -> None:
     assert {item["model_id"] for item in selected} == {
         "faster-whisper-large-v3-turbo",
         "faster-whisper-medium",
-        "m2m100-418m",
+        "milmmt-46-1b-v1.0",
     }
 
 
