@@ -76,27 +76,36 @@ This file answers **who owns what**. It does not own current milestone/status, p
 
 | Responsibility | Canonical owner |
 |---|---|
-| Canonical helper bridge | `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs` + `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs` |
-| Normal ASR / translation / trained-voice worker | `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py` |
-| Voice Actor preflight/synthesis worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` |
-| Loaded trained-actor cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` |
+| Canonical Rust helper bridge | `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs` + `helper_bridge_runtime.rs` |
+| Application-facing Python worker process / newline-JSON dispatch | `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py` + `realtime_local_worker_base.py` |
+| Worker paths, limits, language normalization, GPU/device probes, generic token/completion helpers | `EngineData/Backend/LocalWorker/WorkerRuntime/worker_runtime_common.py` |
+| ASR runtime state / preload / transcription | `EngineData/Backend/LocalWorker/WorkerRuntime/worker_io_runtime.py` |
+| Voice Actor runtime cache / preflight / synthesis command implementation | `EngineData/Backend/LocalWorker/WorkerRuntime/worker_io_runtime.py` + `voice_lab_gpt_sovits.py` |
+| Canonical ID ↔ EN translation model/runtime/prompt/generation/status overlay | `EngineData/Backend/LocalWorker/WorkerRuntime/milmmt_translation_provider.py` |
+| Standalone Text semantic-unit/chunk orchestration | `realtime_local_worker_base.py` + `translation_envelope.py`; per-chunk inference belongs to `milmmt_translation_provider.py` |
 | Worker Python dependency graph | `EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml` + `uv.lock` |
-| Release model inventory | `EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json` |
+| Release model inventory / immutable model identity | `EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json` |
+| Hugging Face model acquisition / atomic replacement / revision marker | `EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py` + `prepare_model_assets_core.py` |
 | ASR / translation / Voice runtime assets | `EngineData/Backend/RuntimeAssets/` according to model manifest / release contract |
+| MiLMMT repo/static contract | `tools/translation_quality/validate_canonical_milmmt_repo.py` + `.github/workflows/milmmt-repo-contract.yml` |
 
 ## Release and packaging owners
 
 | Responsibility | Canonical owner |
 |---|---|
-| Tauri release resource map | `EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json` |
+| Tauri release resource map / packaged Python module closure | `EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json` |
+| Controlled release input staging | `EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1`; Hugging Face model identity remains owned by `model_manifest.json`/`prepare_model_assets.py` |
+| Exact staged model-revision verification | `EngineData/Frontend/RustApp/scripts/validate_release_model_revisions.mjs` |
 | Release payload validation | `EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs` |
 | Release package/source contract | `EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs` |
+| Release payload optimizer | `EngineData/Frontend/RustApp/scripts/optimize_release_payload.py` |
 | Controlled Windows release entry | `EngineData/Frontend/RustApp/scripts/build_release.ps1` |
+| Release payload CI | `.github/workflows/release-payload-verify.yml` |
+| Release efficiency/static profile | `.github/workflows/release-efficiency-profile.yml`, `.github/workflows/release-python-profile.yml` |
 | Meeting audio provider release payload | `EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/` + release resource/validator owners |
 | Third-party notice generation | `EngineData/Frontend/RustApp/scripts/generate_third_party_notices.mjs` |
 | Installed private Python runtime | `EngineData/Backend/LocalWorker/PythonRuntime/python.exe` as controlled release input |
-| Installed WorkerRuntime | `EngineData/Backend/LocalWorker/WorkerRuntime/` filtered by release contract |
-| Current packaging-format decision | product/release policy + `docs/knowledge/next-action.md`; implementation only after explicit decision |
+| Installed WorkerRuntime | only the explicit module/resource closure in `tauri.release.conf.json` |
 
 ## Dependency owners
 
@@ -105,6 +114,7 @@ This file answers **who owns what**. It does not own current milestone/status, p
 | Frontend dependencies | `EngineData/Frontend/RustApp/package.json` + `package-lock.json` |
 | Rust dependencies | `EngineData/Frontend/RustApp/src-tauri/Cargo.toml` + `Cargo.lock` |
 | Worker Python dependencies | `EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml` + `uv.lock` |
+| Worker lock-consistency CI | `.github/workflows/workerruntime-lock.yml` |
 
 ## Specialist ownership
 
@@ -137,6 +147,4 @@ What actually works?
 → current source + matching proof
 ```
 
-Do not put milestone labels such as `A6 CLOSED`, `P4`, `R3`, run IDs, or other active-status fields into this map. Ownership should remain stable when milestones move.
-
-Create a new owner only when an existing owner cannot represent the responsibility without mixing unrelated jobs. Do not create a new service, state store, config authority, registry, compatibility layer, or workflow solely because the current filename is inconvenient.
+Do not put milestone labels, run IDs, or temporary status fields into this map. Create a new owner only when an existing owner cannot represent the responsibility without mixing unrelated jobs. Do not create a new service, state store, config authority, registry, compatibility layer, or workflow solely because the current filename is inconvenient.

@@ -6,9 +6,20 @@ This folder owns TranslateIT's one canonical Python inference worker used by the
 
 ```text
 realtime_local_worker.py
+├─ realtime_local_worker_base.py
+│  ├─ worker_runtime_common.py
+│  └─ worker_io_runtime.py
+└─ milmmt_translation_provider.py
 ```
 
-The worker uses newline-delimited JSON over stdin/stdout and owns these application-facing capabilities:
+`realtime_local_worker.py` is the only application-facing worker entrypoint. The supporting modules split responsibilities without creating another process or runtime:
+
+- `realtime_local_worker_base.py`: newline-JSON protocol, status composition, command dispatch, standalone Text orchestration;
+- `worker_runtime_common.py`: paths, limits, language normalization, GPU/device probes, generic token/completion helpers;
+- `worker_io_runtime.py`: Faster Whisper ASR and GPT-SoVITS Voice Actor runtime state/commands;
+- `milmmt_translation_provider.py`: all canonical Indonesian ↔ English translation behavior.
+
+The worker exposes:
 
 ```text
 status
@@ -43,9 +54,8 @@ Production rules:
 - source is never silently truncated;
 - known incomplete/non-EOS generation fails closed;
 - RuntimeAssets readiness requires `.translateit_model_revision` to match the exact pinned revision;
-- no M2M100/Marian/second-translator fallback or router.
-
-The canonical entrypoint currently installs `milmmt_translation_provider.py` over the preserved worker core so ASR/VoiceLab behavior remains unchanged during the migration. The preserved core is implementation substrate, not a second runtime or translation fallback.
+- no M2M100/Marian/second-translator fallback or router;
+- no dormant legacy translation implementation in the canonical worker base.
 
 ## ASR and Voice Actor
 
@@ -108,7 +118,11 @@ uv run --frozen python prepare_model_assets.py --plan
 uv run --frozen python prepare_model_assets.py
 ```
 
-Manual release assets such as GPT-SoVITS remain separate controlled payloads and are not fabricated by the Hugging Face downloader.
+Release staging consumes the same manifest-owned acquisition path for required Hugging Face assets; it must not maintain a second translator list. Manual release assets such as GPT-SoVITS remain separate controlled payloads.
+
+## Packaging
+
+`tauri.release.conf.json` packages the canonical entrypoint plus its base/common/io/provider modules explicitly. Release preflight validates model revisions and the exact packaged runtime closure before building.
 
 ## Truth rules
 
