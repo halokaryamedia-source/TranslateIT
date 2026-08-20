@@ -320,3 +320,35 @@ The representative 24-case Meeting/Text evaluation completed all cases for MiLMM
 
 **Boundary**  
 Do not introduce another translator automatically, reopen MiLMMT-4B as the active candidate, quantize the selected 1B model merely for speed, add phrase-specific repair, or create multiple permanent translation runtime profiles. If the bounded optimization pass yields no worthwhile safe gain, keep the clean MiLMMT-1B BF16 baseline and proceed to canonical integration and end-to-end ASR → translation → GPT-SoVITS proof.
+
+## D-029 — MiLMMT-1B Uses Default SDPA + Default Cache; Latency Tuning Is Closed
+
+**Decision**  
+Use the selected MiLMMT-46-1B-v1.0 revision in BF16 with the normal PyTorch/Transformers execution path, native SDPA attention, the default/dynamic generation cache, a persistent resident model, and no benchmark-only `nvidia-smi` or explicit synchronization instrumentation in the normal per-request production hot path.
+
+The bounded same-model latency experiment is closed. Do not adopt StaticCache, `torch.compile`, quantization, alternate inference backends, speculative decoding, or another model merely to chase additional latency reduction without a new explicit decision and new evidence.
+
+The reviewed optimization report is:
+
+```text
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json
+```
+
+Observed production-like result:
+
+```text
+p50  674.51 ms
+p90  1133.81 ms
+24/24 authoritative outputs exact-match
+attention backend = SDPA
+```
+
+This was only approximately 2.1% faster at p50 and 0.5% faster at p90 than the prior clean authority (`689.11 / 1139.34 ms`), so the gain is useful confirmation but not a reason to add runtime complexity.
+
+StaticCache without compile measured approximately `723.97 ms p50 / 1169.84 ms p90`, was slower, and changed the deterministic output for `meeting.en_id.12.scope`. The dependent compile variant was therefore not pursued.
+
+**Reason**  
+The selected 1B model already uses SDPA under the tested PyTorch/Transformers runtime. The only simple safe gain was removing benchmark-only hot-path instrumentation. StaticCache failed both the speed and preferred exact-output-equivalence goals, so continuing cache/compile tuning would add complexity without product value.
+
+**Boundary**  
+The next translation task is not another optimization experiment. Before production migration, prove the selected MiLMMT-1B checkpoint inside the current frozen canonical WorkerRuntime because the validated evaluation environment used Transformers 4.57.6 while the canonical WorkerRuntime currently constrains Transformers to `>=4.44.0, <=4.50.0`. Do not modify the dependency lock speculatively. First run the repository-owned WorkerRuntime compatibility proof; if compatible, preserve the lock and proceed to canonical worker/model-manifest migration. If incompatible, diagnose the exact dependency gap and change only that boundary.
