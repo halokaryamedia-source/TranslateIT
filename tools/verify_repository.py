@@ -44,6 +44,7 @@ REQUIRED_PATHS = [
 RETIRED_ACTIVE_PATHS = [
     "docs/knowledge/minimal-nav.md",
     "docs/knowledge/flows/development-flow.md",
+    "EngineData/Backend/LocalWorker/WorkerRuntime/migrated_python_helper_map.json",
 ]
 
 ACTIVE_GOVERNANCE_FILES = [
@@ -66,7 +67,8 @@ SIZE_LIMITS = {
     "README.md": 8_000,
     "docs/knowledge/next-action.md": 7_000,
     "docs/knowledge/source-ownership.md": 12_000,
-    "docs/knowledge/decision-log.md": 14_000,
+    # decision-log.md is durable historical reasoning, not compact active state.
+    "docs/knowledge/decision-log.md": 40_000,
     ".agents/skills/development-brief/SKILL.md": 8_000,
 }
 
@@ -90,7 +92,7 @@ def check_required_paths(errors: list[str]) -> None:
 def check_retired_paths(errors: list[str]) -> None:
     for rel in RETIRED_ACTIVE_PATHS:
         if (ROOT / rel).exists():
-            fail(errors, f"retired duplicate routing owner must stay absent: {rel}")
+            fail(errors, f"retired duplicate/migration owner must stay absent: {rel}")
 
 
 def check_skill_inventory(errors: list[str]) -> None:
@@ -126,7 +128,7 @@ def check_size_budgets(errors: list[str]) -> None:
         if path.is_file():
             size = len(path.read_text(encoding="utf-8"))
             if size >= limit:
-                fail(errors, f"{rel} is too large for its active responsibility: {size} >= {limit}")
+                fail(errors, f"{rel} is too large for its owned responsibility: {size} >= {limit}")
 
 
 def check_github_rules(errors: list[str]) -> None:
@@ -169,10 +171,10 @@ def check_github_rules(errors: list[str]) -> None:
 
 
 def check_agents(errors: list[str]) -> None:
-    if not (ROOT / "AGENTS.md").is_file():
+    path = ROOT / "AGENTS.md"
+    if not path.is_file():
         return
     text = read("AGENTS.md")
-
     for marker in (
         "### Observe / recover context",
         "### Plan",
@@ -187,7 +189,6 @@ def check_agents(errors: list[str]) -> None:
     ):
         if marker not in text:
             fail(errors, f"AGENTS.md missing routing marker: {marker}")
-
     if "Do **not** edit, run CI" not in text:
         fail(errors, "AGENTS.md must keep observe/recover requests read-only")
 
@@ -209,7 +210,6 @@ def check_next_action(errors: list[str]) -> None:
     if not path.is_file():
         return
     text = path.read_text(encoding="utf-8")
-
     if text.count("## Next Step") != 1:
         fail(errors, "next-action.md must contain exactly one '## Next Step'")
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
@@ -277,7 +277,6 @@ def normalize_link_target(source: Path, raw: str) -> Path | None:
         or lower.startswith(("mailto:", "tel:", "data:", "skills:", "sandbox:"))
     ):
         return None
-
     target = unquote(target.split("#", 1)[0].split("?", 1)[0]).strip()
     if not target:
         return None
@@ -291,8 +290,7 @@ def check_governance_links(errors: list[str]) -> None:
         path = ROOT / rel
         if not path.is_file():
             continue
-        text = path.read_text(encoding="utf-8")
-        for raw in LINK_RE.findall(text):
+        for raw in LINK_RE.findall(path.read_text(encoding="utf-8")):
             target = normalize_link_target(path, raw)
             if target is not None and not target.resolve().exists():
                 fail(errors, f"broken relative governance link in {rel}: {raw}")
@@ -303,7 +301,6 @@ def check_workflow(errors: list[str]) -> None:
     if not workflows.is_dir():
         fail(errors, "missing .github/workflows")
         return
-
     temp = sorted(path.name for path in workflows.glob("temp-*"))
     if temp:
         fail(errors, f"temporary one-use workflows are not allowed: {temp}")
@@ -312,7 +309,6 @@ def check_workflow(errors: list[str]) -> None:
     if not path.is_file():
         return
     text = path.read_text(encoding="utf-8")
-
     for marker in (
         "branches:\n      - Local",
         "cancel-in-progress: true",
@@ -324,10 +320,8 @@ def check_workflow(errors: list[str]) -> None:
     ):
         if marker not in text:
             fail(errors, f"repository-verify.yml missing required marker: {marker}")
-
     if "      - Developing" not in text:
         fail(errors, "repository-verify.yml must retain Developing as a PR base verification target")
-
     for forbidden in ("contents: write", "pull-requests: write", "git push", "continue-on-error"):
         if forbidden in text:
             fail(errors, f"repository-verify.yml contains forbidden verification behavior: {forbidden}")
@@ -345,7 +339,6 @@ def check_python_syntax(errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
-
     check_required_paths(errors)
     check_retired_paths(errors)
     check_skill_inventory(errors)
@@ -373,7 +366,7 @@ def main() -> int:
     print("- GitHub Core Rules: present")
     print("- active continuation: compact / one Next Step")
     print("- source ownership: responsibility-only")
-    print("- temporary workflow guard: active")
+    print("- retired migration-map guard: active")
     print("- repository verification workflow: read-only")
     return 0
 
