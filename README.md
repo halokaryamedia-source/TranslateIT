@@ -173,19 +173,26 @@ Its Python environment is owned by `pyproject.toml` + `uv.lock`, with focused te
 
 ## Release boundary
 
-Installed builds use one private application-local Python runtime and controlled local model/runtime assets. Normal users are not expected to install Python, pip, repositories, or core models manually.
+The approved R3 **packaging-boundary decision** is one automatic offline Setup plus one colocated large payload:
 
-Current controlled offline payload is approximately 9.4 GB. R3 established that staging/preflight and the application executable build can succeed, while the standard classic-NSIS all-in-one executable path hits a large-installer size boundary.
+```text
+TranslateIT-Setup.exe
+TranslateIT-Payload.7z
+```
 
-The next release task is therefore a **packaging-boundary decision**, not a model/runtime rewrite.
+Normal users launch only `TranslateIT-Setup.exe`. Setup validates the exact payload SHA-256 and app/schema identity, installs the small Tauri control/runtime closure, transactionally installs the external Python/model/Voice runtime, invokes the reviewed VB-CABLE vendor installer when the driver is absent, and signals Windows restart when a new driver installation requires it.
+
+The large R3 payload contains the private Python runtime, Faster-Whisper model, MiLMMT model, GPT-SoVITS runtime/assets, and reviewed VB-CABLE package. Those bytes are intentionally **not** embedded in the Tauri/NSIS resource map. The payload remains fully offline; Setup does not download models, run pip on the target machine, ask users to extract archives, or require a second user-facing installer.
+
+Re-running Setup is the repair/reinstall path. External application runtime is replaced through a staging/rollback boundary. Uninstall removes TranslateIT's external application runtime but preserves app-local user data and does not silently uninstall the system VB-CABLE driver.
+
+Repo/source proof establishes this structure only. Actual Setup execution, Windows driver consent/restart behavior, installed runtime, and clean-machine operation remain separate acceptance evidence.
 
 See `docs/knowledge/next-action.md` for the active continuation.
 
 ## Evidence rule
 
 Use the cheapest proof that can genuinely falsify the claim.
-
-Examples:
 
 ```text
 routing/docs
@@ -199,6 +206,9 @@ Rust behavior
 
 Python worker behavior
 → focused worker tests/runtime proof
+
+release source/R3 structure
+→ release source contract + hosted controlled-payload proof
 
 Windows audio/device
 → target Windows evidence

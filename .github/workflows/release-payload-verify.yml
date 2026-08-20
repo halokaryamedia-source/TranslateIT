@@ -1,4 +1,4 @@
-name: Release Payload Verify
+name: R3 Release Contract
 
 on:
   workflow_dispatch:
@@ -6,21 +6,23 @@ on:
     branches:
       - Local
     paths:
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets_core.py"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py"
-      - "EngineData/Frontend/RustApp/package.json"
-      - "EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1"
-      - "EngineData/Frontend/RustApp/scripts/stage_release_license_material.py"
-      - "EngineData/Frontend/RustApp/scripts/optimize_release_payload.py"
-      - "EngineData/Frontend/RustApp/scripts/generate_third_party_notices.mjs"
-      - "EngineData/Frontend/RustApp/scripts/validate_release_model_revisions.mjs"
-      - "EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs"
+      - "EngineData/Frontend/RustApp/scripts/**"
       - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
+      - "EngineData/Frontend/RustApp/src-tauri/windows/**"
+      - "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/**"
+      - "EngineData/Backend/RuntimeAssets/README.md"
+      - "EngineData/Backend/LocalWorker/README.md"
+      - ".github/workflows/release-payload-verify.yml"
+  pull_request:
+    branches:
+      - Local
+    paths:
+      - "EngineData/Frontend/RustApp/scripts/**"
+      - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
+      - "EngineData/Frontend/RustApp/src-tauri/windows/**"
+      - "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/**"
+      - "EngineData/Backend/RuntimeAssets/README.md"
+      - "EngineData/Backend/LocalWorker/README.md"
       - ".github/workflows/release-payload-verify.yml"
 
 concurrency:
@@ -31,217 +33,86 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    name: Windows complete optimized payload
-    runs-on: windows-latest
-    timeout-minutes: 60
-
+  source-contract:
+    name: R3 source contract
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12.10"
-
-      - name: Set up Node
-        uses: actions/setup-node@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Compile payload builder
+        run: python -m py_compile EngineData/Frontend/RustApp/scripts/build_r3_external_payload.py
+      - name: Check release validators
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          node --check scripts/validate_tauri_package_preflight.mjs
+          node --check scripts/validate_release_package_contract.mjs
+          node scripts/validate_tauri_package_preflight.mjs
+          node scripts/validate_release_package_contract.mjs
+      - name: Validate canonical MiLMMT boundary
+        run: python tools/translation_quality/validate_canonical_milmmt_repo.py
 
-      - name: Stage exact controlled release inputs
+  controlled-payload:
+    name: Controlled Windows payload proof
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Stage controlled release inputs
         shell: pwsh
         run: |
           & 'EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1'
           if ($LASTEXITCODE -ne 0) { throw 'Controlled release input staging failed.' }
-
-      - name: Add reviewed exceptional Python license material
-        shell: pwsh
-        run: |
           python 'EngineData/Frontend/RustApp/scripts/stage_release_license_material.py'
           if ($LASTEXITCODE -ne 0) { throw 'Reviewed Python license staging failed.' }
-
-      - name: Install frozen frontend release tooling
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
-
-      - name: Validate complete controlled input
+      - name: Validate and optimize controlled payload
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
           node scripts/generate_third_party_notices.mjs --write
-          if ($LASTEXITCODE -ne 0) { throw 'Baseline third-party notice generation failed.' }
           npm run preflight:release-payload
-          if ($LASTEXITCODE -ne 0) { throw 'Complete controlled release payload preflight failed.' }
-
-      - name: Measure pre-optimization controlled components
-        shell: pwsh
-        run: |
-          $env:PAYLOAD_OUT = Join-Path $env:RUNNER_TEMP 'payload-before.json'
-          @'
-          import json
-          import os
-          from pathlib import Path
-
-          repo = Path.cwd()
-          backend = repo / "EngineData" / "Backend"
-          roots = {
-              "PythonRuntime": backend / "LocalWorker" / "PythonRuntime",
-              "ASR": backend / "RuntimeAssets" / "ASR" / "ModelData",
-              "Translation": backend / "RuntimeAssets" / "Translation" / "ModelData",
-              "Voice": backend / "RuntimeAssets" / "Voice" / "GPTSoVITS" / "Source",
-              "VB-CABLE": backend / "RuntimeAssets" / "AudioProvider" / "VBCABLE" / "Package",
-          }
-          components = {
-              name: sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
-              for name, root in roots.items()
-          }
-          result = {
-              "phase": "before",
-              "controlled_component_bytes": sum(components.values()),
-              "components": components,
-          }
-          Path(os.environ["PAYLOAD_OUT"]).write_text(
-              json.dumps(result, indent=2) + "\n", encoding="utf-8"
-          )
-          print(json.dumps(result, indent=2))
-          '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'Pre-optimization payload measurement failed.' }
-
-      - name: Apply production release optimizer
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $backend = (Resolve-Path 'EngineData/Backend').Path
+          $backend = (Resolve-Path '../../Backend').Path
           $privatePython = Join-Path $backend 'LocalWorker/PythonRuntime/python.exe'
-          & $privatePython 'EngineData/Frontend/RustApp/scripts/optimize_release_payload.py' --backend-root $backend
-          if ($LASTEXITCODE -ne 0) { throw 'Production release optimizer failed.' }
-
-      - name: Regenerate final optimized notices
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
+          & $privatePython scripts/optimize_release_payload.py --backend-root $backend
+          if ($LASTEXITCODE -ne 0) { throw 'Release payload optimizer failed.' }
           node scripts/generate_third_party_notices.mjs --write
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized third-party notice generation failed.' }
-
-      - name: Verify optimized capability-preserving closure
+          npm run preflight:release-payload
+          npm run preflight:tauri-package
+      - name: Build bounded R3 payload evidence
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $backend = (Resolve-Path 'EngineData/Backend').Path
-          $pythonRoot = Join-Path $backend 'LocalWorker/PythonRuntime'
-          $privatePython = Join-Path $pythonRoot 'python.exe'
-
-          python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $pythonRoot --label optimized-complete --json-out (Join-Path $env:RUNNER_TEMP 'optimized-python.json')
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized complete Python audit failed.' }
-
-          $env:AUDIT = Join-Path $env:RUNNER_TEMP 'optimized-python.json'
-          $env:BACKEND = $backend
-          @'
-          import json
-          import os
-          from pathlib import Path
-
-          report = json.loads(Path(os.environ["AUDIT"]).read_text(encoding="utf-8"))
-          if report["distribution_count"] != 97:
-              raise SystemExit(f"expected 97 optimized distributions, got {report['distribution_count']}")
-          present = {item["normalized_name"] for item in report["distributions"]}
-          forbidden = {
-              "accelerate", "annotated-types", "budoux", "cn2an", "colorlog",
-              "fast-langdetect", "fasttext-predict", "jieba", "jieba-fast", "pandas",
-              "peft", "proces", "pydantic", "pydantic-core", "pypinyin",
-              "robust-downloader", "split-lang", "typing-inspection", "tzdata",
-          }
-          leaked = sorted(forbidden & present)
-          if leaked:
-              raise SystemExit(f"excluded optimized distributions remain: {leaked}")
-          required = {
-              "torch", "torchaudio", "transformers", "ctranslate2", "faster-whisper",
-              "onnxruntime", "pytorch-lightning", "sentencepiece", "soundfile",
-          }
-          missing = sorted(required - present)
-          if missing:
-              raise SystemExit(f"optimized closure lost required distributions: {missing}")
-
-          backend = Path(os.environ["BACKEND"])
-          python_root = backend / "LocalWorker" / "PythonRuntime"
-          torch_root = python_root / "torch"
-          for path in (torch_root / "include", torch_root / "share"):
-              if path.exists():
-                  raise SystemExit(f"Torch build-only directory remains: {path}")
-          build_libs = []
-          for pattern in ("*.lib", "*.exp", "*.pdb"):
-              build_libs.extend((torch_root / "lib").glob(pattern))
-          if build_libs:
-              raise SystemExit(f"Torch build-only library files remain: {build_libs[:5]}")
-          dlls = sorted((torch_root / "lib").glob("*.dll"))
-          if len(dlls) != 37:
-              raise SystemExit(f"expected 37 Torch runtime DLLs, got {len(dlls)}")
-
-          legacy_root = backend / "RuntimeAssets" / "Translation" / "ModelData"
-          for name in ("m2m100-418m", "facebook--m2m100_418M", "marianmt-id-en", "marianmt-en-id"):
-              if (legacy_root / name).exists():
-                  raise SystemExit(f"legacy translation payload remains: {name}")
-
-          print("optimized structural capability closure: PASS")
-          '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized structural contract failed.' }
-
-          Push-Location 'EngineData/Frontend/RustApp'
-          try {
-            node scripts/validate_release_model_revisions.mjs
-            if ($LASTEXITCODE -ne 0) { throw 'Optimized model revision validation failed.' }
-          } finally { Pop-Location }
-
-          & $privatePython -s -c "import torch,torchaudio,transformers,ctranslate2,faster_whisper,onnxruntime,pytorch_lightning; x=torch.tensor([1.0,2.0]); assert (x*x).sum().item()==5.0; print('optimized private runtime imports: PASS')"
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized private Python runtime smoke failed.' }
-
-      - name: Measure optimized controlled components
-        shell: pwsh
-        run: |
-          $env:PAYLOAD_OUT = Join-Path $env:RUNNER_TEMP 'payload-optimized.json'
-          @'
-          import json
-          import os
-          from pathlib import Path
-
-          repo = Path.cwd()
-          backend = repo / "EngineData" / "Backend"
-          roots = {
-              "PythonRuntime": backend / "LocalWorker" / "PythonRuntime",
-              "ASR": backend / "RuntimeAssets" / "ASR" / "ModelData",
-              "Translation": backend / "RuntimeAssets" / "Translation" / "ModelData",
-              "Voice": backend / "RuntimeAssets" / "Voice" / "GPTSoVITS" / "Source",
-              "VB-CABLE": backend / "RuntimeAssets" / "AudioProvider" / "VBCABLE" / "Package",
-          }
-          components = {
-              name: sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
-              for name, root in roots.items()
-          }
-          result = {
-              "phase": "optimized",
-              "controlled_component_bytes": sum(components.values()),
-              "components": components,
-          }
-          Path(os.environ["PAYLOAD_OUT"]).write_text(
-              json.dumps(result, indent=2) + "\n", encoding="utf-8"
-          )
-          print(json.dumps(result, indent=2))
-          '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized payload measurement failed.' }
-
-      - name: Upload bounded release payload evidence
+          $app = (Resolve-Path 'EngineData/Frontend/RustApp').Path
+          $repo = (Resolve-Path '.').Path
+          $python = Join-Path $repo 'EngineData/Backend/LocalWorker/PythonRuntime/python.exe'
+          $payload = Join-Path $env:RUNNER_TEMP 'TranslateIT-Payload.7z'
+          $hook = Join-Path $env:RUNNER_TEMP 'translateit-r3-payload-hooks.generated.nsh'
+          $evidence = Join-Path $env:RUNNER_TEMP 'translateit-r3-payload-build.json'
+          & $python -s (Join-Path $app 'scripts/build_r3_external_payload.py') `
+            --repo-root $repo `
+            --output $payload `
+            --hook-template (Join-Path $app 'src-tauri/windows/r3_payload_hooks.template.nsh') `
+            --installer-helper (Join-Path $app 'src-tauri/windows/r3_payload_installer.ps1') `
+            --generated-hook $hook `
+            --evidence $evidence
+          if ($LASTEXITCODE -ne 0) { throw 'R3 external payload build failed.' }
+          if (-not (Test-Path -LiteralPath $evidence -PathType Leaf)) { throw 'R3 payload evidence missing.' }
+          Remove-Item -LiteralPath $payload,$hook -Force -ErrorAction SilentlyContinue
+      - name: Upload bounded release evidence
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
-          name: release-payload-verification
+          name: r3-controlled-payload-proof
           if-no-files-found: warn
           retention-days: 7
-          path: |
-            ${{ runner.temp }}/payload-before.json
-            ${{ runner.temp }}/optimized-python.json
-            ${{ runner.temp }}/payload-optimized.json
+          path: ${{ runner.temp }}/translateit-r3-payload-build.json

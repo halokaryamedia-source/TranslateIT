@@ -1,12 +1,11 @@
 name: MiLMMT Repository Contract
 
 on:
+  workflow_dispatch:
   push:
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
-      - "EngineData/Frontend/RustApp/scripts/**"
-      - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - "CONTEXT.md"
       - "docs/knowledge/next-action.md"
@@ -15,13 +14,10 @@ on:
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
-      - "EngineData/Frontend/RustApp/scripts/**"
-      - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - "CONTEXT.md"
       - "docs/knowledge/next-action.md"
       - ".github/workflows/milmmt-repo-contract.yml"
-  workflow_dispatch:
 
 permissions:
   contents: read

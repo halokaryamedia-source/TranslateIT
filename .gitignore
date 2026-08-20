@@ -1,84 +1,92 @@
-# Generic editor and cache outputs.
-/.DS_Store
+# OS / editor / local environment
+.DS_Store
 Thumbs.db
 desktop.ini
-/*.log
-/*.tmp
-/*.bak
-/*.old
-/*.cache
-/*.crash
-/*.dump
-/*.sqlite
-/*.sqlite3
-/*.db
-/*.env
-/.env
-/.env.*
-/.vscode/
-/.idea/
-/.codex/
-/.pytest_cache/
-/.mypy_cache/
-/.ruff_cache/
+.vscode/
+.idea/
+.codex/
+.env
+.env.*
+!.env.example
+
+# Generic caches, logs, temp, reports
+*.log
+*.tmp
+*.bak
+*.old
+*.cache
+*.crash
+*.dump
+*.sqlite
+*.sqlite3
+*.db
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .eslintcache
 .turbo/
 .vite/
 .cache/
 .temp/
 .tmp/
+coverage/
+reports/
+temp/
+tmp/
 **/__pycache__/
-**/*.log
-**/*.tmp
-**/*.bak
-**/*.old
-**/*.cache
-**/*.crash
-**/*.dump
+**/.pytest_cache/
+**/cache/
+**/Cache/
+**/logs/
+**/Logs/
+**/tmp/
+**/Temp/
+**/temp/
+**/crash/
+**/Crash/
+
+# JavaScript / Rust / generated application builds
 node_modules/
+vendor/
 dist/
 build/
+out/
 target/
-/coverage/
-/reports/
-/temp/
-/tmp/
+.next/
+.nuxt/
 /EngineData/Frontend/RustApp/src-tauri/gen/
 /EngineData/Frontend/RustApp/src-tauri/target/
 /EngineData/Frontend/RustApp/dist/
 /EngineData/Frontend/RustApp/node_modules/
+
+# Python environments / bytecode
+.venv/
+venv/
+env/
+*.pyc
+*.pyo
 /EngineData/Backend/LocalWorker/WorkerRuntime/.venv/
 
-# TranslateIT local runtime outputs.
+# TranslateIT user-owned runtime outputs. Keep only structural README placeholders.
 /UserData/CacheData/**
 /UserData/LogData/**
 /UserData/SavedProject/**
 !/UserData/CacheData/README.md
 !/UserData/LogData/README.md
 !/UserData/SavedProject/README.md
-/UserData/**/.DS_Store
-/UserData/**/cache/
-/UserData/**/Cache/
-/UserData/**/logs/
-/UserData/**/Logs/
-/UserData/**/tmp/
-/UserData/**/Temp/
-/UserData/**/temp/
-/UserData/**/crash/
-/UserData/**/Crash/
 /UserData/**/private/
 /UserData/**/Private/
 /UserData/**/personal/
 /UserData/**/Personal/
 
-# TranslateIT local validation outputs.
+# Local validation outputs
 /EngineData/Frontend/RustApp/LOCAL_HARDENING_VALIDATION_RESULT.md
 /EngineData/Frontend/RustApp/MODEL_PREPARATION_REPORT.json
 /EngineData/Frontend/RustApp/MODEL_VALIDATION_REPORT.json
 
-# TranslateIT controlled R3 release inputs. These bytes are staged locally/release-side,
-# validated as canonical inputs, then packaged into the colocated external offline
-# TranslateIT-Payload.7z rather than committed as Git application source.
+# R3 controlled release inputs/outputs. These bytes are staged locally or in
+# authorized hosted release proof, then packaged into TranslateIT-Payload.7z.
+# They are not Git application source and are not embedded as Tauri resources.
 /EngineData/Backend/LocalWorker/PythonRuntime/**
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
@@ -87,14 +95,52 @@ target/
 /EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/**
 /EngineData/RuntimeAssets/**
 
-# DesignIT local generated launcher/runtime outputs.
+# Large model/data/build artifacts
+models/
+model/
+checkpoints/
+checkpoint/
+weights/
+datasets/
+dataset/
+raw_data/
+outputs/
+runs/
+wandb/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+*.bin
+*.gguf
+*.pkl
+*.joblib
+*.h5
+*.pb
+*.tflite
+*.har
+*.trace
+*.npz
+*.npy
+*.csv
+*.parquet
+
+# Archives / generated media
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.webm
+*.mp4
+
+# DesignIT local generated launcher/runtime outputs
 /DesignIT.exe
 /DevelopingData/FigmaDesignExport/TranslateIT/scripts/DesignIT.exe
 /DevelopingData/FigmaDesignExport/_runtime/**
 /DevelopingData/FigmaDesignExport/_external/**
 /DevelopingData/FigmaDesignExport/_reports/**
-
-# ==================== DesignIT generated/local artifacts ====================
 DevelopingData/DesignIT/Tooling/*
 !DevelopingData/DesignIT/Tooling/.gitkeep
 !DevelopingData/DesignIT/Tooling/scripts/
@@ -108,88 +154,4 @@ DevelopingData/DesignIT/**/tmp/
 DevelopingData/DesignIT/**/temp/
 DevelopingData/DesignIT/**/__pycache__/
 DevelopingData/DesignIT/**/.pytest_cache/
-node_modules/
 DevelopingData/DesignIT/**/node_modules/
-*.pt
-*.pth
-*.onnx
-*.ckpt
-*.safetensors
-*.bin
-*.gguf
-*.pkl
-*.joblib
-*.h5
-*.pb
-*.tflite
-*.har
-*.trace
-*.webm
-*.mp4
-*.zip
-*.7z
-*.rar
-# ==================== End DesignIT generated/local artifacts ====================
-
-# Ignore large/non-development files
-node_modules/
-vendor/
-.venv/
-venv/
-env/
-.env
-.env.*
-!.env.example
-
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-dist/
-build/
-out/
-.next/
-.nuxt/
-coverage/
-
-logs/
-*.log
-
-models/
-model/
-checkpoints/
-checkpoint/
-weights/
-datasets/
-dataset/
-raw_data/
-outputs/
-runs/
-wandb/
-
-*.pt
-*.pth
-*.ckpt
-*.onnx
-*.safetensors
-*.bin
-*.h5
-*.pkl
-*.joblib
-*.npz
-*.npy
-*.csv
-*.parquet
-*.zip
-*.rar
-*.7z
-*.tar
-*.gz
-
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/

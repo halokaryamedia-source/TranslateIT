@@ -24,21 +24,10 @@ jobs:
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12.10"
       - uses: astral-sh/setup-uv@v6
         with:
           version: "0.12.1"
-      - name: Resolve canonical lock
-        run: uv lock --upgrade-package transformers
-      - name: Upload resolved lock
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: workerruntime-uv-lock
-          path: EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock
-          if-no-files-found: error
-          retention-days: 7
-      - name: Require committed lock to be current
+      - name: Check canonical lock without modifying it
+        run: uv lock --check
+      - name: Require verification to remain read-only
         run: git diff --exit-code -- pyproject.toml uv.lock

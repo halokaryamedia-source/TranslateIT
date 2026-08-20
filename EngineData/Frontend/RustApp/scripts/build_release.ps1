@@ -14,19 +14,20 @@ $ReleaseDir = Join-Path $AppRoot 'src-tauri\target\translateit-release'
 $PayloadPath = Join-Path $ReleaseDir 'TranslateIT-Payload.7z'
 $SetupPath = Join-Path $ReleaseDir 'TranslateIT-Setup.exe'
 $PayloadEvidence = Join-Path $AppRoot 'src-tauri\target\translateit-r3-payload-build.json'
+$ReleaseEvidence = Join-Path $AppRoot 'src-tauri\target\translateit-r3-release-build.json'
 $NsisBundleDir = Join-Path $AppRoot 'src-tauri\target\release\bundle\nsis'
 
 function Require-File([string]$Path, [string]$Label) {
-    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
-        throw "$Label is missing: $Path"
-    }
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Label is missing: $Path" }
+}
+function Get-Sha256([string]$Path) {
+    return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
 }
 
 Push-Location $AppRoot
 try {
     node scripts/generate_third_party_notices.mjs --write
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT third-party notice generation failed.' }
-
     npm run preflight:release-payload
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT release payload preflight failed.' }
 
@@ -34,16 +35,13 @@ try {
     Require-File $Optimizer 'Release payload optimizer'
     Require-File $PayloadBuilder 'R3 external payload builder'
     Require-File $HookTemplate 'R3 NSIS hook template'
-    Require-File $InstallerHelper 'R3 installer payload helper'
+    Require-File $InstallerHelper 'R3 installer helper'
 
     & $ReleasePython -s $Optimizer --backend-root $BackendRoot
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT release payload optimization failed.' }
 
-    # Regenerate notices from the final optimized Python closure. The preflight above
-    # remains the fail-closed validation of the complete controlled release inputs.
     node scripts/generate_third_party_notices.mjs --write
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT optimized third-party notice generation failed.' }
-
     npm run preflight:release-payload
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT optimized release payload validation failed.' }
     npm run preflight:tauri-package
@@ -51,7 +49,7 @@ try {
 
     Remove-Item -LiteralPath $ReleaseDir -Recurse -Force -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Force -Path $ReleaseDir | Out-Null
-    Remove-Item -LiteralPath $GeneratedHook -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $GeneratedHook,$PayloadEvidence,$ReleaseEvidence -Force -ErrorAction SilentlyContinue
 
     & $ReleasePython -s $PayloadBuilder `
         --repo-root $RepoRoot `
@@ -63,10 +61,10 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT R3 external payload build failed.' }
     Require-File $PayloadPath 'TranslateIT external payload'
     Require-File $GeneratedHook 'Generated R3 NSIS hook'
+    Require-File $PayloadEvidence 'R3 payload build evidence'
 
     $TauriCli = Join-Path $AppRoot 'node_modules\.bin\tauri.cmd'
     Require-File $TauriCli 'Local @tauri-apps/cli from package-lock.json'
-
     $BuildStartUtc = [DateTime]::UtcNow
     & $TauriCli build --config src-tauri/tauri.release.conf.json
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT Tauri/NSIS release build failed.' }
@@ -83,23 +81,43 @@ try {
         $names = ($Candidates | ForEach-Object Name) -join ', '
         throw "Expected exactly one new Tauri NSIS installer, found $($Candidates.Count): $names"
     }
-
     Copy-Item -LiteralPath $Candidates[0].FullName -Destination $SetupPath -Force
     Require-File $SetupPath 'TranslateIT-Setup.exe'
 
-    $Deliverables = @(Get-ChildItem -LiteralPath $ReleaseDir -File | Sort-Object Name)
-    $ExpectedNames = @('TranslateIT-Payload.7z', 'TranslateIT-Setup.exe')
-    $ActualNames = @($Deliverables | ForEach-Object Name)
+    $ExpectedNames = @('TranslateIT-Payload.7z','TranslateIT-Setup.exe')
+    $ActualNames = @((Get-ChildItem -LiteralPath $ReleaseDir -File | Sort-Object Name | ForEach-Object Name))
     if (($ActualNames -join '|') -ne ($ExpectedNames -join '|')) {
         throw "R3 release directory must contain exactly Setup + Payload. Found: $($ActualNames -join ', ')"
     }
 
+    $payloadBuild = Get-Content -LiteralPath $PayloadEvidence -Raw | ConvertFrom-Json
+    $payloadHash = Get-Sha256 $PayloadPath
+    if ($payloadHash -ne [string]$payloadBuild.payload_sha256) {
+        throw 'Release payload SHA-256 changed after trusted hook generation.'
+    }
+    $releaseBuild = [ordered]@{
+        schema = 'translateit.r3.release_pair.v1'
+        app_version = [string]$payloadBuild.app_version
+        payload_schema = [string]$payloadBuild.schema
+        setup_file = 'TranslateIT-Setup.exe'
+        setup_sha256 = Get-Sha256 $SetupPath
+        payload_file = 'TranslateIT-Payload.7z'
+        payload_sha256 = $payloadHash
+        payload_expanded_bytes = [Int64]$payloadBuild.expanded_bytes
+        user_facing_file_count = 2
+        installer_mode = 'perMachine'
+        offline = $true
+        target_pc_acceptance = 'deferred'
+    }
+    $releaseBuild | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $ReleaseEvidence -Encoding utf8
+
     Write-Host '[release] R3 offline release pair ready:'
     Write-Host "[release]   $SetupPath"
     Write-Host "[release]   $PayloadPath"
-    Write-Host "[release] Build evidence: $PayloadEvidence"
+    Write-Host "[release] Build evidence: $ReleaseEvidence"
 }
 finally {
+    # Generated hook embeds the exact payload hash and a build-machine source path.
     Remove-Item -LiteralPath $GeneratedHook -Force -ErrorAction SilentlyContinue
     Pop-Location
 }
