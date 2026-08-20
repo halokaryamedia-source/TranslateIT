@@ -1,0 +1,44 @@
+name: WorkerRuntime Lock Consistency
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
+      - ".github/workflows/workerruntime-lock.yml"
+  pull_request:
+    paths:
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
+      - ".github/workflows/workerruntime-lock.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lock:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.10"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.12.1"
+      - name: Resolve canonical lock
+        run: uv lock --upgrade-package transformers
+      - name: Upload resolved lock
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workerruntime-uv-lock
+          path: EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock
+          if-no-files-found: error
+          retention-days: 7
+      - name: Require committed lock to be current
+        run: git diff --exit-code -- pyproject.toml uv.lock
