@@ -360,3 +360,154 @@ current blocker       WorkerRuntime Transformers-version compatibility unknown
 next objective        one frozen-WorkerRuntime 24/24 compatibility proof
 operator method       one repository-owned PowerShell block on target Windows PC
 ```
+
+## 8. Chat-Limit Handoff Checkpoint
+
+This section exists specifically so a new chat can resume without reconstructing the recent model-selection/testing session from conversation history.
+
+### 8.1 Local workspace and cached selected model
+
+```text
+Repository root
+D:\Work\AI Stuff\TranslateIT
+
+Selected cached model
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\models\milmmt_1b_model
+
+Selected revision pin
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\models\milmmt_1b_revision.txt
+```
+
+The model is already downloaded. The current compatibility proof and the next migration work must reuse the existing exact-revision cache; do not redownload it merely to continue the session.
+
+### 8.2 Important completed reports
+
+```text
+24-case 1B vs 4B quality/performance run
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\milmmt_realtime_ab_report.json
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\milmmt_realtime_ab_review.md
+
+clean-GPU performance authority
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\milmmt_clean_perf_rerun_report.json
+
+closed same-model latency optimization
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\milmmt_1b_latency_optimization_report.json
+```
+
+These reports are evidence, not runtime owners. Do not rerun them unless a later runtime/configuration change invalidates the claim they support.
+
+### 8.3 Why 1B was selected despite 4B quality advantage
+
+Observed evidence showed 4B has stronger aggregate translation metrics and often more natural/contextually precise wording. The user nevertheless explicitly selected 1B for the realtime product boundary because the clean RTX 3070 result showed a large practical latency and VRAM gap:
+
+```text
+MiLMMT-1B BF16
+p50 ~689 ms
+p90 ~1139 ms
+framework model allocation ~1907 MiB
+
+MiLMMT-4B INT8
+p50 ~4516 ms
+p90 ~7036 ms
+framework model allocation ~4826 MiB
+```
+
+Do not reinterpret the selection as "1B has better translation quality." The actual decision is that 1B is the approved realtime tradeoff.
+
+### 8.4 Known selected-model quality caveat
+
+The 24-case review showed MiLMMT-1B is not perfect. One representative EN -> ID recommendation translated `should` too strongly as `harus` instead of recommendation-like `sebaiknya`. This is a known semantic-quality finding, not permission to add a phrase rule/postprocessor.
+
+The current process explicitly rejects:
+
+```text
+one isolated error = reject whole model
+one known fixture = patch output
+should -> sebaiknya hard-coded rule
+must/must-not phrase repair
+fixture-targeted dictionary/postprocessor
+```
+
+The model decision was made from aggregate realistic-use evidence. Preserve that standard.
+
+### 8.5 Things already decided — do not repeat automatically
+
+```text
+do not search/download another translator
+do not reopen TranslateGemma, LMT, Marian, M2M100-1.2B or MiLMMT-4B as active challengers
+do not rerun the 24-case model-selection suite for reassurance
+do not rerun the clean 1B-vs-4B benchmark for reassurance
+do not continue StaticCache / torch.compile tuning
+do not quantize MiLMMT-1B merely to chase speed
+do not create Realtime/Quality model profiles
+do not create a production fallback/router with M2M100
+do not change WorkerRuntime dependency versions before the compatibility proof says they are required
+```
+
+### 8.6 Exact active task when resuming
+
+The only active translation task is:
+
+```text
+prove MiLMMT-46-1B-v1.0 BF16 under the CURRENT FROZEN canonical WorkerRuntime
+```
+
+Reason:
+
+```text
+validated evaluation runtime used transformers 4.57.6
+canonical WorkerRuntime constrains transformers >=4.44.0, <=4.50.0
+```
+
+The test already exists. Do not redesign it before running it unless current source shows a concrete defect.
+
+Exact PowerShell to give/run on the target PC:
+
+```powershell
+Set-Location "D:\Work\AI Stuff\TranslateIT"
+
+git fetch origin Local
+git merge --ff-only origin/Local
+
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_milmmt_1b_workerruntime_compatibility.ps1
+```
+
+Before running, close avoidable GPU-heavy applications. The wrapper owns the clean-GPU gate and should refuse contaminated evidence.
+
+Expected returned file:
+
+```text
+UserData\CacheData\TranslationQuality\MiLMMTRealtimeAB\milmmt_1b_workerruntime_compatibility_report.json
+```
+
+### 8.7 What happens immediately after that report
+
+```text
+WORKERRUNTIME_COMPATIBLE + 24/24 exact equality
+→ do not change dependency lock
+→ migrate canonical realtime_local_worker.py to MiLMMT-1B
+→ update model_manifest.json
+→ stage cached exact-revision model into RuntimeAssets
+→ canonical translation proof
+→ retire M2M100 production path
+→ ASR -> MiLMMT-1B -> GPT-SoVITS MyVoice target-PC end-to-end proof
+
+incompatible preload/model support
+→ inspect exact frozen WorkerRuntime dependency gap
+→ change only the minimum dependency boundary actually required
+→ rerun compatibility proof
+
+24-case output drift
+→ inspect changed outputs and version/runtime cause
+→ do not claim quality equivalence and do not patch phrases
+```
+
+### 8.8 Minimal new-session instruction
+
+If a new chat has no usable conversation context, the user can simply say:
+
+```text
+Amati repo TranslateIT branch Local, ikuti AGENTS/GITHUB_RULES, baca next-action dan MiLMMT runtime validation, lalu lanjutkan exact Next Step. Jangan mengulang model search atau benchmark yang sudah closed.
+```
+
+The repository must provide enough information to continue from that instruction without asking the user to reconstruct this session manually.
