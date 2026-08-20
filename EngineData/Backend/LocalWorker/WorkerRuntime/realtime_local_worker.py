@@ -3,10 +3,10 @@ from __future__ import annotations
 from pathlib import Path
 
 _entry_name = __name__
-_core_path = Path(__file__).with_name("realtime_local_worker_core.py")
-globals()["__name__"] = "_translateit_realtime_local_worker_core"
+_base_path = Path(__file__).with_name("realtime_local_worker_base.py")
+globals()["__name__"] = "_translateit_realtime_local_worker_base"
 exec(
-    compile(_core_path.read_text(encoding="utf-8"), str(_core_path), "exec"),
+    compile(_base_path.read_text(encoding="utf-8"), str(_base_path), "exec"),
     globals(),
     globals(),
 )

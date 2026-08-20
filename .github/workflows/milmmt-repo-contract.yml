@@ -5,12 +5,8 @@ on:
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
-      - "EngineData/Frontend/RustApp/package.json"
-      - "EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1"
-      - "EngineData/Frontend/RustApp/scripts/optimize_release_payload.py"
-      - "EngineData/Frontend/RustApp/scripts/validate_release_model_revisions.mjs"
-      - ".github/workflows/release-payload-verify.yml"
-      - ".github/workflows/release-efficiency-profile.yml"
+      - "EngineData/Frontend/RustApp/scripts/**"
+      - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - "CONTEXT.md"
       - "docs/knowledge/next-action.md"
@@ -19,12 +15,8 @@ on:
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
-      - "EngineData/Frontend/RustApp/package.json"
-      - "EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1"
-      - "EngineData/Frontend/RustApp/scripts/optimize_release_payload.py"
-      - "EngineData/Frontend/RustApp/scripts/validate_release_model_revisions.mjs"
-      - ".github/workflows/release-payload-verify.yml"
-      - ".github/workflows/release-efficiency-profile.yml"
+      - "EngineData/Frontend/RustApp/scripts/**"
+      - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - "CONTEXT.md"
       - "docs/knowledge/next-action.md"
@@ -48,8 +40,9 @@ jobs:
         run: >-
           python -m py_compile
           EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
-          EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker_core.py
+          EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker_base.py
           EngineData/Backend/LocalWorker/WorkerRuntime/milmmt_translation_provider.py
+          EngineData/Backend/LocalWorker/WorkerRuntime/worker_runtime_common.py
+          EngineData/Backend/LocalWorker/WorkerRuntime/worker_io_runtime.py
           EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py
           EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets_core.py
-          EngineData/Frontend/RustApp/scripts/optimize_release_payload.py

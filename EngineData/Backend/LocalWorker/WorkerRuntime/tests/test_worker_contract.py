@@ -1,26 +1,22 @@
 from __future__ import annotations
 
+import importlib.util
+import json
+import subprocess
+import sys
 from pathlib import Path
 
-_entry_name = __name__
-_core_path = Path(__file__).with_name("_test_worker_contract_core.py")
-globals()["__name__"] = "_translateit_worker_contract_core"
-exec(
-    compile(_core_path.read_text(encoding="utf-8"), str(_core_path), "exec"),
-    globals(),
-    globals(),
-)
-globals()["__name__"] = _entry_name
+import pytest
 
-for _name in (
-    "test_translate_routes_by_language_pair_without_mode_compatibility_output",
-    "test_reverse_direction_uses_same_canonical_bidirectional_model",
-    "test_worker_status_uses_one_bidirectional_translation_readiness",
-    "test_translation_input_limit_uses_smallest_known_limit",
-    "test_translation_generation_options_use_target_language_without_overriding_beams",
-    "test_translation_cuda_move_failure_is_not_retried_on_cpu",
-):
-    globals().pop(_name, None)
+WORKER_PATH = Path(__file__).resolve().parents[1] / "realtime_local_worker.py"
+
+
+def load_worker_module():
+    spec = importlib.util.spec_from_file_location("translateit_realtime_local_worker", WORKER_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_translate_routes_to_milmmt_without_legacy_mode_output(monkeypatch) -> None:
@@ -95,11 +91,6 @@ def test_worker_status_reports_milmmt_revision_for_both_directions(monkeypatch) 
         assert status["models"][key]["path"] == str(worker.TRANSLATION_MODEL)
 
 
-def test_milmmt_standalone_source_limit_reserves_prompt_headroom() -> None:
-    worker = load_worker_module()
-    assert worker.translation_input_token_limit(object(), object()) == 1792
-
-
 def test_milmmt_generation_options_are_deterministic_and_have_no_forced_bos() -> None:
     worker = load_worker_module()
     options = worker.translation_generation_options(object(), "id", 64)
@@ -109,3 +100,105 @@ def test_milmmt_generation_options_are_deterministic_and_have_no_forced_bos() ->
         "return_dict_in_generate": True,
     }
     assert "forced_bos_token_id" not in options
+
+
+def test_milmmt_standalone_source_limit_reserves_prompt_headroom() -> None:
+    worker = load_worker_module()
+    assert worker.translation_input_token_limit(object(), object()) == 1792
+
+
+def test_translation_completion_rejects_token_ceiling_without_eos() -> None:
+    worker = load_worker_module()
+
+    class Tokenizer:
+        eos_token_id = 2
+        pad_token_id = 1
+
+    class Config:
+        is_encoder_decoder = True
+        eos_token_id = 2
+        pad_token_id = 1
+
+    class GenerationConfig:
+        eos_token_id = 2
+        pad_token_id = 1
+
+    class Model:
+        config = Config()
+        generation_config = GenerationConfig()
+
+    result = worker.translation_generation_completion(
+        [[0, 11, 12, 13]], Tokenizer(), Model(), max_new_tokens=3
+    )
+    assert result["complete"] is False
+    assert result["blocker"] == "translation:output_hit_token_ceiling_without_eos"
+
+
+def test_legacy_userdata_label_cannot_escape_allowed_root(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    user_root = tmp_path / "app-local-data"
+    cache_root = user_root / "CacheData"
+    monkeypatch.setattr(worker, "USER_DATA_ROOT", user_root)
+    with pytest.raises(ValueError, match="worker:path_outside_allowed_roots"):
+        worker.resolve_worker_path(
+            "UserData/CacheData/../LogData/not-allowed.wav",
+            cache_root / "default.wav",
+            [cache_root],
+        )
+
+
+def test_configured_runtime_root_must_be_absolute(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setenv("TRANSLATEIT_TEST_ROOT", "relative/path")
+    with pytest.raises(RuntimeError, match="translateit_test_root_must_be_absolute"):
+        worker.configured_absolute_root("TRANSLATEIT_TEST_ROOT", tmp_path)
+
+
+def test_newline_json_protocol_rejects_unknown_command() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(WORKER_PATH)],
+        input='{"command":"not_a_real_command"}\n',
+        text=True,
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout.strip())
+    assert payload["ok"] is False
+    assert payload["blocker"] == "worker:unknown_command"
+
+
+def test_newline_protocol_rejects_already_expired_request() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(WORKER_PATH)],
+        input='{"command":"ping","deadline_unix_ms":1,"deadline_ms":5000}\n',
+        text=True,
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout.strip())
+    assert payload["ok"] is False
+    assert payload["blocker"] == "worker:request_deadline_expired"
+
+
+def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(
+        worker,
+        "torch_status",
+        lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
+    )
+    monkeypatch.setattr(
+        worker,
+        "ctranslate2_status",
+        lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
+    )
+    gpu = worker.probe_gpu_runtime({})
+    assert gpu["cuda_capability_known"] is True
+    assert gpu["cpu_fallback_active"] is True
+    assert gpu["selected_device"] == "cpu"
+    assert gpu["selected_translation_device"] == "cpu"
+    assert gpu["fallback_reason"] == "cuda_unavailable"

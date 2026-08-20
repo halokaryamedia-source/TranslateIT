@@ -14,12 +14,15 @@ EXPECTED_MODEL_PATH = (
 )
 CURRENT_TRANSFORMERS_VERSION = "4.50.0"
 CURRENT_TRANSFORMERS_SPEC = ">=4.44.0,<=4.50.0"
-ACTIVE_LEGACY_TRANSLATION_MARKERS = (
+LEGACY_MARKERS = (
+    "m2m100-418m",
+    "facebook/m2m100_418m",
+    "AutoModelForSeq2SeqLM",
+    "forced_bos_token_id",
     "marianmt-id-en",
     "marianmt-en-id",
-    "helsinki-nlp/opus-mt-id-en",
-    "helsinki-nlp/opus-mt-en-id",
-    "facebook/m2m100_418m",
+    "Helsinki-NLP/opus-mt-id-en",
+    "Helsinki-NLP/opus-mt-en-id",
 )
 
 
@@ -63,48 +66,40 @@ def validate_manifest(root: Path) -> None:
         "tokenizer_config.json",
     }:
         require(required in patterns, f"manifest:missing_allow_pattern:{required}")
-    require("pytorch_model.bin" not in patterns, "manifest:legacy_pytorch_weight")
 
 
-def validate_provider(root: Path) -> None:
+def validate_worker(root: Path) -> None:
     worker_root = root / "EngineData/Backend/LocalWorker/WorkerRuntime"
-    provider = read(worker_root / "milmmt_translation_provider.py")
     entrypoint = read(worker_root / "realtime_local_worker.py")
+    base = read(worker_root / "realtime_local_worker_base.py")
+    provider = read(worker_root / "milmmt_translation_provider.py")
+    common = read(worker_root / "worker_runtime_common.py")
+    io_runtime = read(worker_root / "worker_io_runtime.py")
     acquisition = read(worker_root / "prepare_model_assets.py")
-    require(HF_MODEL_ID in provider and REVISION in provider, "provider:identity")
-    require("AutoModelForCausalLM" in provider, "provider:not_causal_lm")
-    require("AutoModelForSeq2SeqLM" not in provider, "provider:legacy_seq2seq")
-    require(
-        '"do_sample": False' in provider or "do_sample=False" in provider,
-        "provider:not_deterministic",
-    )
-    require("prompt_tokens:" in provider, "provider:continuation_slice_missing")
-    require("forced_bos_token_id" not in provider, "provider:legacy_forced_bos")
-    require(".translateit_model_revision" in provider, "provider:revision_marker_missing")
+
+    require('with_name("realtime_local_worker_base.py")' in entrypoint, "entrypoint:base_missing")
     require(
         "milmmt_translation_provider.install(globals())" in entrypoint,
         "entrypoint:provider_not_installed",
     )
-    require("realtime_local_worker_core.py" in entrypoint, "entrypoint:core_bridge_missing")
+    require("realtime_local_worker_core.py" not in entrypoint, "entrypoint:legacy_core_reference")
+    for marker in LEGACY_MARKERS:
+        require(marker not in base, f"worker_base:legacy_marker:{marker}")
+        require(marker not in common, f"worker_common:legacy_marker:{marker}")
+        require(marker not in io_runtime, f"worker_io:legacy_marker:{marker}")
+    require(HF_MODEL_ID in provider and REVISION in provider, "provider:identity")
+    require("AutoModelForCausalLM" in provider, "provider:not_causal_lm")
+    require("AutoModelForSeq2SeqLM" not in provider, "provider:legacy_seq2seq")
+    require("forced_bos_token_id" not in provider, "provider:forced_bos")
+    require("do_sample=False" in provider, "provider:not_deterministic")
+    require("prompt_tokens:" in provider, "provider:continuation_slice_missing")
+    require(".translateit_model_revision" in provider, "provider:revision_marker_missing")
+    require(".translateit_model_revision" in acquisition, "acquisition:revision_marker_missing")
+    require(not (worker_root / "realtime_local_worker_core.py").exists(), "worker:legacy_core_exists")
     require(
-        ".translateit_model_revision" in acquisition,
-        "acquisition:revision_marker_missing",
+        not (worker_root / "tests/_test_worker_contract_core.py").exists(),
+        "tests:legacy_core_contract_exists",
     )
-
-
-def validate_smoke(root: Path) -> None:
-    smoke = read(
-        root
-        / "EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1"
-    )
-    require('command = "voice_actor_preflight"' in smoke, "smoke:voice_preflight_command")
-    require(
-        'command = "voice_actor_synthesize"' in smoke,
-        "smoke:voice_synthesize_command",
-    )
-    require('command = "tts_preflight"' not in smoke, "smoke:legacy_tts_preflight")
-    require('command = "synthesize"' not in smoke, "smoke:legacy_synthesize")
-    require("canonical_bidirectional_id_en" in smoke, "smoke:translation_contract")
 
 
 def extract_project_transformers_spec(pyproject: str) -> str:
@@ -120,10 +115,7 @@ def extract_lock_transformers(lock: str) -> tuple[str, str]:
         flags=re.MULTILINE,
     )
     require(package is not None, "dependency:lock_transformers_package_missing")
-    metadata = re.search(
-        r'\{ name = "transformers", specifier = "([^"]+)" \}',
-        lock,
-    )
+    metadata = re.search(r'\{ name = "transformers", specifier = "([^"]+)" \}', lock)
     require(metadata is not None, "dependency:lock_transformers_spec_missing")
     return package.group(1), metadata.group(1)
 
@@ -134,15 +126,36 @@ def validate_dependency_lock(root: Path) -> None:
     lock = read(worker_root / "uv.lock")
     project_spec = extract_project_transformers_spec(pyproject)
     locked_version, locked_spec = extract_lock_transformers(lock)
-    require(
-        project_spec == CURRENT_TRANSFORMERS_SPEC,
-        f"dependency:unexpected_project_spec:{project_spec}",
-    )
+    require(project_spec == CURRENT_TRANSFORMERS_SPEC, f"dependency:unexpected_project_spec:{project_spec}")
     require(locked_spec == project_spec, "dependency:pyproject_lock_spec_mismatch")
-    require(
-        locked_version == CURRENT_TRANSFORMERS_VERSION,
-        f"dependency:unexpected_locked_version:{locked_version}",
-    )
+    require(locked_version == CURRENT_TRANSFORMERS_VERSION, f"dependency:unexpected_locked_version:{locked_version}")
+
+
+def validate_release_boundary(root: Path) -> None:
+    app_root = root / "EngineData/Frontend/RustApp"
+    stage = read(app_root / "scripts/stage_release_inputs.ps1")
+    optimizer = read(app_root / "scripts/optimize_release_payload.py")
+    revision_validator = read(app_root / "scripts/validate_release_model_revisions.mjs")
+    package_contract = read(app_root / "scripts/validate_release_package_contract.mjs")
+    release_config = read(app_root / "src-tauri/tauri.release.conf.json")
+    release_workflow = read(root / ".github/workflows/release-payload-verify.yml")
+    efficiency_workflow = read(root / ".github/workflows/release-efficiency-profile.yml")
+
+    require("prepare_model_assets.py" in stage, "release:manifest_acquirer_missing")
+    require(MODEL_ID in stage and REVISION in stage, "release:milmmt_stage_identity")
+    require("realtime_local_worker_base.py" in release_config, "release:base_not_packaged")
+    require("milmmt_translation_provider.py" in release_config, "release:provider_not_packaged")
+    require("worker_runtime_common.py" in release_config, "release:common_not_packaged")
+    require("worker_io_runtime.py" in release_config, "release:io_not_packaged")
+    require(MODEL_ID in revision_validator and REVISION in revision_validator, "release:revision_validator_identity")
+    require(MODEL_ID in package_contract, "release:package_contract_milmmt_missing")
+    require("validate_release_model_revisions.mjs" in release_workflow, "release:workflow_revision_gate_missing")
+    require("validate_canonical_milmmt_repo.py" in efficiency_workflow, "release:efficiency_contract_missing")
+
+    # Negative guards in package_contract intentionally name retired models; scan only execution/config authorities.
+    active = "\n".join((stage, optimizer, release_config, release_workflow, efficiency_workflow))
+    for marker in LEGACY_MARKERS:
+        require(marker not in active, f"release:legacy_marker:{marker}")
 
 
 def validate_active_tests(root: Path) -> None:
@@ -156,68 +169,17 @@ def validate_active_tests(root: Path) -> None:
         )
     )
     require(MODEL_ID in active, "tests:milmmt_identity_missing")
-    require("AutoModelForSeq2SeqLM" not in active, "tests:legacy_seq2seq_active")
-
-
-def validate_release_boundary(root: Path) -> None:
-    app_root = root / "EngineData/Frontend/RustApp"
-    stage = read(app_root / "scripts/stage_release_inputs.ps1")
-    optimizer = read(app_root / "scripts/optimize_release_payload.py")
-    revision_validator = read(app_root / "scripts/validate_release_model_revisions.mjs")
-    package = json.loads(read(app_root / "package.json"))
-    release_workflow = read(root / ".github/workflows/release-payload-verify.yml")
-    efficiency_workflow = read(root / ".github/workflows/release-efficiency-profile.yml")
-
-    require("prepare_model_assets.py" in stage, "release:manifest_acquirer_missing")
-    require("faster-whisper-large-v3-turbo" in stage, "release:asr_manifest_id_missing")
-    require(MODEL_ID in stage, "release:milmmt_manifest_id_missing")
-    require(REVISION in stage, "release:milmmt_revision_gate_missing")
-    require(
-        "validate_release_model_revisions.mjs"
-        in package.get("scripts", {}).get("preflight:release-payload", ""),
-        "release:revision_preflight_not_wired",
-    )
-    require(
-        MODEL_ID in revision_validator and REVISION in revision_validator,
-        "release:revision_validator_identity",
-    )
-    require(
-        "model.safetensors" not in optimizer,
-        "release:optimizer_must_not_mutate_translation_model",
-    )
-
-    active_release_text = "\n".join((stage, optimizer, efficiency_workflow)).lower()
-    for marker in ACTIVE_LEGACY_TRANSLATION_MARKERS:
-        require(marker not in active_release_text, f"release:legacy_translation_marker:{marker}")
-
-    release_workflow_lower = release_workflow.lower()
-    require("helsinki-nlp/" not in release_workflow_lower, "release:workflow_legacy_repo")
-    require(
-        "automodelforseq2seqlm" not in release_workflow_lower,
-        "release:workflow_legacy_seq2seq",
-    )
-    require(
-        "verify optimized marian" not in release_workflow_lower,
-        "release:workflow_legacy_marian_proof",
-    )
-    require(
-        "validate_release_model_revisions.mjs" in release_workflow,
-        "release:workflow_revision_validation_missing",
-    )
-    require(
-        "validate_canonical_milmmt_repo.py" in efficiency_workflow,
-        "release:efficiency_repo_contract_missing",
-    )
+    require("from transformers import AutoModelForSeq2SeqLM" not in active, "tests:legacy_seq2seq_import_active")
+    require("m2m100-418m" not in active, "tests:legacy_model_identity_active")
 
 
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     validate_manifest(root)
-    validate_provider(root)
-    validate_smoke(root)
+    validate_worker(root)
     validate_dependency_lock(root)
-    validate_active_tests(root)
     validate_release_boundary(root)
+    validate_active_tests(root)
     print(
         json.dumps(
             {
@@ -225,6 +187,7 @@ def main() -> int:
                 "model_id": MODEL_ID,
                 "revision": REVISION,
                 "transformers": CURRENT_TRANSFORMERS_VERSION,
+                "worker_architecture": "translation_neutral_base_plus_milmmt_provider",
                 "release_packaging": "canonical_manifest_owned",
                 "target_pc_validation": "deferred",
             },

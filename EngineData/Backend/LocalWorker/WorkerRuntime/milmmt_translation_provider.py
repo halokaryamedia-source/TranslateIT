@@ -13,6 +13,7 @@ INPUT_CONTEXT_LIMIT = 2048
 STANDALONE_SOURCE_TOKEN_LIMIT = 1792
 MAX_NEW_TOKENS = 256
 MISSING_BLOCKER = "model:milmmt_46_1b_missing"
+BASE_MISSING_BLOCKER = "model:translation_model_missing"
 
 _HOST: dict[str, Any] | None = None
 _ORIGINAL_BUILD_STATUS = None
@@ -61,15 +62,10 @@ def _has_model_weights(path: Path) -> bool:
 def translation_model_ready(path: Path) -> bool:
     marker = path / REVISION_MARKER
     try:
-        revision_ok = (
-            marker.is_file()
-            and marker.read_text(encoding="utf-8").strip() == MODEL_REVISION
-        )
+        revision_ok = marker.is_file() and marker.read_text(encoding="utf-8").strip() == MODEL_REVISION
     except OSError:
         revision_ok = False
-    tokenizer_ready = (path / "tokenizer.json").is_file() or (
-        path / "tokenizer.model"
-    ).is_file()
+    tokenizer_ready = (path / "tokenizer.json").is_file() or (path / "tokenizer.model").is_file()
     return (
         path.is_dir()
         and (path / "config.json").is_file()
@@ -166,7 +162,13 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
     return runtime
 
 
-def _continuation(generated: Any, prompt_tokens: int, tokenizer: Any, model: Any, budget: int):
+def _continuation(
+    generated: Any,
+    prompt_tokens: int,
+    tokenizer: Any,
+    model: Any,
+    budget: int,
+) -> dict[str, Any]:
     host = _host()
     sequences = getattr(generated, "sequences", generated)
     try:
@@ -196,9 +198,7 @@ def _continuation(generated: Any, prompt_tokens: int, tokenizer: Any, model: Any
         "finished_with_eos": finished,
         "generated_tokens": len(ids),
         "hit_token_ceiling": hit_ceiling,
-        "blocker": ""
-        if finished
-        else (
+        "blocker": "" if finished else (
             "translation:output_hit_token_ceiling_without_eos"
             if hit_ceiling
             else "translation:output_ended_without_eos"
@@ -209,7 +209,10 @@ def _continuation(generated: Any, prompt_tokens: int, tokenizer: Any, model: Any
 def _generation_budget(prompt_tokens: int, payload: dict[str, Any]) -> int:
     host = _host()
     requested = host["bounded_int"](
-        payload.get("max_new_tokens", MAX_NEW_TOKENS), MAX_NEW_TOKENS, 16, MAX_NEW_TOKENS
+        payload.get("max_new_tokens", MAX_NEW_TOKENS),
+        MAX_NEW_TOKENS,
+        16,
+        MAX_NEW_TOKENS,
     )
     authority = min(MAX_NEW_TOKENS, max(64, prompt_tokens * 2 + 32))
     return min(MAX_NEW_TOKENS, max(requested, authority))
@@ -243,6 +246,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "stage": "translate",
             "blocker": "translation:empty_text",
+            "direction_pair": pair,
             "elapsed_ms": host["now_ms"]() - started,
         }
     selected = translation_model_for_direction(source_language, target_language)
@@ -251,6 +255,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "stage": "translate",
             "direction_pair": pair,
+            "direction_supported": False,
             "blocker": "translation:direction_not_supported",
             "elapsed_ms": host["now_ms"]() - started,
         }
@@ -261,7 +266,9 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "stage": "translate",
             "model_id": model_id,
             "model_revision": MODEL_REVISION,
+            "model_path": str(model_path),
             "direction_pair": pair,
+            "direction_supported": True,
             "blocker": MISSING_BLOCKER,
             "elapsed_ms": host["now_ms"]() - started,
         }
@@ -320,9 +327,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 "hit_token_ceiling": completion["hit_token_ceiling"],
                 "elapsed_ms": host["now_ms"]() - started,
             }
-        translated = tokenizer.decode(
-            completion["ids"], skip_special_tokens=True
-        ).strip()
+        translated = tokenizer.decode(completion["ids"], skip_special_tokens=True).strip()
         translated = host["translation_envelope"].compact_unit(translated)
         if not translated:
             raise RuntimeError("translation:empty_decoded_translation")
@@ -336,6 +341,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "source_language": source_language,
             "target_language": target_language,
             "direction_pair": pair,
+            "direction_supported": True,
             "device": runtime["device"],
             "device_note": runtime["device_note"],
             "precision": runtime["precision"],
@@ -355,6 +361,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "hit_token_ceiling": completion["hit_token_ceiling"],
             "translated_text": translated,
             "elapsed_ms": host["now_ms"]() - started,
+            "blocker": "",
         }
     except Exception as exc:
         return {
@@ -390,9 +397,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     model_id, model_path = selected
     status = build_status_payload(payload)
     ready = host["translation_model_ready"](model_path)
-    if not status["transformers_import_ready"] or not status[
-        "torch_import_ready"
-    ] or not ready:
+    if not status["transformers_import_ready"] or not status["torch_import_ready"] or not ready:
         blockers = [value for value in status.get("blockers", []) if value != MISSING_BLOCKER]
         if not ready:
             blockers.append(MISSING_BLOCKER)
@@ -442,11 +447,9 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
-    joined = ";".join(blockers + warnings)
-    clean_blockers = [value for value in blockers if "m2m100_418m" not in value]
-    clean_warnings = [value for value in warnings if "m2m100_418m" not in value]
-    actions = list(_ORIGINAL_STATUS_ACTION_ITEMS(clean_blockers, clean_warnings))
-    if MISSING_BLOCKER in joined:
+    clean_blockers = [value for value in blockers if value != MISSING_BLOCKER]
+    actions = list(_ORIGINAL_STATUS_ACTION_ITEMS(clean_blockers, warnings))
+    if MISSING_BLOCKER in blockers:
         actions.append(
             "Acquire the pinned MiLMMT-46-1B-v1.0 snapshot under RuntimeAssets/Translation/ModelData."
         )
@@ -456,14 +459,12 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
 def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     result = dict(_ORIGINAL_BUILD_STATUS(payload))
     blockers = [
-        MISSING_BLOCKER if value == "model:m2m100_418m_missing" else value
+        MISSING_BLOCKER if value == BASE_MISSING_BLOCKER else value
         for value in result.get("blockers", [])
     ]
     result["blockers"] = blockers
     result["blocker"] = ";".join(blockers)
-    result["next_actions"] = status_action_items(
-        blockers, list(result.get("warnings", []))
-    )
+    result["next_actions"] = status_action_items(blockers, list(result.get("warnings", [])))
     models = dict(result.get("models", {}))
     for key in ("translation_id_en", "translation_en_id"):
         entry = dict(models.get(key, {}))
