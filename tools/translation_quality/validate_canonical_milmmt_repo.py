@@ -186,12 +186,20 @@ def validate_release_boundary(root: Path) -> None:
         "release:optimizer_must_not_mutate_translation_model",
     )
 
-    active_release_text = "\n".join(
-        (stage, optimizer, revision_validator, release_workflow, efficiency_workflow)
-    ).lower()
+    active_release_text = "\n".join((stage, optimizer, efficiency_workflow)).lower()
     for marker in ACTIVE_LEGACY_TRANSLATION_MARKERS:
         require(marker not in active_release_text, f"release:legacy_translation_marker:{marker}")
 
+    release_workflow_lower = release_workflow.lower()
+    require("helsinki-nlp/" not in release_workflow_lower, "release:workflow_legacy_repo")
+    require(
+        "automodelforseq2seqlm" not in release_workflow_lower,
+        "release:workflow_legacy_seq2seq",
+    )
+    require(
+        "verify optimized marian" not in release_workflow_lower,
+        "release:workflow_legacy_marian_proof",
+    )
     require(
         "validate_release_model_revisions.mjs" in release_workflow,
         "release:workflow_revision_validation_missing",
