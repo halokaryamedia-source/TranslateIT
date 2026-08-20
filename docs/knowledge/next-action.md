@@ -2,63 +2,36 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CANONICAL / LEGACY TRANSLATOR RUNTIME + RELEASE PATHS REMOVED / MANIFEST-OWNED PACKAGING / WORKERRUNTIME TRANSFORMERS 4.57.6 CANONICAL LOCK RESOLVED / TOKENIZERS 0.22.2 LICENSE MATERIAL SYNCHRONIZED / TARGET-PC TESTING DEFERRED`
+`MILMMT-46-1B-v1.0 CANONICAL / REPO-SIDE TRANSLATION MIGRATION + CLEANUP CLOSED / WORKERRUNTIME TRANSFORMERS 4.57.6 + TOKENIZERS 0.22.2 CANONICAL / MANIFEST-OWNED RELEASE PACKAGING / TARGET-PC ACCEPTANCE DEFERRED`
 
-## Canonical translator
+## Active Boundary
 
-```text
-xiaomi-research/MiLMMT-46-1B-v1.0
-revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
-ID ↔ EN
-one resident causal model
-CUDA BF16 primary
-PyTorch / Transformers 4.57.6
-official Xiaomi prompt
-deterministic generation
-```
+- `Local` is the current development authority.
+- `Developing` remains the GitHub default branch and historical/recovery authority; it is not a silent write target.
+- Canonical translator is `xiaomi-research/MiLMMT-46-1B-v1.0` at revision `4fc480b6c58dec29c159dcdf9fde0f6d5c354995`.
+- One resident causal model owns Indonesian ↔ English translation with CUDA BF16 primary execution, the official Xiaomi prompt, deterministic generation, continuation-only decoding, and fail-closed incomplete output.
+- Canonical WorkerRuntime dependency authority is Python 3.12.x + Torch 2.11.0/cu126 + Transformers 4.57.6 + Tokenizers 0.22.2.
+- M2M100, Marian, Transformers 4.50.0, and retired helper paths may remain only as clearly historical evidence or explicit negative guards; they are not active runtime, dependency, release, test, or current-authority paths.
+- The **R3 packaging boundary** remains active: one automatic offline Setup plus colocated external payload direction. Packaging/release hardening is the next repository milestone.
+- Target-PC GPU/audio/installed-runtime/clean-machine acceptance remains deferred until explicitly requested.
 
-Do not reopen model search or introduce M2M100/Marian/another translator as fallback.
+## Repo-side MiLMMT cleanup closed
 
-## Repo-side migration completed
+- `realtime_local_worker.py` is the only application-facing worker entrypoint.
+- `realtime_local_worker_base.py`, `worker_runtime_common.py`, and `worker_io_runtime.py` own translation-neutral protocol/common/ASR/Voice responsibilities.
+- `milmmt_translation_provider.py` is the only canonical translation implementation.
+- Legacy M2M translation core/test substrate is removed.
+- RuntimeAssets and release staging are manifest-owned and require exact `.translateit_model_revision` evidence.
+- Release resource/package contracts explicitly carry and validate the canonical worker module closure.
+- `pyproject.toml` and `uv.lock` agree on Transformers 4.57.6; the lock resolves Tokenizers 0.22.2 while retaining Torch 2.11.0/cu126.
+- Tokenizers 0.22.2 release-license material is pinned to the exact lock-resolved sdist.
+- Repo/static gates cover MiLMMT identity, dependency-lock consistency, release boundary, active tests, governance routing, and retired migration-path absence.
+- The former 4.50.0 compatibility result remains historical evidence only: 24/24 executable, 16/24 exact, 8 deterministic output changes, materially slower than the selected 4.57.6 authority.
 
-- `realtime_local_worker.py` is the only application-facing worker entrypoint;
-- `realtime_local_worker_base.py`, `worker_runtime_common.py`, and `worker_io_runtime.py` own translation-neutral protocol/common/ASR/Voice responsibilities;
-- `milmmt_translation_provider.py` is the only canonical translation implementation;
-- the legacy translation core and legacy test substrate are removed;
-- RuntimeAssets and release staging use the exact MiLMMT manifest revision and revision marker;
-- release resource/package contracts explicitly package and validate the canonical worker module closure;
-- `pyproject.toml` pins `transformers==4.57.6`;
-- canonical `uv.lock` resolves Transformers 4.57.6 and Tokenizers 0.22.2 while retaining the reviewed Torch 2.11.0 / CUDA 12.6 boundary;
-- Tokenizers 0.22.2 release-license staging is pinned to the exact lock-resolved sdist; its Apache-2.0 LICENSE bytes are unchanged from the previously reviewed 0.21.4 material;
-- repo/static validation owns dependency-lock, runtime, packaging, manifest, and stale active-translation gates.
+## Closed Optimization Boundary
 
-## Historical compatibility evidence
-
-The retired WorkerRuntime 4.50.0 boundary remains evidence only:
-
-```text
-preload                PASS
-24 representative runs PASS
-exact authority match  16/24
-changed outputs         8/24
-failed outputs          0
-p50                     3276.30 ms
-p90                     4012.25 ms
-```
-
-The selected MiLMMT authority under Transformers 4.57.6 measured approximately:
-
-```text
-p50 674.51 ms
-p90 1133.81 ms
-```
-
-No target-PC rerun is requested during the current repo-cleanup phase.
-
-## Closed optimization boundary
-
-Keep MiLMMT-1B, CUDA BF16, PyTorch/Transformers, default SDPA/attention path, default generation cache, and a persistent loaded model. Do not add StaticCache, `torch.compile`, speed-only quantization, alternate inference backends, speculative decoding, a second translator, or phrase rewriting.
+Keep MiLMMT-1B, CUDA BF16, PyTorch/Transformers, default SDPA/attention path, default generation cache, and a persistent loaded model. Do not add StaticCache, `torch.compile`, speed-only quantization, alternate inference backends, speculative decoding, a second translator, or phrase rewriting without a new explicit decision and new evidence.
 
 ## Next Step
 
-**Run the final repo-only stale-reference and release/source-contract sweep. Retired M2M100/Marian/Transformers-4.50 references may remain only where explicitly historical evidence or migration metadata requires them; no active runtime, packaging, test, dependency, or current-authority owner may point to them. Then close repo-side MiLMMT cleanup and keep target-PC/runtime acceptance deferred until explicitly requested.**
+**Continue R3 packaging-boundary development and release hardening from the current canonical MiLMMT state. Do not run target-PC/GPU/audio/installed-runtime acceptance until explicitly requested.**
