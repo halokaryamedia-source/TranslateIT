@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 BF16 SELECTED / 4B COMPARISON ONLY / CLEAN RTX 3070 PERFORMANCE AUTHORITY / SAME-MODEL LATENCY OPTIMIZATION HARNESS READY / ONE-COPY POWERSHELL TARGET-PC RUN NEXT / PRODUCTION UNCHANGED`
+`MILMMT-46-1B-v1.0 BF16 SELECTED / LATENCY OPTIMIZATION CLOSED / DEFAULT SDPA + DEFAULT CACHE SELECTED / STATICCACHE REJECTED FOR OUTPUT CHANGE + NO SPEED WIN / CANONICAL WORKERRUNTIME COMPATIBILITY PROOF NEXT / PRODUCTION SOURCE UNCHANGED`
 
 Authority:
 
@@ -19,8 +19,6 @@ docs/knowledge/milmmt-1b-runtime-validation.md
 
 ## Selected Translator
 
-The selected migration target is:
-
 ```text
 xiaomi-research/MiLMMT-46-1B-v1.0
 revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
@@ -30,101 +28,108 @@ official Xiaomi translation prompt
 deterministic generation
 ```
 
-MiLMMT-46-4B-v1.0 is comparison evidence only. Do not automatically reopen 4B or introduce another translator.
+MiLMMT-46-4B-v1.0 remains comparison evidence only. Do not reopen model search automatically.
 
-Production is still unchanged. M2M100 remains the current production translator until MiLMMT-1B integration and target end-to-end proof are complete; it is not intended to remain as a fallback/router after accepted migration.
+## Closed Latency Optimization Decision
 
-## Valid Evidence
-
-The 24-case Meeting/Text quality review remains the aggregate translation-quality authority.
-
-The clean RTX 3070 performance rerun supersedes the earlier GPU-contaminated timing/whole-device VRAM observations.
-
-Selected MiLMMT-1B BF16 clean baseline:
-
-```text
-cold load                 2271 ms
-framework allocated       ~1907 MiB
-whole-device after load   ~2930 MiB
-wall p50                  689 ms
-wall p90                  1139 ms
-wall mean                 791 ms
-wall max                  1157 ms
-inference p50             654 ms
-inference p90             1097 ms
-18/18 samples successful
-deterministic outputs     yes
-```
-
-Do not rerun the original 1B-vs-4B model selection or clean baseline merely for reassurance.
-
-## Latency Optimization Harness
-
-Implemented owners:
-
-```text
-tools/translation_quality/milmmt_1b_latency_optimization.py
-tools/translation_quality/run_milmmt_1b_latency_optimization.ps1
-```
-
-Fixed quality contract:
-
-```text
-same pinned MiLMMT-1B checkpoint
-same BF16 precision
-same official prompt
-same deterministic translation intent
-no quantization
-no alternate model
-no output post-processing
-no fallback/router
-```
-
-The harness runs fully offline against the existing cached 1B model and existing quality/performance evidence. It does not download a model or modify production.
-
-Evaluation order:
-
-```text
-1. production-like baseline without per-request nvidia-smi / explicit synchronize instrumentation
-2. verify actual attention backend; skip duplicate explicit-SDPA run if baseline already reports SDPA
-3. StaticCache with compile disabled
-4. StaticCache + Transformers automatic compile configured for reduce-overhead when the cache path is valid
-```
-
-Candidate work is staged:
-
-```text
-representative performance subset first
-→ exact subset output equality
-→ >=5% p50 gain and <=5% p90 regression
-→ only then full 24-case exact-output equality
-```
-
-Any unsupported Windows/CUDA compile/cache path is recorded and skipped; do not add another backend to rescue it.
-
-If no candidate proves a material same-quality gain, the production-like MiLMMT-1B BF16 baseline remains the selected execution configuration.
-
-## Target-PC Execution Rule
-
-The next proof must run on the actual target Windows PC with avoidable GPU-heavy applications closed.
-
-Clean-GPU gate:
-
-```text
-whole-device VRAM <= 2048 MiB
-GPU utilization   <= 10%
-```
-
-The user receives one complete pasteable PowerShell block. The wrapper owns path checks, cache/evidence validation, offline flags, GPU gate, execution, and report path.
-
-Expected report:
+Target-PC optimization report:
 
 ```text
 UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json
 ```
 
-After the report is reviewed, choose one execution configuration. Then migrate MiLMMT-1B into the canonical production translation owner, retire M2M100 from the normal path, and run the bounded end-to-end ASR → MiLMMT-1B → GPT-SoVITS target-PC proof.
+The safe selected execution configuration is:
+
+```text
+MiLMMT-1B BF16
+PyTorch / Transformers
+SDPA attention (already active by default)
+default/dynamic generation cache
+no StaticCache
+no torch.compile
+no quantization
+no alternate backend
+```
+
+Observed production-like representative performance:
+
+```text
+p50  674.51 ms
+p90  1133.81 ms
+```
+
+This was only ~2.1% faster at p50 and ~0.5% faster at p90 than the prior clean authority (689.11 / 1139.34 ms), so the improvement is not large enough to justify additional runtime complexity.
+
+StaticCache was rejected because:
+
+```text
+p50  723.97 ms   (slower)
+p90  1169.84 ms  (slower)
+output changed on meeting.en_id.12.scope
+```
+
+The compile variant was correctly skipped after StaticCache failed the same-quality prerequisite. Do not continue cache/compile tuning.
+
+## Migration Compatibility Gap
+
+Before changing the canonical worker, one concrete compatibility difference must be resolved:
+
+```text
+MiLMMT quality/latency evaluation runtime
+→ transformers 4.57.6
+
+canonical WorkerRuntime project constraint
+→ transformers >=4.44.0, <=4.50.0
+```
+
+Do not change the dependency lock speculatively. First prove whether the selected MiLMMT checkpoint produces the same 24 deterministic translations under the **current frozen WorkerRuntime environment**.
+
+Implemented proof owners:
+
+```text
+tools/translation_quality/milmmt_1b_workerruntime_compatibility.py
+tools/translation_quality/run_milmmt_1b_workerruntime_compatibility.ps1
+```
+
+The proof:
+
+```text
+uses the existing cached MiLMMT-1B checkpoint only
+runs fully offline for model access
+executes through `uv run --frozen --no-dev` from WorkerRuntime
+records actual Python / torch / transformers runtime from preload
+runs all existing 24 representative cases once
+requires 24/24 success
+requires 24/24 exact output equality with selected MiLMMT-1B evidence
+uses clean-GPU gate <=2048 MiB and <=10% utilization
+writes one JSON report
+```
+
+Decision after compatibility proof:
+
+```text
+WORKERRUNTIME_COMPATIBLE
+→ keep current dependency lock
+→ migrate MiLMMT-1B into canonical realtime_local_worker.py + model manifest
+→ stage the cached exact-revision model into RuntimeAssets
+→ run canonical translation/end-to-end target proof
+
+compatibility failure / changed output / unsupported model
+→ diagnose exact WorkerRuntime dependency gap
+→ update dependency matrix only as required
+→ do not create alternate production runtime
+```
+
+## Target-PC Execution Rule
+
+User execution remains one complete PowerShell block. The wrapper owns path checks, frozen WorkerRuntime execution, offline model access, clean-GPU gating, deterministic comparison, and report output.
+
+Expected compatibility report:
+
+```text
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_workerruntime_compatibility_report.json
+```
 
 ## Next Step
 
-**Fast-forward `Local`, close avoidable GPU-heavy applications, and run `tools/translation_quality/run_milmmt_1b_latency_optimization.ps1` once on the target PC. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json`. Do not migrate production, redownload models, or add another translator before this optimization evidence is reviewed.**
+**Fast-forward `Local`, close avoidable GPU-heavy applications, and run `tools/translation_quality/run_milmmt_1b_workerruntime_compatibility.ps1` once. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_workerruntime_compatibility_report.json`. Do not modify the WorkerRuntime dependency lock, production worker, model manifest, or introduce another translator until this one compatibility result is reviewed.**
