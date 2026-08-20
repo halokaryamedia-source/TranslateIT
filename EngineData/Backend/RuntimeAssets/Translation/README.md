@@ -1,42 +1,44 @@
 # Translation Runtime Assets
 
-## Purpose
+This folder is the local-only asset slot for TranslateIT's canonical Indonesian ↔ English translator.
 
-This folder is the local asset slot for the canonical translation model used by TranslateIT.
-
-## Expected local-only files
+## Canonical snapshot
 
 ```text
 Translation/
   README.md
   ModelData/
-    m2m100-418m/
+    xiaomi-research--MiLMMT-46-1B-v1.0/
+      .translateit_model_revision
       config.json
       generation_config.json
-      pytorch_model.bin
-      sentencepiece.bpe.model
-      vocab.json
+      model.safetensors
+      tokenizer.json
+      tokenizer.model
+      tokenizer_config.json
       ...
 ```
 
-The canonical model identity and immutable revision are owned by:
+Identity and immutable revision are owned by:
 
 ```text
 EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json
 ```
 
-Developer acquisition uses `prepare_model_assets.py` and the manifest allowlist so the PyTorch runtime does not download the duplicate unused Rust-framework weight.
-
-## Active orchestration route
+Current authority:
 
 ```text
-EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+xiaomi-research/MiLMMT-46-1B-v1.0
+revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
+license: Gemma
 ```
+
+`prepare_model_assets.py` acquires the pinned Hugging Face snapshot. After a successful atomic replacement it writes `.translateit_model_revision`. `realtime_local_worker.py` does not consider the model ready unless that marker matches the exact manifest revision.
 
 ## Rules
 
-- Keep one canonical bidirectional Indonesian ↔ English translation model; do not restore Marian as a fallback/router.
-- Do not add translation source modules here.
-- Do not add TTS placeholder or voice provider source modules here.
+- Keep one canonical resident bidirectional model for ID → EN and EN → ID.
+- Do not restore M2M100, Marian, or another translator as an automatic fallback/router.
 - Keep model binaries out of Git.
-- Asset presence is not translation-quality, CUDA, CPU, latency, or Meeting-runtime proof.
+- Do not add translation source modules under RuntimeAssets.
+- Asset presence/revision is installation evidence only; it does not prove target CUDA, quality, latency, or Meeting delivery.
