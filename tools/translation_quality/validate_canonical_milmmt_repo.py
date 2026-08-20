@@ -14,6 +14,8 @@ EXPECTED_MODEL_PATH = (
 )
 CURRENT_TRANSFORMERS_VERSION = "4.57.6"
 CURRENT_TRANSFORMERS_SPEC = "==4.57.6"
+CURRENT_TOKENIZERS_VERSION = "0.22.2"
+TOKENIZERS_SDIST_SHA256 = "473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917"
 LEGACY_MARKERS = (
     "m2m100-418m",
     "facebook/m2m100_418m",
@@ -23,6 +25,14 @@ LEGACY_MARKERS = (
     "marianmt-en-id",
     "Helsinki-NLP/opus-mt-id-en",
     "Helsinki-NLP/opus-mt-en-id",
+)
+WORKFLOW_ACTIVE_LEGACY_MARKERS = (
+    "Helsinki-NLP/opus-mt-id-en",
+    "Helsinki-NLP/opus-mt-en-id",
+    "AutoModelForSeq2SeqLM",
+    "forced_bos_token_id",
+    "verify-optimized-marian",
+    "r32-marian",
 )
 
 
@@ -108,16 +118,20 @@ def extract_project_transformers_spec(pyproject: str) -> str:
     return match.group(1).strip()
 
 
-def extract_lock_transformers(lock: str) -> tuple[str, str]:
+def extract_lock_package_version(lock: str, name: str) -> str:
     package = re.search(
-        r'\[\[package\]\]\s*name = "transformers"\s*version = "([^"]+)"',
+        rf'\[\[package\]\]\s*name = "{re.escape(name)}"\s*version = "([^"]+)"',
         lock,
         flags=re.MULTILINE,
     )
-    require(package is not None, "dependency:lock_transformers_package_missing")
+    require(package is not None, f"dependency:lock_{name}_package_missing")
+    return package.group(1)
+
+
+def extract_lock_transformers_spec(lock: str) -> str:
     metadata = re.search(r'\{ name = "transformers", specifier = "([^"]+)" \}', lock)
     require(metadata is not None, "dependency:lock_transformers_spec_missing")
-    return package.group(1), metadata.group(1)
+    return metadata.group(1)
 
 
 def validate_dependency_lock(root: Path) -> None:
@@ -125,16 +139,28 @@ def validate_dependency_lock(root: Path) -> None:
     pyproject = read(worker_root / "pyproject.toml")
     lock = read(worker_root / "uv.lock")
     project_spec = extract_project_transformers_spec(pyproject)
-    locked_version, locked_spec = extract_lock_transformers(lock)
+    locked_transformers = extract_lock_package_version(lock, "transformers")
+    locked_tokenizers = extract_lock_package_version(lock, "tokenizers")
+    locked_spec = extract_lock_transformers_spec(lock)
     require(project_spec == CURRENT_TRANSFORMERS_SPEC, f"dependency:unexpected_project_spec:{project_spec}")
     require(locked_spec == project_spec, "dependency:pyproject_lock_spec_mismatch")
-    require(locked_version == CURRENT_TRANSFORMERS_VERSION, f"dependency:unexpected_locked_version:{locked_version}")
+    require(
+        locked_transformers == CURRENT_TRANSFORMERS_VERSION,
+        f"dependency:unexpected_transformers:{locked_transformers}",
+    )
+    require(
+        locked_tokenizers == CURRENT_TOKENIZERS_VERSION,
+        f"dependency:unexpected_tokenizers:{locked_tokenizers}",
+    )
+    require(TOKENIZERS_SDIST_SHA256 in lock, "dependency:tokenizers_sdist_hash_missing")
 
 
 def validate_release_boundary(root: Path) -> None:
     app_root = root / "EngineData/Frontend/RustApp"
     stage = read(app_root / "scripts/stage_release_inputs.ps1")
     optimizer = read(app_root / "scripts/optimize_release_payload.py")
+    license_stager = read(app_root / "scripts/stage_release_license_material.py")
+    payload_validator = read(app_root / "scripts/validate_release_payload.mjs")
     revision_validator = read(app_root / "scripts/validate_release_model_revisions.mjs")
     package_contract = read(app_root / "scripts/validate_release_package_contract.mjs")
     release_config = read(app_root / "src-tauri/tauri.release.conf.json")
@@ -152,9 +178,27 @@ def validate_release_boundary(root: Path) -> None:
     require("validate_release_model_revisions.mjs" in release_workflow, "release:workflow_revision_gate_missing")
     require("validate_canonical_milmmt_repo.py" in efficiency_workflow, "release:efficiency_contract_missing")
 
-    active = "\n".join((stage, optimizer, release_config, release_workflow, efficiency_workflow))
-    for marker in LEGACY_MARKERS:
-        require(marker not in active, f"release:legacy_marker:{marker}")
+    # Runtime/staging/config owners must not carry retired translation implementations.
+    for label, body in (
+        ("stage", stage),
+        ("optimizer", optimizer),
+        ("release_config", release_config),
+    ):
+        for marker in LEGACY_MARKERS:
+            require(marker not in body, f"release:{label}:legacy_marker:{marker}")
+
+    # Workflows may name old asset folders only in explicit negative guards. Disallow
+    # actual old model sources/APIs/benchmark paths instead of rejecting those guards.
+    workflow_text = "\n".join((release_workflow, efficiency_workflow))
+    for marker in WORKFLOW_ACTIVE_LEGACY_MARKERS:
+        require(marker not in workflow_text, f"release:workflow_active_legacy_marker:{marker}")
+
+    require("tokenizers-0.22.2.dist-info" in license_stager, "release:tokenizers_license_stager_version")
+    require(TOKENIZERS_SDIST_SHA256 in license_stager, "release:tokenizers_license_stager_hash")
+    require("tokenizers-0.21.4" not in license_stager, "release:legacy_tokenizers_license_stager")
+    require("tokenizers-0.22.2.dist-info" in payload_validator, "release:tokenizers_payload_validator_version")
+    require(TOKENIZERS_SDIST_SHA256 in payload_validator, "release:tokenizers_payload_validator_hash")
+    require("tokenizers-0.21.4" not in payload_validator, "release:legacy_tokenizers_payload_validator")
 
 
 def validate_active_tests(root: Path) -> None:
@@ -172,6 +216,26 @@ def validate_active_tests(root: Path) -> None:
     require("m2m100-418m" not in active, "tests:legacy_model_identity_active")
 
 
+def validate_current_authority_docs(root: Path) -> None:
+    context = read(root / "CONTEXT.md")
+    runtime_readme = read(root / "EngineData/Backend/LocalWorker/WorkerRuntime/README.md")
+    next_action = read(root / "docs/knowledge/next-action.md")
+    for label, body in (
+        ("context", context),
+        ("runtime_readme", runtime_readme),
+        ("next_action", next_action),
+    ):
+        require("4.57.6" in body, f"docs:{label}:transformers_authority_missing")
+    require(
+        "frozen canonical WorkerRuntime remains on 4.50.0" not in context,
+        "docs:context:stale_450_authority",
+    )
+    require(
+        "Transformers 4.50.0 in the frozen canonical lock" not in runtime_readme,
+        "docs:runtime_readme:stale_450_authority",
+    )
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     validate_manifest(root)
@@ -179,6 +243,7 @@ def main() -> int:
     validate_dependency_lock(root)
     validate_release_boundary(root)
     validate_active_tests(root)
+    validate_current_authority_docs(root)
     print(
         json.dumps(
             {
@@ -186,6 +251,7 @@ def main() -> int:
                 "model_id": MODEL_ID,
                 "revision": REVISION,
                 "transformers": CURRENT_TRANSFORMERS_VERSION,
+                "tokenizers": CURRENT_TOKENIZERS_VERSION,
                 "worker_architecture": "translation_neutral_base_plus_milmmt_provider",
                 "release_packaging": "canonical_manifest_owned",
                 "target_pc_validation": "deferred",
