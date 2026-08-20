@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Build TranslateIT's R3 colocated external offline payload.
+"""Build TranslateIT's version-bound R3 external offline payload.
 
-This script is build-time only. It never downloads assets. It packages the already
-validated/staged private runtime inputs into one 7z/LZMA2 payload, computes the
-payload hash, renders the NSIS installer hook with that trusted hash, and writes
-build evidence outside the user-facing release pair.
+Build-time only: no runtime download/bootstrap behavior. The script packages the
+already staged private runtime into one 7z/LZMA2 archive, validates that Windows
+bsdtar can read it, binds the payload to the application/dependency/model identity,
+and renders the trusted NSIS hook consumed by the Tauri build.
 """
 
 from __future__ import annotations
@@ -12,13 +12,22 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-SCHEMA = "translateit.r3.external_payload.v1"
+PAYLOAD_SCHEMA = "translateit.r3.external_payload.v1"
+INSTALLED_RUNTIME_SCHEMA = "translateit.installed_runtime.v1"
 PAYLOAD_FILENAME = "TranslateIT-Payload.7z"
+PAYLOAD_CONTRACT = (
+    "EngineData/Backend/LocalWorker/PythonRuntime/TRANSLATEIT_PAYLOAD_CONTRACT.json"
+)
+PYTHON_VERSION = "3.12.10"
+TORCH_VERSION = "2.11.0"
+TRANSFORMERS_VERSION = "4.57.6"
+TOKENIZERS_VERSION = "0.22.2"
 MILMMT_REVISION = "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"
 ASR_REVISION = "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf"
 GPT_SOVITS_REVISION = "d523079fc05d9a8028d6085bffe4a2757c32abb6"
@@ -30,14 +39,19 @@ PAYLOAD_ROOTS = (
     "EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS",
     "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package",
 )
-
-REQUIRED_MARKERS = {
+REQUIRED_FILES = {
     "EngineData/Backend/LocalWorker/PythonRuntime/python.exe": None,
     "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo/.translateit_model_revision": ASR_REVISION,
     "EngineData/Backend/RuntimeAssets/Translation/ModelData/xiaomi-research--MiLMMT-46-1B-v1.0/.translateit_model_revision": MILMMT_REVISION,
     "EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/Source/TRANSLATEIT_GPTSOVITS_REVISION.txt": GPT_SOVITS_REVISION,
     "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/VBCABLE_Setup_x64.exe": None,
+    "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/VBCABLE_Setup.exe": None,
 }
+
+
+def require_file(path: Path, label: str) -> None:
+    if not path.is_file() or path.stat().st_size <= 0:
+        raise RuntimeError(f"missing required file: {label}: {path}")
 
 
 def sha256_file(path: Path) -> str:
@@ -48,26 +62,90 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def require_file(path: Path, label: str) -> None:
-    if not path.is_file() or path.stat().st_size <= 0:
-        raise RuntimeError(f"missing required file: {label}: {path}")
+def tree_bytes(root: Path) -> int:
+    return sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
 
 
-def validate_inputs(repo_root: Path) -> None:
+def app_version(repo_root: Path) -> str:
+    app_root = repo_root / "EngineData/Frontend/RustApp"
+    package = json.loads((app_root / "package.json").read_text(encoding="utf-8"))
+    tauri = json.loads((app_root / "src-tauri/tauri.conf.json").read_text(encoding="utf-8"))
+    package_version = str(package.get("version") or "").strip()
+    tauri_version = str(tauri.get("version") or "").strip()
+    if not package_version or package_version != tauri_version:
+        raise RuntimeError(
+            f"application version drift: package.json={package_version!r}, tauri.conf.json={tauri_version!r}"
+        )
+    return package_version
+
+
+def validate_staged_inputs(repo_root: Path) -> None:
     for relative in PAYLOAD_ROOTS:
-        path = repo_root / relative
-        if not path.is_dir():
+        if not (repo_root / relative).is_dir():
             raise RuntimeError(f"missing payload root: {relative}")
-
-    for relative, expected_text in REQUIRED_MARKERS.items():
+    for relative, expected in REQUIRED_FILES.items():
         path = repo_root / relative
         require_file(path, relative)
-        if expected_text is not None:
-            actual = path.read_text(encoding="utf-8").strip()
-            if actual != expected_text:
-                raise RuntimeError(
-                    f"payload marker mismatch: {relative}: expected {expected_text}, got {actual}"
-                )
+        if expected is not None and path.read_text(encoding="utf-8").strip() != expected:
+            raise RuntimeError(f"payload marker mismatch: {relative}")
+
+
+def write_payload_contract(repo_root: Path, version: str) -> Path:
+    path = repo_root / PAYLOAD_CONTRACT
+    path.parent.mkdir(parents=True, exist_ok=True)
+    body = {
+        "schema": PAYLOAD_SCHEMA,
+        "app_version": version,
+        "payload_file": PAYLOAD_FILENAME,
+        "python_version": PYTHON_VERSION,
+        "torch_version": TORCH_VERSION,
+        "transformers_version": TRANSFORMERS_VERSION,
+        "tokenizers_version": TOKENIZERS_VERSION,
+        "revisions": {
+            "milmmt": MILMMT_REVISION,
+            "faster_whisper": ASR_REVISION,
+            "gpt_sovits": GPT_SOVITS_REVISION,
+        },
+        "vb_cable": {
+            "setup_owned_install": True,
+            "install_args": ["-i", "-h"],
+            "windows_driver_consent_may_appear": True,
+            "restart_required_after_new_install": True,
+            "uninstall_policy": "preserve_system_driver",
+        },
+        "user_data_policy": "preserve_app_local_user_data",
+        "network_download": False,
+        "manual_extraction": False,
+        "second_user_facing_installer": False,
+    }
+    path.write_text(json.dumps(body, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def find_7zip() -> str:
+    candidates: list[str] = []
+    configured = os.environ.get("TRANSLATEIT_7ZIP", "").strip()
+    if configured:
+        candidates.append(configured)
+    for command in ("7z.exe", "7zz.exe", "7z", "7zz"):
+        resolved = shutil.which(command)
+        if resolved:
+            candidates.append(resolved)
+    if os.name == "nt":
+        candidates.extend(
+            [r"C:\Program Files\7-Zip\7z.exe", r"C:\Program Files (x86)\7-Zip\7z.exe"]
+        )
+    for candidate in candidates:
+        path = Path(candidate)
+        if path.is_file():
+            return str(path)
+        resolved = shutil.which(candidate)
+        if resolved:
+            return resolved
+    raise RuntimeError(
+        "7-Zip CLI is required on the release build machine only. Install 7-Zip or set "
+        "TRANSLATEIT_7ZIP; normal users do not need 7-Zip."
+    )
 
 
 def find_tar() -> str:
@@ -75,32 +153,32 @@ def find_tar() -> str:
         resolved = shutil.which(candidate)
         if resolved:
             return resolved
-    raise RuntimeError(
-        "Windows tar/bsdtar is required to build the R3 7z payload. "
-        "Do not substitute a user-facing 7-Zip dependency."
+    raise RuntimeError("Windows tar/bsdtar is required to validate the generated R3 payload.")
+
+
+def create_payload(repo_root: Path, output: Path, seven_zip: str, tar_program: str) -> list[str]:
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.unlink(missing_ok=True)
+    subprocess.run(
+        [
+            seven_zip,
+            "a",
+            "-t7z",
+            "-m0=LZMA2",
+            "-mx=9",
+            "-ms=on",
+            "-mmt=on",
+            "-y",
+            str(output),
+            *PAYLOAD_ROOTS,
+        ],
+        cwd=repo_root,
+        check=True,
     )
-
-
-def create_payload(repo_root: Path, output_path: Path, tar_program: str) -> list[str]:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.unlink(missing_ok=True)
-
-    command = [
-        tar_program,
-        "--format=7zip",
-        "--options",
-        "7zip:compression=lzma2,7zip:compression-level=9",
-        "-cf",
-        str(output_path),
-        "-C",
-        str(repo_root),
-        *PAYLOAD_ROOTS,
-    ]
-    subprocess.run(command, check=True)
-    require_file(output_path, PAYLOAD_FILENAME)
+    require_file(output, PAYLOAD_FILENAME)
 
     listing = subprocess.run(
-        [tar_program, "-tf", str(output_path)],
+        [tar_program, "-tf", str(output)],
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -110,68 +188,84 @@ def create_payload(repo_root: Path, output_path: Path, tar_program: str) -> list
     if not entries:
         raise RuntimeError("payload archive listing is empty")
 
-    allowed_prefixes = tuple(root.rstrip("/") + "/" for root in PAYLOAD_ROOTS)
-    allowed_exact = set(PAYLOAD_ROOTS)
+    exact_roots = set(PAYLOAD_ROOTS)
+    prefixes = tuple(root.rstrip("/") + "/" for root in PAYLOAD_ROOTS)
+    normalized_entries = {entry.rstrip("/") for entry in entries}
     for entry in entries:
         normalized = entry.rstrip("/")
         if normalized.startswith("/") or "../" in f"/{normalized}/":
             raise RuntimeError(f"unsafe payload archive entry: {entry}")
-        if normalized not in allowed_exact and not normalized.startswith(allowed_prefixes):
-            raise RuntimeError(f"payload archive entry escapes approved roots: {entry}")
-
-    for marker in REQUIRED_MARKERS:
-        normalized = marker.replace("\\", "/")
-        if normalized not in {entry.rstrip("/") for entry in entries}:
-            raise RuntimeError(f"required payload marker absent from archive: {normalized}")
+        if normalized not in exact_roots and not normalized.startswith(prefixes):
+            raise RuntimeError(f"payload entry escapes approved roots: {entry}")
+    for required in (*REQUIRED_FILES, PAYLOAD_CONTRACT):
+        if required.replace("\\", "/") not in normalized_entries:
+            raise RuntimeError(f"required payload entry absent from archive: {required}")
     return entries
 
 
-def render_hook(template_path: Path, generated_hook_path: Path, helper_path: Path, digest: str) -> None:
-    template = template_path.read_text(encoding="utf-8")
+def render_hook(
+    template: Path,
+    output: Path,
+    helper: Path,
+    version: str,
+    digest: str,
+    expanded_bytes: int,
+) -> None:
+    rendered = template.read_text(encoding="utf-8")
     replacements = {
-        "@@PAYLOAD_SCHEMA@@": SCHEMA,
+        "@@PAYLOAD_SCHEMA@@": PAYLOAD_SCHEMA,
+        "@@INSTALLED_RUNTIME_SCHEMA@@": INSTALLED_RUNTIME_SCHEMA,
+        "@@APP_VERSION@@": version,
         "@@PAYLOAD_FILENAME@@": PAYLOAD_FILENAME,
         "@@PAYLOAD_SHA256@@": digest,
-        "@@INSTALLER_HELPER_SOURCE@@": str(helper_path.resolve()).replace("/", "\\"),
+        "@@PAYLOAD_EXPANDED_BYTES@@": str(expanded_bytes),
+        "@@INSTALLER_HELPER_SOURCE@@": str(helper.resolve()).replace("/", "\\"),
     }
-    rendered = template
     for token, value in replacements.items():
         if token not in rendered:
             raise RuntimeError(f"installer hook template token missing: {token}")
         rendered = rendered.replace(token, value)
     if "@@" in rendered:
-        raise RuntimeError("installer hook template contains unresolved placeholders")
+        raise RuntimeError("installer hook contains unresolved placeholders")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(rendered, encoding="utf-8", newline="\n")
 
-    generated_hook_path.parent.mkdir(parents=True, exist_ok=True)
-    generated_hook_path.write_text(rendered, encoding="utf-8", newline="\n")
 
-
-def write_evidence(path: Path, payload_path: Path, digest: str, entries: list[str], tar_program: str) -> None:
-    evidence = {
-        "schema": SCHEMA,
+def write_evidence(
+    path: Path,
+    payload: Path,
+    version: str,
+    digest: str,
+    expanded_bytes: int,
+    entries: list[str],
+    seven_zip: str,
+    tar_program: str,
+) -> None:
+    body = {
+        "schema": PAYLOAD_SCHEMA,
+        "installed_runtime_schema": INSTALLED_RUNTIME_SCHEMA,
+        "app_version": version,
         "payload_file": PAYLOAD_FILENAME,
-        "payload_path": str(payload_path.resolve()),
-        "sha256": digest,
+        "payload_sha256": digest,
+        "payload_bytes": payload.stat().st_size,
+        "expanded_bytes": expanded_bytes,
         "archive_format": "7z",
         "compression": "LZMA2",
         "compression_level": 9,
-        "install_root": "$INSTDIR",
-        "runtime_root_contract": "Windows Tauri resource_dir == main executable directory",
-        "tar_program": tar_program,
-        "payload_roots": list(PAYLOAD_ROOTS),
+        "build_7zip_program": seven_zip,
+        "target_extract_program": "Windows tar.exe / bsdtar",
+        "validation_tar_program": tar_program,
         "entry_count": len(entries),
-        "expected_revisions": {
-            "milmmt": MILMMT_REVISION,
-            "faster_whisper": ASR_REVISION,
-            "gpt_sovits": GPT_SOVITS_REVISION,
-        },
+        "payload_roots": list(PAYLOAD_ROOTS),
         "user_facing_files": ["TranslateIT-Setup.exe", PAYLOAD_FILENAME],
+        "installer_mode": "perMachine",
         "network_download": False,
         "manual_extraction": False,
-        "second_installer": False,
+        "second_user_facing_installer": False,
+        "target_pc_acceptance": "deferred",
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(body, indent=2) + "\n", encoding="utf-8")
 
 
 def parse_args() -> argparse.Namespace:
@@ -193,28 +287,37 @@ def main() -> int:
     require_file(args.hook_template, "R3 NSIS hook template")
     require_file(args.installer_helper, "R3 installer helper")
 
-    validate_inputs(repo_root)
+    version = app_version(repo_root)
+    validate_staged_inputs(repo_root)
+    write_payload_contract(repo_root, version)
+    expanded_bytes = sum(tree_bytes(repo_root / root) for root in PAYLOAD_ROOTS)
+    seven_zip = find_7zip()
     tar_program = find_tar()
-    entries = create_payload(repo_root, args.output.resolve(), tar_program)
-    digest = sha256_file(args.output.resolve())
+    payload = args.output.resolve()
+    entries = create_payload(repo_root, payload, seven_zip, tar_program)
+    digest = sha256_file(payload)
     render_hook(
         args.hook_template.resolve(),
         args.generated_hook.resolve(),
         args.installer_helper.resolve(),
+        version,
         digest,
+        expanded_bytes,
     )
-    write_evidence(args.evidence.resolve(), args.output.resolve(), digest, entries, tar_program)
-
-    print(f"[r3-payload] payload={args.output.resolve()}")
+    write_evidence(
+        args.evidence.resolve(), payload, version, digest, expanded_bytes, entries, seven_zip, tar_program
+    )
+    print(f"[r3-payload] app_version={version}")
+    print(f"[r3-payload] payload={payload}")
     print(f"[r3-payload] sha256={digest}")
+    print(f"[r3-payload] expanded_bytes={expanded_bytes}")
     print(f"[r3-payload] entries={len(entries)}")
-    print(f"[r3-payload] generated_hook={args.generated_hook.resolve()}")
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except Exception as exc:  # noqa: BLE001 - build boundary must fail closed with one clear reason.
+    except Exception as exc:  # build boundary must fail closed with one clear reason
         print(f"[r3-payload] FAILED: {exc}", file=sys.stderr)
         raise SystemExit(1)

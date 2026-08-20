@@ -6,6 +6,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
 const tauriRoot = join(appRoot, "src-tauri");
 const backendRoot = resolve(appRoot, "../../Backend");
+const workerRoot = join(backendRoot, "LocalWorker", "WorkerRuntime");
 
 const errors = [];
 const fail = (message) => errors.push(message);
@@ -32,8 +33,9 @@ const bridgePathsPath = join(tauriRoot, "src", "commands", "bridge_paths.rs");
 const helperBridgePath = join(tauriRoot, "src", "commands", "helper_bridge.rs");
 const meetingOutputPath = join(tauriRoot, "src", "engine", "audio", "meeting_output.rs");
 const runtimeInventoryPath = join(tauriRoot, "src", "commands", "runtime_inventory.rs");
-const workerPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
-const workerPyprojectPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "pyproject.toml");
+const workerEntrypointPath = join(workerRoot, "realtime_local_worker.py");
+const workerCommonPath = join(workerRoot, "worker_runtime_common.py");
+const workerPyprojectPath = join(workerRoot, "pyproject.toml");
 const defaultCapabilityPath = join(tauriRoot, "capabilities", "default.json");
 
 for (const path of [
@@ -48,7 +50,8 @@ for (const path of [
   helperBridgePath,
   meetingOutputPath,
   runtimeInventoryPath,
-  workerPath,
+  workerEntrypointPath,
+  workerCommonPath,
   workerPyprojectPath,
   defaultCapabilityPath,
 ]) requireFile(path);
@@ -72,11 +75,16 @@ for (const [name, command] of Object.entries(scripts)) {
 if (scripts["build:frontend"] !== "vite build") fail("Frontend build script must remain vite build.");
 if (tauriConfig.productName !== "TranslateIT") fail("Tauri productName must be TranslateIT.");
 if (tauriConfig.identifier !== "com.halokaryamedia.translateit") fail("Tauri identifier must remain canonical.");
+if (!String(tauriConfig.version ?? "").trim()) fail("Tauri application version must be explicit.");
+if (String(packageJson.version ?? "").trim() !== String(tauriConfig.version ?? "").trim()) fail("package.json and tauri.conf.json versions must match so Setup and payload identity cannot drift.");
 if (tauriConfig.build?.beforeBuildCommand !== "npm run build:frontend") fail("Tauri beforeBuildCommand must use frontend-only build.");
 if (tauriConfig.build?.frontendDist !== "../dist") fail("Tauri frontendDist must point to ../dist.");
 if (tauriConfig.bundle?.active !== true) fail("Tauri bundle config must remain active.");
 if (!Array.isArray(tauriConfig.bundle?.targets) || !tauriConfig.bundle.targets.includes("nsis")) fail("Tauri bundle targets must include nsis.");
-if (releaseConfig.bundle?.windows?.nsis?.installerHooks !== "./target/translateit-r3-payload-hooks.generated.nsh") fail("Release overlay must use the R3 generated NSIS installer hook.");
+
+const releaseNsis = releaseConfig.bundle?.windows?.nsis ?? {};
+if (releaseNsis.installMode !== "perMachine") fail("R3 release overlay must use perMachine install mode.");
+if (releaseNsis.installerHooks !== "./target/translateit-r3-payload-hooks.generated.nsh") fail("R3 release overlay must use generated installer hooks.");
 
 const mainWindow = tauriConfig.app?.windows?.find((window) => window.label === "main");
 if (!mainWindow) fail("Tauri config must declare the main window.");
@@ -86,7 +94,12 @@ if (!Array.isArray(defaultCapability.windows) || !defaultCapability.windows.incl
 if (!Array.isArray(defaultCapability.permissions) || !defaultCapability.permissions.includes("core:default")) fail("Default capability must include core:default.");
 
 const cargoToml = readText(cargoTomlPath);
-requireMarkers(cargoToml, "Cargo.toml", ['name = "translateit"', 'edition = "2021"', 'tauri = { version = "2"', 'tauri-build = { version = "2"']);
+requireMarkers(cargoToml, "Cargo.toml", [
+  'name = "translateit"',
+  'edition = "2021"',
+  'tauri = { version = "2"',
+  'tauri-build = { version = "2"',
+]);
 
 const mainRs = readText(mainRsPath);
 requireMarkers(mainRs, "Rust main", ["mod app_bootstrap;", "app_bootstrap::configure_main_window"]);
@@ -128,11 +141,22 @@ requireMarkers(bridgePathsRs, "packaged Python resolver", [
 ]);
 
 const helperBridgeRs = readText(helperBridgePath);
-requireMarkers(helperBridgeRs, "persistent helper ownership", ["resolve_worker_python_command", "worker_python_unavailable_message", "Command::new(&python.program)"]);
-forbidMarkers(helperBridgeRs, "legacy helper Python selection", ["worker_python_candidates", "install Python on PATH"]);
+requireMarkers(helperBridgeRs, "persistent helper ownership", [
+  "resolve_worker_python_command",
+  "worker_python_unavailable_message",
+  "Command::new(&python.program)",
+]);
+forbidMarkers(helperBridgeRs, "legacy helper Python selection", [
+  "worker_python_candidates",
+  "install Python on PATH",
+]);
 
 const meetingOutputRs = readText(meetingOutputPath);
-requireMarkers(meetingOutputRs, "Rust Meeting audio delivery", ["pub fn prepare_meeting_output_device(", "pub fn deliver_meeting_output_wav(", ".build_output_stream("]);
+requireMarkers(meetingOutputRs, "Rust Meeting audio delivery", [
+  "pub fn prepare_meeting_output_device(",
+  "pub fn deliver_meeting_output_wav(",
+  ".build_output_stream(",
+]);
 
 const workerPyproject = readText(workerPyprojectPath);
 requireMarkers(workerPyproject, "canonical WorkerRuntime dependency set", [
@@ -148,21 +172,36 @@ forbidMarkers(workerPyproject, "retired WorkerRuntime dependency boundary", [
   "[project.optional-dependencies]",
 ]);
 
-const worker = readText(workerPath);
-requireMarkers(worker, "worker runtime/user path split", [
-  '"TRANSLATEIT_RUNTIME_ROOT"',
-  '"TRANSLATEIT_USER_DATA_ROOT"',
+const workerEntrypoint = readText(workerEntrypointPath);
+requireMarkers(workerEntrypoint, "thin worker entrypoint", [
+  'with_name("realtime_local_worker_base.py")',
+  "milmmt_translation_provider.install(globals())",
+]);
+
+const workerCommon = readText(workerCommonPath);
+requireMarkers(workerCommon, "worker runtime/user path owner", [
+  'configured_absolute_root("TRANSLATEIT_RUNTIME_ROOT"',
+  'configured_absolute_root("TRANSLATEIT_USER_DATA_ROOT"',
   "RUNTIME_ASSETS_ROOT = RUNTIME_ROOT",
   'CACHE_ROOT = USER_DATA_ROOT / "CacheData"',
   'LOG_ROOT = USER_DATA_ROOT / "LogData"',
+  'TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"',
+]);
+forbidMarkers(workerCommon, "worker repository-coupled packaged paths", [
+  'CACHE_ROOT = SCRIPT_ROOT / "UserData"',
+  'RUNTIME_ASSETS_ROOT = SCRIPT_ROOT / "EngineData"',
 ]);
 
 const runtimeInventoryRs = readText(runtimeInventoryPath);
-requireMarkers(runtimeInventoryRs, "model inventory path consumers", ["project_paths.runtime_root", "project_paths.worker_runtime_dir", "project_paths.user_cache_dir"]);
+requireMarkers(runtimeInventoryRs, "model inventory path consumers", [
+  "project_paths.runtime_root",
+  "project_paths.worker_runtime_dir",
+  "project_paths.user_cache_dir",
+]);
 forbidMarkers(runtimeInventoryRs, "model inventory project-root derivation", ["project_paths.project_root"]);
 
 if (errors.length) {
   for (const error of errors) console.error(`[tauri-package-preflight] ${error}`);
   process.exit(1);
 }
-console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths remain resource-dir owned, production uses the private Python runtime, WorkerRuntime is pinned to Transformers 4.57.6, and the R3 release overlay delegates large offline payload installation to the generated NSIS hook. Artifact/install/clean-machine proof remains separate.");
+console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths resolve through the Tauri resource root, the private Python runtime stays production-only, WorkerRuntime is pinned to Transformers 4.57.6, and R3 uses one per-machine Setup with a generated external-payload lifecycle hook. Artifact/install/clean-machine proof remains separate.");
