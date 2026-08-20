@@ -14,6 +14,13 @@ EXPECTED_MODEL_PATH = (
 )
 CURRENT_TRANSFORMERS_VERSION = "4.50.0"
 CURRENT_TRANSFORMERS_SPEC = ">=4.44.0,<=4.50.0"
+ACTIVE_LEGACY_TRANSLATION_MARKERS = (
+    "marianmt-id-en",
+    "marianmt-en-id",
+    "helsinki-nlp/opus-mt-id-en",
+    "helsinki-nlp/opus-mt-en-id",
+    "facebook/m2m100_418m",
+)
 
 
 def require(condition: bool, message: str) -> None:
@@ -152,6 +159,49 @@ def validate_active_tests(root: Path) -> None:
     require("AutoModelForSeq2SeqLM" not in active, "tests:legacy_seq2seq_active")
 
 
+def validate_release_boundary(root: Path) -> None:
+    app_root = root / "EngineData/Frontend/RustApp"
+    stage = read(app_root / "scripts/stage_release_inputs.ps1")
+    optimizer = read(app_root / "scripts/optimize_release_payload.py")
+    revision_validator = read(app_root / "scripts/validate_release_model_revisions.mjs")
+    package = json.loads(read(app_root / "package.json"))
+    release_workflow = read(root / ".github/workflows/release-payload-verify.yml")
+    efficiency_workflow = read(root / ".github/workflows/release-efficiency-profile.yml")
+
+    require("prepare_model_assets.py" in stage, "release:manifest_acquirer_missing")
+    require("faster-whisper-large-v3-turbo" in stage, "release:asr_manifest_id_missing")
+    require(MODEL_ID in stage, "release:milmmt_manifest_id_missing")
+    require(REVISION in stage, "release:milmmt_revision_gate_missing")
+    require(
+        "validate_release_model_revisions.mjs"
+        in package.get("scripts", {}).get("preflight:release-payload", ""),
+        "release:revision_preflight_not_wired",
+    )
+    require(
+        MODEL_ID in revision_validator and REVISION in revision_validator,
+        "release:revision_validator_identity",
+    )
+    require(
+        "model.safetensors" not in optimizer,
+        "release:optimizer_must_not_mutate_translation_model",
+    )
+
+    active_release_text = "\n".join(
+        (stage, optimizer, revision_validator, release_workflow, efficiency_workflow)
+    ).lower()
+    for marker in ACTIVE_LEGACY_TRANSLATION_MARKERS:
+        require(marker not in active_release_text, f"release:legacy_translation_marker:{marker}")
+
+    require(
+        "validate_release_model_revisions.mjs" in release_workflow,
+        "release:workflow_revision_validation_missing",
+    )
+    require(
+        "validate_canonical_milmmt_repo.py" in efficiency_workflow,
+        "release:efficiency_repo_contract_missing",
+    )
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[2]
     validate_manifest(root)
@@ -159,6 +209,7 @@ def main() -> int:
     validate_smoke(root)
     validate_dependency_lock(root)
     validate_active_tests(root)
+    validate_release_boundary(root)
     print(
         json.dumps(
             {
@@ -166,6 +217,7 @@ def main() -> int:
                 "model_id": MODEL_ID,
                 "revision": REVISION,
                 "transformers": CURRENT_TRANSFORMERS_VERSION,
+                "release_packaging": "canonical_manifest_owned",
                 "target_pc_validation": "deferred",
             },
             indent=2,

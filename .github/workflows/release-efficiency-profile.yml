@@ -10,8 +10,8 @@ on:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py"
-      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/milmmt_translation_provider.py"
+      - "EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py"
       - "EngineData/Frontend/RustApp/scripts/optimize_release_payload.py"
       - ".github/workflows/release-efficiency-profile.yml"
 
@@ -39,7 +39,7 @@ jobs:
 
       - name: Install pinned audit tools
         shell: pwsh
-        run: python -m pip install --disable-pip-version-check uv==0.12.0 huggingface-hub==0.36.2 hf-xet==1.6.0
+        run: python -m pip install --disable-pip-version-check uv==0.12.0
 
       - name: Resolve frozen WorkerRuntime closure
         shell: pwsh
@@ -53,416 +53,101 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Frozen WorkerRuntime sync failed.' }
           } finally { Pop-Location }
 
-      - name: Audit Torch build-only payload candidate
+      - name: Profile production optimizer against frozen closure
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $worker = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime').Path
-          $runtimePython = Join-Path $worker '.venv/Scripts/python.exe'
-          $gptZip = Join-Path $env:RUNNER_TEMP 'gpt-sovits-source.zip'
-          $gptExtract = Join-Path $env:RUNNER_TEMP 'gpt-sovits-source'
-          Invoke-WebRequest -Uri 'https://github.com/RVC-Boss/GPT-SoVITS/archive/d523079fc05d9a8028d6085bffe4a2757c32abb6.zip' -OutFile $gptZip
-          Expand-Archive -LiteralPath $gptZip -DestinationPath $gptExtract -Force
-          $gptRoot = (Get-ChildItem -LiteralPath $gptExtract -Directory | Select-Object -First 1).FullName
-          if (-not $gptRoot) { throw 'Pinned GPT-SoVITS source root missing.' }
-          $env:R32_WORKER = $worker
-          $env:R32_GPT = $gptRoot
-          $env:R32_TORCH_REPORT = Join-Path $env:RUNNER_TEMP 'r32-torch.json'
-          $script = Join-Path $env:RUNNER_TEMP 'r32-torch-audit.py'
-          @'
-          import json
-          import os
-          import shutil
-          import subprocess
-          import sys
-          from pathlib import Path
+          $backend = (Resolve-Path 'EngineData/Backend').Path
+          $python = (Get-Command python).Source
+          $site = Join-Path $worker '.venv/Lib/site-packages'
 
-          worker = Path(os.environ["R32_WORKER"])
-          gpt = Path(os.environ["R32_GPT"])
-          site = worker / ".venv" / "Lib" / "site-packages"
-          torch_root = site / "torch"
-          if not torch_root.is_dir():
-              raise SystemExit("Torch package root missing")
+          python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $site --label baseline --json-out (Join-Path $env:RUNNER_TEMP 'baseline-python.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline Python profile failed.' }
 
-          def bytes_of(path: Path) -> int:
-              if path.is_file():
-                  return path.stat().st_size
-              if path.is_dir():
-                  return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
-              return 0
+          $runtimeRoot = Join-Path $backend 'LocalWorker/PythonRuntime'
+          if (Test-Path -LiteralPath $runtimeRoot) { Remove-Item -LiteralPath $runtimeRoot -Recurse -Force }
+          New-Item -ItemType Junction -Path $runtimeRoot -Target $site | Out-Null
+          Copy-Item -LiteralPath $python -Destination (Join-Path $site 'python.exe')
 
-          dlls = sorted((torch_root / "lib").glob("*.dll"))
-          dll_bytes = sum(path.stat().st_size for path in dlls)
+          $bertRoot = Join-Path $backend 'RuntimeAssets/Voice/GPTSoVITS/Source/GPT_SoVITS/pretrained_models/chinese-roberta-wwm-ext-large'
+          New-Item -ItemType Directory -Force -Path $bertRoot | Out-Null
+          Set-Content -LiteralPath (Join-Path $bertRoot 'profile-model.bin') -Value ('x' * 4096) -Encoding ascii
 
-          candidate_paths = []
-          for directory in (torch_root / "include", torch_root / "share"):
-              if directory.exists():
-                  candidate_paths.append(directory)
-          lib_root = torch_root / "lib"
-          if lib_root.is_dir():
-              for pattern in ("*.lib", "*.exp", "*.pdb"):
-                  candidate_paths.extend(sorted(lib_root.glob(pattern)))
-
-          candidate_bytes = sum(bytes_of(path) for path in candidate_paths)
-          markers = (
-              "torch.utils.cpp_extension",
-              "cpp_extension",
-              "load_inline(",
-              "CUDAExtension(",
-              "CppExtension(",
-          )
-          marker_hits = []
-          source_paths = list(worker.glob("*.py")) + list(gpt.rglob("*.py"))
-          for path in source_paths:
-              try:
-                  text = path.read_text(encoding="utf-8", errors="ignore")
-              except OSError:
-                  continue
-              for marker in markers:
-                  if marker in text:
-                      marker_hits.append(f"{path}:{marker}")
-
-          accepted = False
-          reason = ""
-          backup = Path(os.environ.get("RUNNER_TEMP", ".")) / "r32-torch-backup"
-          backup.mkdir(parents=True, exist_ok=True)
-          moved = []
-
-          if marker_hits:
-              reason = "runtime_source_references_cpp_extension"
-          elif candidate_bytes <= 0:
-              reason = "no_build_only_candidate_bytes"
-          else:
-              try:
-                  for index, source in enumerate(candidate_paths):
-                      destination = backup / f"{index:04d}-{source.name}"
-                      shutil.move(str(source), str(destination))
-                      moved.append((source, destination))
-
-                  smoke = subprocess.run(
-                      [
-                          sys.executable,
-                          "-c",
-                          (
-                              "import torch,torchaudio,pytorch_lightning,transformers,ctranslate2,"
-                              "faster_whisper,onnxruntime; "
-                              "import voice_lab_gpt_sovits,voice_lab_upstream_stage; "
-                              "x=torch.tensor([1.0,2.0]); y=(x*x).sum().item(); "
-                              "assert y==5.0; print('torch runtime smoke PASS')"
-                          ),
-                      ],
-                      cwd=str(worker),
-                      env={**os.environ, "PYTHONPATH": str(worker)},
-                      text=True,
-                      capture_output=True,
-                  )
-                  if smoke.returncode != 0:
-                      reason = "post_prune_runtime_import_failed"
-                  else:
-                      accepted = True
-                      reason = "build_only_paths_pruned_runtime_imports_pass"
-              finally:
-                  if not accepted:
-                      for source, destination in reversed(moved):
-                          source.parent.mkdir(parents=True, exist_ok=True)
-                          shutil.move(str(destination), str(source))
-
-          remaining_dlls = sorted((torch_root / "lib").glob("*.dll"))
-          remaining_dll_bytes = sum(path.stat().st_size for path in remaining_dlls)
-          if accepted and (len(remaining_dlls) != len(dlls) or remaining_dll_bytes != dll_bytes):
-              raise SystemExit("Torch candidate unexpectedly changed runtime DLL inventory")
-
-          report = {
-              "torch_total_bytes_before_candidate": bytes_of(torch_root) + (candidate_bytes if accepted else 0),
-              "candidate_bytes": candidate_bytes,
-              "candidate_paths": [str(path.relative_to(site)).replace("\\", "/") for path in candidate_paths],
-              "runtime_dll_count": len(dlls),
-              "runtime_dll_bytes": dll_bytes,
-              "source_compile_marker_hits": marker_hits,
-              "accepted": accepted,
-              "reason": reason,
-          }
-          Path(os.environ["R32_TORCH_REPORT"]).write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-          print(json.dumps(report, indent=2))
-          '@ | Set-Content -LiteralPath $script -Encoding utf8NoBOM
-          Push-Location $worker
           try {
-            & $runtimePython $script
-            if ($LASTEXITCODE -ne 0) { throw 'Torch build-only audit harness failed.' }
-          } finally { Pop-Location }
+            & $python EngineData/Frontend/RustApp/scripts/optimize_release_payload.py --backend-root $backend
+            if ($LASTEXITCODE -ne 0) { throw 'Release payload optimizer failed.' }
+            Remove-Item -LiteralPath (Join-Path $site 'python.exe') -Force
+            python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $site --label optimized --json-out (Join-Path $env:RUNNER_TEMP 'optimized-python.json')
+            if ($LASTEXITCODE -ne 0) { throw 'Optimized Python profile failed.' }
+          } finally {
+            if (Test-Path -LiteralPath $runtimeRoot) { Remove-Item -LiteralPath $runtimeRoot -Force }
+          }
 
-      - name: Audit pinned Marian release representations
+      - name: Validate optimized dependency closure
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $worker = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime').Path
-          $runtimePython = Join-Path $worker '.venv/Scripts/python.exe'
-          $env:R32_MARIAN_ROOT = Join-Path $env:RUNNER_TEMP 'r32-marian'
-          $env:R32_MARIAN_REPORT = Join-Path $env:RUNNER_TEMP 'r32-marian.json'
-          $env:HF_HOME = Join-Path $env:RUNNER_TEMP 'r32-hf-home'
-          $env:HF_HUB_CACHE = Join-Path $env:RUNNER_TEMP 'r32-hf-cache'
-          $env:HF_XET_CACHE = Join-Path $env:RUNNER_TEMP 'r32-hf-xet'
-          $script = Join-Path $env:RUNNER_TEMP 'r32-marian-audit.py'
-          @'
-          import gc
-          import json
-          import os
-          import shutil
-          from pathlib import Path
-
-          import ctranslate2
-          import sentencepiece as spm
-          import torch
-          from ctranslate2.converters import TransformersConverter
-          from huggingface_hub import snapshot_download
-          from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
-          root = Path(os.environ["R32_MARIAN_ROOT"])
-          root.mkdir(parents=True, exist_ok=True)
-
-          models = [
-              {
-                  "direction": "id-en",
-                  "repo": "Helsinki-NLP/opus-mt-id-en",
-                  "revision": "9a7f1b0d0dfe0a92ba691030b01d6f23f966e7ec",
-                  "corpus": [
-                      "Selamat pagi, apakah suara saya terdengar jelas?",
-                      "Saya akan mengirim laporan sebelum pukul lima sore.",
-                      "Total biayanya Rp1.250.000 dan sudah termasuk pajak.",
-                      "Tolong jangan ubah nama file Project Alpha.",
-                      "Rapat dipindahkan ke hari Jumat, 21 Agustus 2026.",
-                      "Jika koneksi terputus, kita lanjutkan setelah jaringan stabil.",
-                      "Versi 2.3 memperbaiki dua masalah tanpa mengubah fitur utama.",
-                      "Apakah Anda bisa mengulangi kalimat terakhir?",
-                      "Kami membutuhkan hasil yang cepat, tetapi akurasi tetap prioritas.",
-                      "Nomor referensinya adalah AB-2048-X.",
-                      "Setelah instalasi selesai, aplikasi dapat digunakan tanpa internet.",
-                      "Data pengguna tidak boleh terhapus saat aplikasi diperbarui.",
-                  ],
-              },
-              {
-                  "direction": "en-id",
-                  "repo": "Helsinki-NLP/opus-mt-en-id",
-                  "revision": "6e4c52d61a6b16fe3509b0267cbfec65011b860b",
-                  "corpus": [
-                      "Good morning, can you hear me clearly?",
-                      "I will send the report before five this afternoon.",
-                      "The total cost is 1,250,000 rupiah including tax.",
-                      "Please do not change the Project Alpha file name.",
-                      "The meeting was moved to Friday, August 21, 2026.",
-                      "If the connection drops, we will continue after the network is stable.",
-                      "Version 2.3 fixes two issues without changing the main features.",
-                      "Could you repeat the last sentence?",
-                      "We need a fast result, but accuracy remains the priority.",
-                      "The reference number is AB-2048-X.",
-                      "After installation, the application can be used without internet access.",
-                      "User data must not be deleted when the application is updated.",
-                  ],
-              },
-          ]
-
-          alternate_weight_names = {
-              "rust_model.ot",
-              "tf_model.h5",
-              "flax_model.msgpack",
-          }
-
-          def tree_bytes(path: Path) -> int:
-              return sum(item.stat().st_size for item in path.rglob("*") if item.is_file())
-
-          def normalize(text: str) -> str:
-              return " ".join(str(text).strip().split())
-
-          def hf_outputs(model_dir: Path, corpus: list[str]) -> tuple[list[str], str]:
-              tokenizer = AutoTokenizer.from_pretrained(str(model_dir), local_files_only=True)
-              model = AutoModelForSeq2SeqLM.from_pretrained(str(model_dir), local_files_only=True)
-              model.eval()
-              dtype = str(next(model.parameters()).dtype)
-              outputs = []
-              with torch.inference_mode():
-                  for text in corpus:
-                      inputs = tokenizer(text, return_tensors="pt", truncation=False)
-                      generated = model.generate(**inputs, max_new_tokens=32, num_beams=1)
-                      outputs.append(normalize(tokenizer.batch_decode(generated, skip_special_tokens=True)[0]))
-              del model
-              del tokenizer
-              gc.collect()
-              return outputs, dtype
-
-          def ct2_outputs(model_dir: Path, ct2_dir: Path, corpus: list[str]) -> list[str]:
-              source_spm = model_dir / "source.spm"
-              target_spm = model_dir / "target.spm"
-              if not source_spm.is_file() or not target_spm.is_file():
-                  raise RuntimeError("Marian SentencePiece assets missing")
-              source = spm.SentencePieceProcessor(model_file=str(source_spm))
-              target = spm.SentencePieceProcessor(model_file=str(target_spm))
-              translator = ctranslate2.Translator(str(ct2_dir), device="cpu", compute_type="float32")
-              outputs = []
-              for text in corpus:
-                  tokens = source.encode(text, out_type=str)
-                  result = translator.translate_batch([tokens], beam_size=1, max_decoding_length=32)[0]
-                  outputs.append(normalize(target.decode(result.hypotheses[0])))
-              return outputs
-
-          results = []
-          for item in models:
-              direction = item["direction"]
-              full = root / f"{direction}-full"
-              minimal = root / f"{direction}-minimal"
-              ct2_dir = root / f"{direction}-ct2-float32"
-
-              snapshot_download(
-                  repo_id=item["repo"],
-                  revision=item["revision"],
-                  local_dir=full,
-              )
-              cache = full / ".cache"
-              if cache.exists():
-                  shutil.rmtree(cache)
-
-              files = sorted(
-                  (
-                      {
-                          "path": str(path.relative_to(full)).replace("\\", "/"),
-                          "bytes": path.stat().st_size,
-                      }
-                      for path in full.rglob("*")
-                      if path.is_file()
-                  ),
-                  key=lambda value: value["bytes"],
-                  reverse=True,
-              )
-              full_bytes = sum(entry["bytes"] for entry in files)
-
-              dropped = []
-              def ignore(directory, names):
-                  ignored = set()
-                  for name in names:
-                      path = Path(directory) / name
-                      if path.is_file() and name.lower() in alternate_weight_names:
-                          ignored.add(name)
-                          dropped.append({
-                              "path": str(path.relative_to(full)).replace("\\", "/"),
-                              "bytes": path.stat().st_size,
-                          })
-                  return ignored
-
-              shutil.copytree(full, minimal, ignore=ignore)
-              baseline, dtype = hf_outputs(full, item["corpus"])
-              minimal_outputs, minimal_dtype = hf_outputs(minimal, item["corpus"])
-              minimal_exact = baseline == minimal_outputs and dtype == minimal_dtype
-              minimal_bytes = tree_bytes(minimal)
-
-              ct2_exact = False
-              ct2_error = ""
-              ct2_candidate_bytes = 0
-              ct2_outputs_value = []
-              if minimal_exact:
-                  try:
-                      TransformersConverter(str(minimal)).convert(
-                          str(ct2_dir), quantization="float32", force=True
-                      )
-                      ct2_outputs_value = ct2_outputs(minimal, ct2_dir, item["corpus"])
-                      ct2_exact = baseline == ct2_outputs_value
-                      tokenizer_bytes = sum(
-                          path.stat().st_size
-                          for path in (minimal / "source.spm", minimal / "target.spm")
-                          if path.is_file()
-                      )
-                      ct2_candidate_bytes = tree_bytes(ct2_dir) + tokenizer_bytes
-                  except Exception as exc:
-                      ct2_error = f"{type(exc).__name__}: {exc}"
-
-              results.append({
-                  "direction": direction,
-                  "repo": item["repo"],
-                  "revision": item["revision"],
-                  "original_bytes": full_bytes,
-                  "original_files": files,
-                  "baseline_dtype": dtype,
-                  "minimal_snapshot_bytes": minimal_bytes,
-                  "minimal_snapshot_saving_bytes": full_bytes - minimal_bytes,
-                  "minimal_dropped_files": dropped,
-                  "minimal_exact_output_parity": minimal_exact,
-                  "ctranslate2_float32_bytes": ct2_candidate_bytes,
-                  "ctranslate2_float32_saving_bytes": full_bytes - ct2_candidate_bytes if ct2_candidate_bytes else 0,
-                  "ctranslate2_float32_exact_output_parity": ct2_exact,
-                  "ctranslate2_error": ct2_error,
-                  "baseline_outputs": baseline,
-                  "ctranslate2_outputs": ct2_outputs_value,
-              })
-
-          summary = {
-              "models": results,
-              "original_total_bytes": sum(item["original_bytes"] for item in results),
-              "minimal_snapshot_total_bytes": sum(item["minimal_snapshot_bytes"] for item in results),
-              "minimal_snapshot_total_saving_bytes": sum(item["minimal_snapshot_saving_bytes"] for item in results),
-              "minimal_snapshot_all_exact": all(item["minimal_exact_output_parity"] for item in results),
-              "ctranslate2_float32_total_bytes": sum(item["ctranslate2_float32_bytes"] for item in results),
-              "ctranslate2_float32_total_saving_bytes": sum(item["ctranslate2_float32_saving_bytes"] for item in results),
-              "ctranslate2_float32_all_exact": all(item["ctranslate2_float32_exact_output_parity"] for item in results),
-          }
-          Path(os.environ["R32_MARIAN_REPORT"]).write_text(json.dumps(summary, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-          print(json.dumps({
-              key: value for key, value in summary.items() if key != "models"
-          }, indent=2))
-          for item in results:
-              print(json.dumps({
-                  "direction": item["direction"],
-                  "original_bytes": item["original_bytes"],
-                  "minimal_snapshot_bytes": item["minimal_snapshot_bytes"],
-                  "minimal_snapshot_saving_bytes": item["minimal_snapshot_saving_bytes"],
-                  "minimal_exact_output_parity": item["minimal_exact_output_parity"],
-                  "ctranslate2_float32_bytes": item["ctranslate2_float32_bytes"],
-                  "ctranslate2_float32_saving_bytes": item["ctranslate2_float32_saving_bytes"],
-                  "ctranslate2_float32_exact_output_parity": item["ctranslate2_float32_exact_output_parity"],
-                  "dropped": item["minimal_dropped_files"],
-                  "ct2_error": item["ctranslate2_error"],
-              }, indent=2))
-          '@ | Set-Content -LiteralPath $script -Encoding utf8NoBOM
-          Push-Location $worker
-          try {
-            & $runtimePython $script
-            if ($LASTEXITCODE -ne 0) { throw 'Marian representation audit harness failed.' }
-          } finally { Pop-Location }
-
-      - name: Summarize R3.2 candidates
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $env:TORCH_REPORT = Join-Path $env:RUNNER_TEMP 'r32-torch.json'
-          $env:MARIAN_REPORT = Join-Path $env:RUNNER_TEMP 'r32-marian.json'
+          $env:BASELINE = Join-Path $env:RUNNER_TEMP 'baseline-python.json'
+          $env:OPTIMIZED = Join-Path $env:RUNNER_TEMP 'optimized-python.json'
+          $env:SUMMARY_JSON = Join-Path $env:RUNNER_TEMP 'optimization-summary.json'
           @'
           import json
           import os
           from pathlib import Path
 
-          torch = json.loads(Path(os.environ["TORCH_REPORT"]).read_text(encoding="utf-8"))
-          marian = json.loads(Path(os.environ["MARIAN_REPORT"]).read_text(encoding="utf-8"))
+          baseline = json.loads(Path(os.environ["BASELINE"]).read_text(encoding="utf-8"))
+          optimized = json.loads(Path(os.environ["OPTIMIZED"]).read_text(encoding="utf-8"))
+          present = {item["normalized_name"] for item in optimized["distributions"]}
+          forbidden = {
+              "accelerate", "annotated-types", "budoux", "cn2an", "colorlog",
+              "fast-langdetect", "fasttext-predict", "jieba", "jieba-fast", "pandas",
+              "peft", "proces", "pydantic", "pydantic-core", "pypinyin",
+              "robust-downloader", "split-lang", "typing-inspection", "tzdata",
+          }
+          remaining = sorted(forbidden & present)
+          if remaining:
+              raise SystemExit(f"optimized closure still contains excluded distributions: {remaining}")
+          if optimized["distribution_count"] != 97:
+              raise SystemExit(
+                  f"optimized closure must contain 97 distributions, got {optimized['distribution_count']}"
+              )
+          required = {
+              "torch", "torchaudio", "faster-whisper", "ctranslate2", "onnxruntime",
+              "pytorch-lightning", "transformers", "matplotlib", "sentencepiece",
+          }
+          missing = sorted(required - present)
+          if missing:
+              raise SystemExit(f"optimized closure lost required distributions: {missing}")
+
+          saving = int(baseline["total_bytes"]) - int(optimized["total_bytes"])
+          if saving <= 0:
+              raise SystemExit(f"optimizer produced no Python closure saving: {saving}")
           result = {
-              "torch_build_only_candidate_accepted": bool(torch["accepted"]),
-              "torch_build_only_candidate_bytes": int(torch["candidate_bytes"]),
-              "marian_minimal_snapshot_all_exact": bool(marian["minimal_snapshot_all_exact"]),
-              "marian_minimal_snapshot_saving_bytes": int(marian["minimal_snapshot_total_saving_bytes"]),
-              "marian_ctranslate2_float32_all_exact": bool(marian["ctranslate2_float32_all_exact"]),
-              "marian_ctranslate2_float32_saving_bytes": int(marian["ctranslate2_float32_total_saving_bytes"]),
+              "baseline_site_packages_bytes": baseline["total_bytes"],
+              "optimized_site_packages_bytes": optimized["total_bytes"],
+              "python_closure_saving_bytes": saving,
           }
+          Path(os.environ["SUMMARY_JSON"]).write_text(
+              json.dumps(result, indent=2) + "\n", encoding="utf-8"
+          )
           print(json.dumps(result, indent=2))
-          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as handle:
-              handle.write("## R3.2 capability-preserving efficiency audit\n\n")
-              handle.write(f"- Torch build-only candidate: {'ACCEPT' if result['torch_build_only_candidate_accepted'] else 'REJECT'} ({result['torch_build_only_candidate_bytes']:,} bytes)\n")
-              handle.write(f"- Marian minimal snapshot exact parity: {result['marian_minimal_snapshot_all_exact']} ({result['marian_minimal_snapshot_saving_bytes']:,} bytes saving)\n")
-              handle.write(f"- Marian CTranslate2 float32 exact parity: {result['marian_ctranslate2_float32_all_exact']} ({result['marian_ctranslate2_float32_saving_bytes']:,} bytes saving)\n")
           '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'R3.2 audit summary failed.' }
+          if ($LASTEXITCODE -ne 0) { throw 'Optimized distribution contract failed.' }
 
-      - name: Upload R3.2 audit evidence
+      - name: Validate canonical MiLMMT repository boundary
+        shell: pwsh
+        run: |
+          python tools/translation_quality/validate_canonical_milmmt_repo.py
+          if ($LASTEXITCODE -ne 0) { throw 'MiLMMT repository boundary validation failed.' }
+
+      - name: Upload optimization proof
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: release-efficiency-profile
+          name: release-python-optimization-profile
           if-no-files-found: warn
           retention-days: 7
           path: |
-            ${{ runner.temp }}/r32-torch.json
-            ${{ runner.temp }}/r32-marian.json
+            ${{ runner.temp }}/baseline-python.json
+            ${{ runner.temp }}/optimized-python.json
+            ${{ runner.temp }}/optimization-summary.json

@@ -7,14 +7,18 @@ on:
       - Local
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets_core.py"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py"
+      - "EngineData/Frontend/RustApp/package.json"
       - "EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1"
       - "EngineData/Frontend/RustApp/scripts/stage_release_license_material.py"
       - "EngineData/Frontend/RustApp/scripts/optimize_release_payload.py"
       - "EngineData/Frontend/RustApp/scripts/generate_third_party_notices.mjs"
+      - "EngineData/Frontend/RustApp/scripts/validate_release_model_revisions.mjs"
       - "EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs"
       - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - ".github/workflows/release-payload-verify.yml"
@@ -77,7 +81,6 @@ jobs:
       - name: Measure pre-optimization controlled components
         shell: pwsh
         run: |
-          $env:PAYLOAD_PHASE = 'before'
           $env:PAYLOAD_OUT = Join-Path $env:RUNNER_TEMP 'payload-before.json'
           @'
           import json
@@ -98,7 +101,7 @@ jobs:
               for name, root in roots.items()
           }
           result = {
-              "phase": os.environ["PAYLOAD_PHASE"],
+              "phase": "before",
               "controlled_component_bytes": sum(components.values()),
               "components": components,
           }
@@ -132,12 +135,13 @@ jobs:
           $backend = (Resolve-Path 'EngineData/Backend').Path
           $pythonRoot = Join-Path $backend 'LocalWorker/PythonRuntime'
           $privatePython = Join-Path $pythonRoot 'python.exe'
+
           python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $pythonRoot --label optimized-complete --json-out (Join-Path $env:RUNNER_TEMP 'optimized-python.json')
           if ($LASTEXITCODE -ne 0) { throw 'Optimized complete Python audit failed.' }
+
           $env:AUDIT = Join-Path $env:RUNNER_TEMP 'optimized-python.json'
           $env:BACKEND = $backend
           @'
-          import gc
           import json
           import os
           from pathlib import Path
@@ -155,6 +159,13 @@ jobs:
           leaked = sorted(forbidden & present)
           if leaked:
               raise SystemExit(f"excluded optimized distributions remain: {leaked}")
+          required = {
+              "torch", "torchaudio", "transformers", "ctranslate2", "faster-whisper",
+              "onnxruntime", "pytorch-lightning", "sentencepiece", "soundfile",
+          }
+          missing = sorted(required - present)
+          if missing:
+              raise SystemExit(f"optimized closure lost required distributions: {missing}")
 
           backend = Path(os.environ["BACKEND"])
           python_root = backend / "LocalWorker" / "PythonRuntime"
@@ -171,81 +182,34 @@ jobs:
           if len(dlls) != 37:
               raise SystemExit(f"expected 37 Torch runtime DLLs, got {len(dlls)}")
 
-          translation_root = backend / "RuntimeAssets" / "Translation" / "ModelData"
-          for model_name in ("marianmt-id-en", "marianmt-en-id"):
-              model = translation_root / model_name
-              if (model / "tf_model.h5").exists():
-                  raise SystemExit(f"unused TensorFlow weight remains: {model_name}")
-              weights = list(model.glob("pytorch_model*.bin")) + list(model.glob("*.safetensors"))
-              if not weights:
-                  raise SystemExit(f"PyTorch Marian weights missing: {model_name}")
-
-          voice_bert = backend / "RuntimeAssets" / "Voice" / "GPTSoVITS" / "Source" / "GPT_SoVITS" / "pretrained_models" / "chinese-roberta-wwm-ext-large"
-          marker = voice_bert / "TRANSLATEIT_ENGLISH_ONLY.txt"
-          if not marker.is_file():
-              raise SystemExit("English-only VoiceLab marker missing")
-          extra_bert = [path for path in voice_bert.rglob("*") if path.is_file() and path != marker]
-          if extra_bert:
-              raise SystemExit("Chinese RoBERTa bytes remain after optimization")
+          legacy_root = backend / "RuntimeAssets" / "Translation" / "ModelData"
+          for name in ("m2m100-418m", "facebook--m2m100_418M", "marianmt-id-en", "marianmt-en-id"):
+              if (legacy_root / name).exists():
+                  raise SystemExit(f"legacy translation payload remains: {name}")
 
           print("optimized structural capability closure: PASS")
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'Optimized structural contract failed.' }
 
+          Push-Location 'EngineData/Frontend/RustApp'
+          try {
+            node scripts/validate_release_model_revisions.mjs
+            if ($LASTEXITCODE -ne 0) { throw 'Optimized model revision validation failed.' }
+          } finally { Pop-Location }
+
           & $privatePython -s -c "import torch,torchaudio,transformers,ctranslate2,faster_whisper,onnxruntime,pytorch_lightning; x=torch.tensor([1.0,2.0]); assert (x*x).sum().item()==5.0; print('optimized private runtime imports: PASS')"
           if ($LASTEXITCODE -ne 0) { throw 'Optimized private Python runtime smoke failed.' }
 
-      - name: Verify optimized Marian models still load and translate
+      - name: Measure optimized controlled components
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          $backend = (Resolve-Path 'EngineData/Backend').Path
-          $privatePython = Join-Path $backend 'LocalWorker/PythonRuntime/python.exe'
-          $env:BACKEND = $backend
-          $probe = Join-Path $env:RUNNER_TEMP 'verify-optimized-marian.py'
-          @'
-          import gc
-          import os
-          from pathlib import Path
-          import torch
-          from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
-          root = Path(os.environ["BACKEND"]) / "RuntimeAssets" / "Translation" / "ModelData"
-          cases = [
-              ("marianmt-id-en", "Selamat pagi, apakah suara saya terdengar jelas?"),
-              ("marianmt-en-id", "Good morning, can you hear me clearly?"),
-          ]
-          for name, text in cases:
-              path = root / name
-              tokenizer = AutoTokenizer.from_pretrained(str(path), local_files_only=True)
-              model = AutoModelForSeq2SeqLM.from_pretrained(str(path), local_files_only=True)
-              model.eval()
-              with torch.inference_mode():
-                  inputs = tokenizer(text, return_tensors="pt", truncation=False)
-                  generated = model.generate(**inputs, max_new_tokens=32, num_beams=1)
-                  output = " ".join(tokenizer.batch_decode(generated, skip_special_tokens=True)[0].split())
-              if not output:
-                  raise SystemExit(f"optimized Marian output empty: {name}")
-              print(f"optimized Marian {name}: PASS -> {output}")
-              del model
-              del tokenizer
-              gc.collect()
-          '@ | Set-Content -LiteralPath $probe -Encoding utf8NoBOM
-          & $privatePython $probe
-          if ($LASTEXITCODE -ne 0) { throw 'Optimized Marian runtime proof failed.' }
-
-      - name: Measure exact optimized Tauri resource input
-        shell: pwsh
-        run: |
-          $env:BEFORE = Join-Path $env:RUNNER_TEMP 'payload-before.json'
-          $env:SUMMARY = Join-Path $env:RUNNER_TEMP 'payload-optimized.json'
-          $env:PAYLOAD_LIST = Join-Path $env:RUNNER_TEMP 'payload-files.txt'
+          $env:PAYLOAD_OUT = Join-Path $env:RUNNER_TEMP 'payload-optimized.json'
           @'
           import json
           import os
           from pathlib import Path
 
-          repo = Path.cwd().resolve()
+          repo = Path.cwd()
           backend = repo / "EngineData" / "Backend"
           roots = {
               "PythonRuntime": backend / "LocalWorker" / "PythonRuntime",
@@ -258,98 +222,17 @@ jobs:
               name: sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
               for name, root in roots.items()
           }
-
-          config_path = repo / "EngineData" / "Frontend" / "RustApp" / "src-tauri" / "tauri.release.conf.json"
-          config = json.loads(config_path.read_text(encoding="utf-8"))
-          resource_root = config_path.parent
-          seen = set()
-          resources = {}
-          for source in config["bundle"]["resources"]:
-              path = (resource_root / source).resolve()
-              files = [path] if path.is_file() else [item for item in path.rglob("*") if item.is_file()]
-              subtotal = 0
-              for file in files:
-                  real = file.resolve()
-                  if real in seen:
-                      continue
-                  seen.add(real)
-                  subtotal += real.stat().st_size
-              resources[source] = subtotal
-          resource_total = sum(resources.values())
-          before = json.loads(Path(os.environ["BEFORE"]).read_text(encoding="utf-8"))
           result = {
-              "pre_optimization_controlled_component_bytes": before["controlled_component_bytes"],
-              "optimized_controlled_component_bytes": sum(components.values()),
-              "optimized_controlled_component_saving_bytes": before["controlled_component_bytes"] - sum(components.values()),
-              "optimized_components": components,
-              "tauri_release_resource_bytes": resource_total,
-              "tauri_release_resource_file_count": len(seen),
-              "tauri_release_resources": resources,
+              "phase": "optimized",
+              "controlled_component_bytes": sum(components.values()),
+              "components": components,
           }
-          Path(os.environ["SUMMARY"]).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
-          relative_files = sorted(str(path.relative_to(repo)).replace("\\", "/") for path in seen)
-          Path(os.environ["PAYLOAD_LIST"]).write_text("\n".join(relative_files) + "\n", encoding="utf-8", newline="\n")
+          Path(os.environ["PAYLOAD_OUT"]).write_text(
+              json.dumps(result, indent=2) + "\n", encoding="utf-8"
+          )
           print(json.dumps(result, indent=2))
           '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'Exact optimized Tauri resource measurement failed.' }
-
-      - name: Reclaim staging-only disk before compression
-        shell: pwsh
-        run: |
-          Remove-Item -LiteralPath 'EngineData/Backend/LocalWorker/WorkerRuntime/.venv' -Recurse -Force -ErrorAction SilentlyContinue
-          Remove-Item -LiteralPath (Join-Path $env:RUNNER_TEMP 'translateit-release-stage') -Recurse -Force -ErrorAction SilentlyContinue
-
-      - name: Benchmark lossless external-payload compression
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $sevenZip = (Get-Command 7z.exe -ErrorAction Stop).Source
-          $versionLine = (& $sevenZip | Select-String -Pattern '^7-Zip ' | Select-Object -First 1).Line
-          $list = Join-Path $env:RUNNER_TEMP 'payload-files.txt'
-          $rawReport = Get-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'payload-optimized.json') -Raw | ConvertFrom-Json
-          $rawBytes = [int64]$rawReport.tauri_release_resource_bytes
-
-          $zipPath = Join-Path $env:RUNNER_TEMP 'TranslateIT-Payload.zip'
-          $watch = [System.Diagnostics.Stopwatch]::StartNew()
-          & $sevenZip a -tzip -mx=5 -mmt=on -bb0 $zipPath ("@" + $list)
-          if ($LASTEXITCODE -ne 0) { throw 'ZIP compression benchmark failed.' }
-          $watch.Stop()
-          $zipSeconds = [math]::Round($watch.Elapsed.TotalSeconds, 3)
-          $zipBytes = (Get-Item -LiteralPath $zipPath).Length
-          & $sevenZip t -bb0 $zipPath
-          if ($LASTEXITCODE -ne 0) { throw 'ZIP archive integrity test failed.' }
-          Remove-Item -LiteralPath $zipPath -Force
-
-          $sevenPath = Join-Path $env:RUNNER_TEMP 'TranslateIT-Payload.7z'
-          $watch = [System.Diagnostics.Stopwatch]::StartNew()
-          & $sevenZip a -t7z -m0=lzma2 -mx=5 -ms=on -mmt=on -bb0 $sevenPath ("@" + $list)
-          if ($LASTEXITCODE -ne 0) { throw '7z/LZMA2 compression benchmark failed.' }
-          $watch.Stop()
-          $sevenSeconds = [math]::Round($watch.Elapsed.TotalSeconds, 3)
-          $sevenBytes = (Get-Item -LiteralPath $sevenPath).Length
-          & $sevenZip t -bb0 $sevenPath
-          if ($LASTEXITCODE -ne 0) { throw '7z archive integrity test failed.' }
-          Remove-Item -LiteralPath $sevenPath -Force
-
-          $result = [ordered]@{
-            seven_zip_version = $versionLine
-            raw_bytes = $rawBytes
-            zip_deflate_bytes = [int64]$zipBytes
-            zip_deflate_ratio = [math]::Round($zipBytes / $rawBytes, 6)
-            zip_deflate_saving_bytes = $rawBytes - $zipBytes
-            zip_deflate_seconds = $zipSeconds
-            seven_zip_lzma2_bytes = [int64]$sevenBytes
-            seven_zip_lzma2_ratio = [math]::Round($sevenBytes / $rawBytes, 6)
-            seven_zip_lzma2_saving_bytes = $rawBytes - $sevenBytes
-            seven_zip_lzma2_seconds = $sevenSeconds
-          }
-          $json = $result | ConvertTo-Json -Depth 3
-          $json | Set-Content -LiteralPath (Join-Path $env:RUNNER_TEMP 'compression-summary.json') -Encoding utf8NoBOM
-          Write-Host $json
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "## Release payload compression benchmark`n"
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- Raw Tauri resources: $($rawBytes.ToString('N0')) bytes"
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- ZIP Deflate: $($zipBytes.ToString('N0')) bytes ($([math]::Round(100 * $zipBytes / $rawBytes, 2))% of raw)"
-          Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "- 7z LZMA2: $($sevenBytes.ToString('N0')) bytes ($([math]::Round(100 * $sevenBytes / $rawBytes, 2))% of raw)"
+          if ($LASTEXITCODE -ne 0) { throw 'Optimized payload measurement failed.' }
 
       - name: Upload bounded release payload evidence
         if: always()
@@ -362,4 +245,3 @@ jobs:
             ${{ runner.temp }}/payload-before.json
             ${{ runner.temp }}/optimized-python.json
             ${{ runner.temp }}/payload-optimized.json
-            ${{ runner.temp }}/compression-summary.json

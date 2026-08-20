@@ -23,6 +23,13 @@ function Assert-Hash([string]$Path, [string]$Expected, [string]$Label) {
     Write-Host "[release-stage][hash] $Label=$actual"
 }
 
+function Assert-TextEquals([string]$Path, [string]$Expected, [string]$Label) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) { throw "$Label missing: $Path" }
+    $actual = (Get-Content -LiteralPath $Path -Raw).Trim()
+    if ($actual -ne $Expected) { throw "$Label mismatch: $actual" }
+    Write-Host "[release-stage][marker] $Label=$actual"
+}
+
 function Invoke-Download([string]$Url, [string]$Path) {
     Write-Host "[release-stage][download] $Url"
     Invoke-WebRequest -Uri $Url -OutFile $Path
@@ -81,41 +88,64 @@ $privatePython = Join-Path $PythonRoot 'python.exe'
 & $privatePython -s -c "import torch, torchaudio, transformers, ctranslate2, faster_whisper, sentencepiece, soundfile, numpy, voice_lab_gpt_sovits; print('[release-stage][python] private imports PASS', torch.__version__, transformers.__version__)"
 if ($LASTEXITCODE -ne 0) { throw 'Private Python runtime import smoke failed.' }
 
-Write-Host '[release-stage] Download exact Hugging Face release snapshots'
+Write-Host '[release-stage] Acquire required Hugging Face models from canonical manifest'
 $env:HF_HUB_DISABLE_TELEMETRY = '1'
 $env:HF_HOME = Join-Path $Temp 'hf-home'
 $env:HF_HUB_CACHE = Join-Path $Temp 'hf-cache'
 $env:HF_XET_CACHE = Join-Path $Temp 'hf-xet'
-$env:ASR_OUT = Join-Path $AsrRoot 'faster-whisper-large-v3-turbo'
-$env:IDEN_OUT = Join-Path $TranslationRoot 'marianmt-id-en'
-$env:ENID_OUT = Join-Path $TranslationRoot 'marianmt-en-id'
+$modelAcquirer = Join-Path $Worker 'prepare_model_assets.py'
+& $hostPython $modelAcquirer --model-id 'faster-whisper-large-v3-turbo' --model-id 'milmmt-46-1b-v1.0'
+if ($LASTEXITCODE -ne 0) { throw 'Canonical required model acquisition failed.' }
+
+$asrRevisionMarker = Join-Path $AsrRoot 'faster-whisper-large-v3-turbo\.translateit_model_revision'
+$milmmtRoot = Join-Path $TranslationRoot 'xiaomi-research--MiLMMT-46-1B-v1.0'
+$milmmtRevisionMarker = Join-Path $milmmtRoot '.translateit_model_revision'
+Assert-TextEquals $asrRevisionMarker '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf' 'ASR revision'
+Assert-TextEquals $milmmtRevisionMarker '4fc480b6c58dec29c159dcdf9fde0f6d5c354995' 'MiLMMT revision'
+foreach ($requiredModelFile in @(
+    'config.json',
+    'generation_config.json',
+    'model.safetensors',
+    'tokenizer.json',
+    'tokenizer.model',
+    'tokenizer_config.json'
+)) {
+    $requiredPath = Join-Path $milmmtRoot $requiredModelFile
+    if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
+        throw "MiLMMT required file missing: $requiredModelFile"
+    }
+}
+
+Write-Host '[release-stage] Stage pinned GPT-SoVITS pretrained Hugging Face assets'
 $env:GPT_ASSET_OUT = Join-Path $Temp 'gpt-assets'
-$downloadScript = Join-Path $Temp 'download-hf.py'
+$downloadGptAssets = Join-Path $Temp 'download-gpt-assets.py'
 @'
 import os
 import shutil
+from pathlib import Path
 from huggingface_hub import snapshot_download
 
-jobs = [
-    ('dropbox-dash/faster-whisper-large-v3-turbo', '0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf', os.environ['ASR_OUT'], None),
-    ('Helsinki-NLP/opus-mt-id-en', '9a7f1b0d0dfe0a92ba691030b01d6f23f966e7ec', os.environ['IDEN_OUT'], None),
-    ('Helsinki-NLP/opus-mt-en-id', '6e4c52d61a6b16fe3509b0267cbfec65011b860b', os.environ['ENID_OUT'], None),
-    ('lj1995/GPT-SoVITS', '336b2ec4e8d4ac74740798dd40af44e74659ecaf', os.environ['GPT_ASSET_OUT'], [
-        's1v3.ckpt', 'sv/pretrained_eres2netv2w24s4ep4.ckpt',
-        'v2Pro/s2Dv2ProPlus.pth', 'v2Pro/s2Gv2ProPlus.pth',
-        'chinese-hubert-base/**', 'chinese-roberta-wwm-ext-large/**'
-    ]),
-]
-for repo, revision, out, patterns in jobs:
-    print(f'[release-stage][hf] {repo}@{revision} -> {out}', flush=True)
-    snapshot_download(repo_id=repo, revision=revision, local_dir=out, allow_patterns=patterns)
-    cache = os.path.join(out, '.cache')
-    if os.path.isdir(cache):
-        shutil.rmtree(cache)
-print('[release-stage][hf] snapshots PASS')
-'@ | Set-Content -LiteralPath $downloadScript -Encoding utf8NoBOM
-& $hostPython $downloadScript
-if ($LASTEXITCODE -ne 0) { throw 'Hugging Face snapshot staging failed.' }
+out = Path(os.environ["GPT_ASSET_OUT"])
+snapshot_download(
+    repo_id="lj1995/GPT-SoVITS",
+    revision="336b2ec4e8d4ac74740798dd40af44e74659ecaf",
+    local_dir=out,
+    allow_patterns=[
+        "s1v3.ckpt",
+        "sv/pretrained_eres2netv2w24s4ep4.ckpt",
+        "v2Pro/s2Dv2ProPlus.pth",
+        "v2Pro/s2Gv2ProPlus.pth",
+        "chinese-hubert-base/**",
+        "chinese-roberta-wwm-ext-large/**",
+    ],
+)
+cache = out / ".cache"
+if cache.exists():
+    shutil.rmtree(cache)
+print("[release-stage][hf] GPT-SoVITS pretrained snapshot PASS")
+'@ | Set-Content -LiteralPath $downloadGptAssets -Encoding utf8NoBOM
+& $hostPython $downloadGptAssets
+if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS Hugging Face snapshot staging failed.' }
 
 Write-Host '[release-stage] Stage pinned GPT-SoVITS source revision'
 $gptSourceZip = Join-Path $Temp 'gpt-sovits-source.zip'
