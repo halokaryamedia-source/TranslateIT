@@ -352,3 +352,16 @@ The selected 1B model already uses SDPA under the tested PyTorch/Transformers ru
 
 **Boundary**  
 The next translation task is not another optimization experiment. Before production migration, prove the selected MiLMMT-1B checkpoint inside the current frozen canonical WorkerRuntime because the validated evaluation environment used Transformers 4.57.6 while the canonical WorkerRuntime currently constrains Transformers to `>=4.44.0, <=4.50.0`. Do not modify the dependency lock speculatively. First run the repository-owned WorkerRuntime compatibility proof; if compatible, preserve the lock and proceed to canonical worker/model-manifest migration. If incompatible, diagnose the exact dependency gap and change only that boundary.
+
+## D-030 — MiLMMT WorkerRuntime Convergence Is Canonical
+
+**Decision**  
+The compatibility precondition recorded at the end of D-029 is satisfied and superseded. The canonical production translation path is `xiaomi-research/MiLMMT-46-1B-v1.0` at revision `4fc480b6c58dec29c159dcdf9fde0f6d5c354995`, integrated through the single canonical WorkerRuntime. The reviewed WorkerRuntime dependency authority is Python 3.12.x + Torch 2.11.0/cu126 + Transformers 4.57.6 + Tokenizers 0.22.2.
+
+Accelerate 1.14.0 remains part of the locked runtime graph and must survive R3 payload optimization because the canonical CUDA model-loading path uses Transformers `device_map`. M2M100, Marian, LMT, older Transformers constraints, and retired helper/compatibility paths are not active production alternatives; they may remain only as historical evidence or explicit negative guards.
+
+**Reason**  
+Repository-owned MiLMMT validation, canonical source integration, dependency convergence, and release-contract checks now agree on the same model revision and dependency boundary. Preserving Accelerate in the optimized offline runtime closes the packaging mismatch between the canonical CUDA load path and the R3 payload.
+
+**Boundary**  
+D-030 establishes repository-side canonical integration and packaging intent only. It does not prove the final Windows Setup artifact, installed private runtime, NVIDIA CUDA/BF16 practicality, microphone/VB-CABLE behavior, Meeting delivery, or clean-machine acceptance. Those require the corresponding Windows R3 artifact proof and later target-PC validation.
