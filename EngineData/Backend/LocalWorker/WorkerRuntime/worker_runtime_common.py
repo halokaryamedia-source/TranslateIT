@@ -5,7 +5,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-import translation_envelope
+import translation_envelope  # noqa: F401 - dynamic provider export
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[4]
 
