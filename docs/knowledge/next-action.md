@@ -14,7 +14,7 @@
 - The **R3 packaging boundary** is one automatic offline `TranslateIT-Setup.exe` plus colocated `TranslateIT-Payload.7z`. The large Python/model/Voice/VB-CABLE payload is not embedded as Tauri resources.
 - Setup source owns payload app-version/schema/SHA-256 verification, disk-space gate, staged replacement/rollback, private-runtime dependency verification, VB-CABLE vendor invocation, reboot signaling, and installed-runtime manifest creation.
 - Uninstall source removes TranslateIT-owned external runtime while preserving app-local user data and the system VB-CABLE driver.
-- CI authority is consolidated: one MiLMMT contract workflow, one R3 release workflow, one read-only WorkerRuntime lock check, and Repository Verify. The duplicate release profiling workflows are retired.
+- CI authority is consolidated: one MiLMMT contract workflow, one R3 release workflow, one read-only WorkerRuntime lock check, one retained Code Health workflow for unused-source/compiler hygiene, and Repository Verify. The duplicate release profiling workflows are retired.
 - Repository/static/hosted evidence does not prove actual Setup execution, Windows driver consent/restart behavior, installed runtime, CUDA/audio behavior, Meeting delivery, or clean-machine readiness.
 - Local/target-PC acceptance remains intentionally deferred until explicitly requested.
 
