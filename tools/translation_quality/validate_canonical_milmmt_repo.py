@@ -162,8 +162,10 @@ def validate_release(root: Path) -> None:
 
     require("R3 Release Contract" in release_workflow, "workflow:release_owner")
     require("source-contract" in release_workflow, "workflow:release_source_job")
-    require("controlled-payload" in release_workflow, "workflow:release_manual_payload_job")
-    require("workflow_dispatch" in release_workflow, "workflow:release_dispatch")
+    require("controlled-payload" in release_workflow, "workflow:release_controlled_payload_job")
+    require("push:\n    branches:\n      - Local" in release_workflow, "workflow:release_local_push")
+    require("github.event_name == 'push'" in release_workflow, "workflow:release_push_payload")
+    require("workflow_dispatch" not in release_workflow, "workflow:release_stale_dispatch")
     require("build_r3_external_payload.py" in release_workflow, "workflow:payload_builder")
     require(not (root / ".github/workflows/release-efficiency-profile.yml").exists(), "workflow:duplicate_efficiency_profile")
     require(not (root / ".github/workflows/release-python-profile.yml").exists(), "workflow:duplicate_python_profile")
