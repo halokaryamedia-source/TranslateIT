@@ -39,7 +39,7 @@ The R3 staged private runtime starts from CPython 3.12.10 Windows embeddable pac
 archive SHA-256 4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3
 ```
 
-`stage_release_inputs.ps1` owns deterministic staging. `stage_release_license_material.py` and `validate_release_payload.mjs` own exact exceptional license/provenance material. `optimize_release_payload.py` owns the profiled release-only 116 → 97 distribution reduction and removes only the already-reviewed English-only exclusions. Do not widen that exclusion boundary without new matching Windows evidence.
+`stage_release_inputs.ps1` owns deterministic staging. `stage_release_license_material.py` and `validate_release_payload.mjs` own exact exceptional license/provenance material. `optimize_release_payload.py` owns the profiled release-only 116 → 98 distribution reduction. The locked Accelerate runtime is retained because the canonical MiLMMT CUDA `device_map` load path requires it; the optimizer removes only the already-reviewed English-only exclusions. Do not widen that exclusion boundary without new matching Windows evidence.
 
 ## R3 release boundary
 

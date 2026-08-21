@@ -12,6 +12,7 @@ EXPECTED_MODEL_PATH = (
     "EngineData/Backend/RuntimeAssets/Translation/ModelData/"
     "xiaomi-research--MiLMMT-46-1B-v1.0"
 )
+ACCELERATE_VERSION = "1.14.0"
 TRANSFORMERS_VERSION = "4.57.6"
 TOKENIZERS_VERSION = "0.22.2"
 TOKENIZERS_SDIST_SHA256 = "473b83b915e547aa366d1eee11806deaf419e17be16310ac0a14077f1e28f917"
@@ -100,6 +101,7 @@ def validate_dependencies(root: Path) -> None:
     pyproject = read(root, prefix + "pyproject.toml")
     lock = read(root, prefix + "uv.lock")
     require('"transformers==4.57.6"' in pyproject, "dependency:transformers_project_pin")
+    require(lock_package_version(lock, "accelerate") == ACCELERATE_VERSION, "dependency:accelerate_lock")
     require(lock_package_version(lock, "transformers") == TRANSFORMERS_VERSION, "dependency:transformers_lock")
     require(lock_package_version(lock, "tokenizers") == TOKENIZERS_VERSION, "dependency:tokenizers_lock")
     require('{ name = "transformers", specifier = "==4.57.6" }' in lock, "dependency:transformers_lock_spec")
@@ -144,6 +146,12 @@ def validate_release(root: Path) -> None:
     for marker in ("@('-i','-h')", "Rollback-Payload", "Read-PythonMetadata", "preserve_system_driver"):
         require(marker in installer, f"release:installer_marker:{marker}")
     require("R3 source contract PASS" in package_contract, "release:package_contract")
+
+    excluded = optimizer.split("EXCLUDED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
+    required = optimizer.split("REQUIRED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
+    require('"accelerate"' not in excluded, "release:accelerate_excluded")
+    require('"accelerate"' in required, "release:accelerate_required")
+    require("EXPECTED_OPTIMIZED_DISTRIBUTIONS = 98" in optimizer, "release:optimized_distribution_count")
 
     active_release = "\n".join((stage, optimizer, builder, installer, config))
     for marker in LEGACY_ACTIVE_MARKERS:
@@ -196,6 +204,7 @@ def main() -> int:
                 "ok": True,
                 "model_id": MODEL_ID,
                 "revision": REVISION,
+                "accelerate": ACCELERATE_VERSION,
                 "transformers": TRANSFORMERS_VERSION,
                 "tokenizers": TOKENIZERS_VERSION,
                 "worker_architecture": "translation_neutral_base_plus_milmmt_provider",

@@ -9,7 +9,6 @@ import shutil
 from pathlib import Path
 
 EXCLUDED_DISTRIBUTIONS = {
-    "accelerate",
     "annotated-types",
     "budoux",
     "cn2an",
@@ -31,6 +30,7 @@ EXCLUDED_DISTRIBUTIONS = {
 }
 
 REQUIRED_DISTRIBUTIONS = {
+    "accelerate",
     "ctranslate2",
     "faster-whisper",
     "g2p-en",
@@ -49,7 +49,7 @@ REQUIRED_DISTRIBUTIONS = {
 }
 
 EXPECTED_BASELINE_DISTRIBUTIONS = 116
-EXPECTED_OPTIMIZED_DISTRIBUTIONS = 97
+EXPECTED_OPTIMIZED_DISTRIBUTIONS = 98
 
 ENGLISH_ONLY_MARKER = "TRANSLATEIT_ENGLISH_ONLY.txt"
 ENGLISH_ONLY_MARKER_TEXT = (
@@ -194,6 +194,7 @@ def remove_excluded_distributions(python_root: Path) -> tuple[int, list[str]]:
 
 def remove_torch_build_artifacts(python_root: Path) -> int:
     """Remove PyTorch C/C++ build inputs while preserving every runtime DLL."""
+
     python_root = python_root.resolve()
     torch_root = python_root / "torch"
     if not torch_root.is_dir():
