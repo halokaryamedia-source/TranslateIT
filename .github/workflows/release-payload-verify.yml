@@ -1,7 +1,6 @@
 name: R3 Release Contract
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - Local
@@ -58,7 +57,7 @@ jobs:
 
   controlled-payload:
     name: Controlled Windows payload proof
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push'
     runs-on: windows-latest
     timeout-minutes: 90
     steps:
