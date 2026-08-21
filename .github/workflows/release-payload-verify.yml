@@ -11,6 +11,7 @@ on:
       - "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/**"
       - "EngineData/Backend/RuntimeAssets/README.md"
       - "EngineData/Backend/LocalWorker/README.md"
+      - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - ".github/workflows/release-payload-verify.yml"
   pull_request:
     branches:
@@ -22,6 +23,7 @@ on:
       - "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/**"
       - "EngineData/Backend/RuntimeAssets/README.md"
       - "EngineData/Backend/LocalWorker/README.md"
+      - "tools/translation_quality/validate_canonical_milmmt_repo.py"
       - ".github/workflows/release-payload-verify.yml"
 
 concurrency:
