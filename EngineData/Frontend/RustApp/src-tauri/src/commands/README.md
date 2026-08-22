@@ -23,4 +23,4 @@ Prefer names that describe the responsibility directly. New product-facing or se
 
 Existing `voice_lab` command names, state/error identifiers, and on-disk storage paths may remain only where changing them would require an explicit compatibility migration. Product-facing bridges must translate any legacy display copy to **My Voice** without rewriting those machine-facing identifiers.
 
-New command wrappers should be added only when a current product requirement and direct caller require them.
+A source rename is complete only after the retained frontend, Python, Rust, repository, and MiLMMT checks pass on the candidate head. New command wrappers should be added only when a current product requirement and direct caller require them.
