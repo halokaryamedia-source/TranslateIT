@@ -30,46 +30,22 @@ src-tauri/target/translateit-release/
 
 `build_release.ps1` is the controlled Windows release entry. It requires a committed tracked working tree, records the exact Git source commit, validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records the source commit, both SHA-256 values, and the app/payload identity.
 
-`build_r3_external_payload.py` uses a build-time-only 7-Zip CLI to create the 7z/LZMA2 payload. 7-Zip is not an installed-product dependency. The generated archive is validated with `tar`/bsdtar, which is also the Windows install-time reader/extractor.
-
-Large external payload roots are:
-
-- `EngineData/Backend/LocalWorker/PythonRuntime`
-- `EngineData/Backend/RuntimeAssets/ASR/ModelData`
-- `EngineData/Backend/RuntimeAssets/Translation/ModelData`
-- `EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS`
-- `EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package`
-
-They are deliberately not Tauri resources.
-
-## Installer lifecycle source
-
-R3 uses `perMachine` NSIS mode. The generated hook and `r3_payload_installer.ps1` make Setup responsible for:
-
-```text
-find colocated payload
-→ verify SHA-256 + app/schema/dependency/model identity
-→ check expanded disk-space budget
-→ extract to staging
-→ verify staged runtime
-→ invoke reviewed VB-CABLE vendor setup if absent
-→ transactionally replace external application runtime
-→ verify private Python dependency versions
-→ write installed-runtime manifest
-→ signal restart when a new driver install requires it
-```
-
-Windows driver-security consent is not bypassed or auto-clicked. Re-running Setup is the repair/reinstall path. Uninstall removes TranslateIT-owned external runtime but preserves app-local user data and the system VB-CABLE driver.
-
 ## Local target-PC test — one command
 
-`run_local_test.ps1` is the single user-facing PowerShell entrypoint for the current local acceptance run.
-
-From `EngineData/Frontend/RustApp` run only:
+Normal local acceptance starts from the repository-root wrapper:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_local_test.ps1
+.\Run-Local-Test.ps1
 ```
+
+For example, when the repository lives at `D:\Work\AI Stuff\TranslateIT`:
+
+```powershell
+cd "D:\Work\AI Stuff\TranslateIT"
+.\Run-Local-Test.ps1
+```
+
+The wrapper resolves the internal runner from its own repository location, so paths containing spaces are supported and the repository does not depend on one machine-specific absolute path.
 
 The default flow is:
 
@@ -91,11 +67,11 @@ verify branch Local + clean tracked source
 → launch TranslateIT for the remaining manual product/audio checks
 ```
 
-If Windows restart is required, type `R` when prompted to register a one-time auto-resume and restart. If you prefer to restart manually, restart Windows and run the **same command** again; the saved state makes the script continue at installed-runtime validation instead of rebuilding.
+If Windows restart is required, type `R` when prompted to register a one-time auto-resume and restart. If you prefer to restart manually, restart Windows and run the **same root command** again; saved ignored state makes the script continue at installed-runtime validation instead of rebuilding.
 
 By default CUDA/BF16 is required. `-AllowCpuFallback` is only for an intentional degraded-mode test and must not be used to turn a failed CUDA target into a normal pass. `-NoLaunchApp` can be used when only automated runtime evidence is wanted.
 
-`run_target_pc_acceptance.ps1` and `build_release.ps1` remain internal helpers used by the all-in-one entrypoint. They may still be invoked directly for diagnosis, but normal local acceptance should start from `run_local_test.ps1` only.
+`EngineData/Frontend/RustApp/scripts/run_local_test.ps1`, `run_target_pc_acceptance.ps1`, and `build_release.ps1` are implementation helpers behind the root entrypoint. They remain directly callable for diagnosis, but normal acceptance should use `Run-Local-Test.ps1` only.
 
 The automated flow writes evidence under ignored `src-tauri/target/`, including:
 
@@ -114,7 +90,7 @@ Automated core acceptance does **not** replace observation of UAC/driver consent
 
 - relevant pull requests to `Local` run the source-contract job;
 - relevant pushes to `Local` run the source-contract job and the controlled Windows payload-proof job;
-- the source-contract job parse-checks the Windows release build, internal target-PC harness, and all-in-one local-test PowerShell entrypoints;
+- the source-contract job parse-checks the root wrapper plus the Windows release/acceptance PowerShell helpers;
 - there is no manual-dispatch path for the current branch model.
 
 The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.

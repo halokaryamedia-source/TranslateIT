@@ -5,6 +5,7 @@ on:
     branches:
       - Local
     paths:
+      - "Run-Local-Test.ps1"
       - "EngineData/Frontend/RustApp/scripts/**"
       - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "EngineData/Frontend/RustApp/src-tauri/windows/**"
@@ -17,6 +18,7 @@ on:
     branches:
       - Local
     paths:
+      - "Run-Local-Test.ps1"
       - "EngineData/Frontend/RustApp/scripts/**"
       - "EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json"
       - "EngineData/Frontend/RustApp/src-tauri/windows/**"
@@ -51,6 +53,7 @@ jobs:
         shell: pwsh
         run: |
           foreach ($path in @(
+            'Run-Local-Test.ps1',
             'EngineData/Frontend/RustApp/scripts/build_release.ps1',
             'EngineData/Frontend/RustApp/scripts/run_target_pc_acceptance.ps1',
             'EngineData/Frontend/RustApp/scripts/run_local_test.ps1'
