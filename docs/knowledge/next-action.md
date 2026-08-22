@@ -11,6 +11,7 @@
 - Product-facing custom-voice terminology is **My Voice**. Existing `voice_lab_*` command/error identifiers and `UserData/.../VoiceLab/...` directories remain only where they are protocol/storage compatibility identifiers.
 - Translator remains `xiaomi-research/MiLMMT-46-1B-v1.0` at revision `4fc480b6c58dec29c159dcdf9fde0f6d5c354995`.
 - WorkerRuntime dependency versions remain Python 3.12.x + Torch 2.11.0/cu126 + Transformers 4.57.6 + Tokenizers 0.22.2; Accelerate 1.14.0 remains required for the CUDA `device_map` path.
+- The active **R3 packaging** shape remains one offline `TranslateIT-Setup.exe` plus colocated `TranslateIT-Payload.7z`; target-PC acceptance must exercise that exact pair rather than a development-only launch path.
 - Release evidence is bound to the exact committed Git source revision through `source_commit`; tracked source must be clean before release build/acceptance.
 - Root `Run-Local-Test.ps1` is the single normal user-facing local-test entrypoint. It delegates to the internal runner without hardcoding a machine path, so repository locations containing spaces are supported.
 - The all-in-one flow owns current release build, PreInstall verification, UAC Setup launch, installed-root discovery, restart/resume handling, InstalledRuntime validation, private Python/dependency checks, VB-CABLE/restart evidence, Torch CUDA/BF16, ASR preload, MiLMMT preload, and installed-worker ID→EN + EN→ID fixtures.
