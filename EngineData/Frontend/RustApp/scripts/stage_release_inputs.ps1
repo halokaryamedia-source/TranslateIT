@@ -6,6 +6,9 @@ if (-not (Test-Path -LiteralPath $Implementation -PathType Leaf)) {
     throw "Release staging implementation missing: $Implementation"
 }
 
+# Staging contract remains delegated to stage_release_inputs_impl.ps1:
+# prepare_model_assets.py stages milmmt-46-1b-v1.0 at
+# revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995 plus the required ASR/voice/audio inputs.
 # PowerShell 7+ supports `utf8NoBOM` directly. Windows PowerShell 5.1 does not.
 # For 5.1 only, execute a temporary copy in the same directory so `$PSScriptRoot`
 # and all repository-relative paths remain unchanged. The generated Python helper
