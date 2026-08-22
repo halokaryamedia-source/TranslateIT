@@ -52,7 +52,8 @@ jobs:
         run: |
           foreach ($path in @(
             'EngineData/Frontend/RustApp/scripts/build_release.ps1',
-            'EngineData/Frontend/RustApp/scripts/run_target_pc_acceptance.ps1'
+            'EngineData/Frontend/RustApp/scripts/run_target_pc_acceptance.ps1',
+            'EngineData/Frontend/RustApp/scripts/run_local_test.ps1'
           )) {
             $tokens = $null
             $errors = $null

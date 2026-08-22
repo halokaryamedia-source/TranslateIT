@@ -1,6 +1,6 @@
 # RustApp Scripts
 
-This directory contains TranslateIT's source validators, Windows release entrypoints, and bounded target-PC acceptance tooling.
+This directory contains TranslateIT's source validators, Windows release entrypoints, and target-PC acceptance tooling.
 
 ## Source checks
 
@@ -61,37 +61,52 @@ find colocated payload
 
 Windows driver-security consent is not bypassed or auto-clicked. Re-running Setup is the repair/reinstall path. Uninstall removes TranslateIT-owned external runtime but preserves app-local user data and the system VB-CABLE driver.
 
-## Target-PC acceptance harness
+## Local target-PC test — one command
 
-`run_target_pc_acceptance.ps1` is a local Windows acceptance harness. It does not install, uninstall, change audio settings, create My Voice, or mutate installed application runtime. It writes only acceptance evidence under ignored `src-tauri/target/` unless `-OutputPath` is supplied.
+`run_local_test.ps1` is the single user-facing PowerShell entrypoint for the current local acceptance run.
 
-Before running Setup:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase PreInstall
-```
-
-`PreInstall` requires a clean tracked source tree and verifies that `translateit-r3-release-build.json` was generated from the exact current Git commit. A release pair built before later source changes is rejected even when its old Setup/Payload hashes are internally consistent. If `source_commit` is missing or differs from current HEAD, rebuild with `build_release.ps1` before testing.
-
-It also verifies that the release folder contains exactly `TranslateIT-Setup.exe` + `TranslateIT-Payload.7z` and that both SHA-256 values match the release-build evidence.
-
-After Setup completes and Windows has been restarted when requested:
+From `EngineData/Frontend/RustApp` run only:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase InstalledRuntime
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_local_test.ps1
 ```
 
-The installed-runtime phase auto-discovers the normal per-machine installation when possible. If discovery is ambiguous, pass the exact installation directory:
+The default flow is:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase InstalledRuntime -InstallRoot "C:\Program Files\TranslateIT"
+```text
+verify branch Local + clean tracked source
+→ build current Setup + Payload
+→ verify exact source commit and release hashes
+→ launch TranslateIT-Setup.exe with normal UAC
+→ discover installed runtime
+→ if VB-CABLE needs restart, save resume state
+→ optionally restart Windows and auto-resume after sign-in
+→ verify installed manifest/private Python/dependencies
+→ verify VB-CABLE/restart state
+→ verify CUDA + BF16
+→ ASR preload
+→ MiLMMT preload
+→ installed-worker ID → EN
+→ installed-worker EN → ID
+→ launch TranslateIT for the remaining manual product/audio checks
 ```
 
-By default the installed-runtime phase requires the target CUDA/BF16 path. `-AllowCpuFallback` is only for an intentional degraded-mode test; it must not be used to turn a failed CUDA target into a pass.
+If Windows restart is required, type `R` when prompted to register a one-time auto-resume and restart. If you prefer to restart manually, restart Windows and run the **same command** again; the saved state makes the script continue at installed-runtime validation instead of rebuilding.
 
-The harness checks the installed runtime manifest, private Python/dependency versions including Accelerate, model revisions, VB-CABLE presence/restart evidence, private Torch CUDA/BF16 capability, ASR preload, MiLMMT preload, and real installed-worker ID→EN + EN→ID translation fixtures. When local release-build evidence is present, it also confirms that the installed pair corresponds to the current source commit.
+By default CUDA/BF16 is required. `-AllowCpuFallback` is only for an intentional degraded-mode test and must not be used to turn a failed CUDA target into a normal pass. `-NoLaunchApp` can be used when only automated runtime evidence is wanted.
 
-It does **not** replace manual proof of UAC/driver consent, physical microphone capture, My Voice quality, Meeting-app reception, repeated Start/Stop behavior, uninstall/reinstall, or clean-machine operation.
+`run_target_pc_acceptance.ps1` and `build_release.ps1` remain internal helpers used by the all-in-one entrypoint. They may still be invoked directly for diagnosis, but normal local acceptance should start from `run_local_test.ps1` only.
+
+The automated flow writes evidence under ignored `src-tauri/target/`, including:
+
+```text
+translateit-r3-release-build.json
+translateit-target-pc-preinstall.json
+translateit-target-pc-installed-runtime.json
+translateit-local-test-session.json
+```
+
+Automated core acceptance does **not** replace observation of UAC/driver consent, physical microphone capture, My Voice listening quality, Zoom/Meet/Teams reception, repeated Meeting Start/Stop behavior, uninstall/reinstall, or clean-machine operation.
 
 ## CI ownership
 
@@ -99,14 +114,14 @@ It does **not** replace manual proof of UAC/driver consent, physical microphone 
 
 - relevant pull requests to `Local` run the source-contract job;
 - relevant pushes to `Local` run the source-contract job and the controlled Windows payload-proof job;
-- the source-contract job parse-checks the Windows release build and target-PC acceptance PowerShell scripts;
+- the source-contract job parse-checks the Windows release build, internal target-PC harness, and all-in-one local-test PowerShell entrypoints;
 - there is no manual-dispatch path for the current branch model.
 
 The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.
 
 ## Proof boundary
 
-Source/hosted verification can establish declarations, controlled staging, payload structure, build evidence, and acceptance-harness syntax. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
+Source/hosted verification can establish declarations, controlled staging, payload structure, build evidence, and acceptance-tool syntax. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
 
 ## Rules
 
