@@ -2,11 +2,11 @@
   import { Check, Circle, Mic, Play, RotateCcw, SkipForward, Square } from "@lucide/svelte";
   import { onMount } from "svelte";
   import {
-    voiceLabApi,
+    myVoiceApi,
     type GuidedRecordingActionResult,
     type GuidedRecordingState,
-  } from "../app/bridge/voiceLabApi";
-  import VoiceLabBuild from "../components/voice-lab/VoiceLabBuild.svelte";
+  } from "../app/bridge/myVoiceApi";
+  import MyVoiceBuild from "../components/my-voice/MyVoiceBuild.svelte";
 
   let {
     onNotice,
@@ -68,27 +68,27 @@
       case "owner_conflict":
         return "Another TranslateIT action is using the microphone. Finish it, then try again.";
       case "runtime_unavailable":
-        return "VoiceLab can't check the microphone right now. Try again or check Diagnostics.";
+        return "My Voice can't check the microphone right now. Try again or check Diagnostics.";
       case "capture_unavailable":
       case "capture_failed":
-        return "VoiceLab couldn't use the microphone. Check the microphone and try again.";
+        return "My Voice couldn't use the microphone. Check the microphone and try again.";
       case "stop_failed":
       case "cleanup_unverified":
-        return "VoiceLab couldn't finish stopping the microphone safely. Try again or check Diagnostics.";
+        return "My Voice couldn't finish stopping the microphone safely. Try again or check Diagnostics.";
       case "take_unusable":
         return "This recording isn't usable yet. Record the line again.";
       case "draft_write_failed":
       case "draft_state_unavailable":
       case "save_failed":
-        return "VoiceLab couldn't save this recording. Check Diagnostics and try again.";
+        return "My Voice couldn't save this recording. Check Diagnostics and try again.";
       case "invalid_line":
       case "line_mismatch":
       case "no_review":
         return "This recording action is no longer current. Choose the line again and try again.";
       case "frontend_bridge_error":
-        return "VoiceLab is unavailable right now. Try again or check Diagnostics.";
+        return "My Voice is unavailable right now. Try again or check Diagnostics.";
       default:
-        return result.ok ? "VoiceLab action completed." : "VoiceLab couldn't complete this recording action. Check Diagnostics and try again.";
+        return result.ok ? "My Voice action completed." : "My Voice couldn't complete this recording action. Check Diagnostics and try again.";
     }
   }
 
@@ -98,7 +98,7 @@
   }
 
   async function refresh(): Promise<void> {
-    const next = await voiceLabApi.getState();
+    const next = await myVoiceApi.getState();
     applyState(next);
   }
 
@@ -110,7 +110,7 @@
     }
     busy = true;
     try {
-      applyResult(await voiceLabApi.startTake(selectedLineId, authorized));
+      applyResult(await myVoiceApi.startTake(selectedLineId, authorized));
     } finally {
       busy = false;
     }
@@ -120,7 +120,7 @@
     if (busy || recordingState.recording_line_id === null) return;
     busy = true;
     try {
-      applyResult(await voiceLabApi.stopTake(recordingState.recording_line_id));
+      applyResult(await myVoiceApi.stopTake(recordingState.recording_line_id));
     } finally {
       busy = false;
     }
@@ -131,7 +131,7 @@
     stopReplay();
     busy = true;
     try {
-      applyResult(await voiceLabApi.retryTake(pendingLineId));
+      applyResult(await myVoiceApi.retryTake(pendingLineId));
     } finally {
       busy = false;
     }
@@ -142,7 +142,7 @@
     stopReplay();
     busy = true;
     try {
-      const result = await voiceLabApi.acceptTake(pendingLineId);
+      const result = await myVoiceApi.acceptTake(pendingLineId);
       applyResult(result);
       if (result.ok) {
         buildRefreshRevision += 1;
@@ -180,7 +180,7 @@
 
   async function replayTake(): Promise<void> {
     if (busy || replaying || selectedLineId === null) return;
-    const bytes = await voiceLabApi.getTakeAudio(selectedLineId);
+    const bytes = await myVoiceApi.getTakeAudio(selectedLineId);
     if (!bytes) {
       onNotice("This take isn't available for replay yet.");
       return;
@@ -216,8 +216,8 @@
 <section class="ti-page ti-page-wide">
   <header class="ti-page-header">
     <div>
-      <h2 class="ti-page-title">VoiceLab</h2>
-      <p class="ti-page-copy">Record and review clear English lines for My Voice.</p>
+      <h2 class="ti-page-title">My Voice</h2>
+      <p class="ti-page-copy">Record and review clear English lines to create your meeting voice.</p>
     </div>
   </header>
 
@@ -291,7 +291,7 @@
           {/if}
         </div>
       {:else}
-        <div class="mt-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] p-5 text-sm text-[var(--ti-text-muted)]">VoiceLab recording lines are unavailable right now.</div>
+        <div class="mt-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] p-5 text-sm text-[var(--ti-text-muted)]">My Voice recording lines are unavailable right now.</div>
       {/if}
 
       <p class="mb-0 mt-7 text-xs leading-5 text-[var(--ti-text-soft)]">Accepted recordings stay on this device and are used when you create My Voice.</p>
@@ -321,5 +321,5 @@
     </aside>
   </div>
 
-  <VoiceLabBuild {onNotice} refreshRevision={buildRefreshRevision} />
+  <MyVoiceBuild {onNotice} refreshRevision={buildRefreshRevision} />
 </section>
