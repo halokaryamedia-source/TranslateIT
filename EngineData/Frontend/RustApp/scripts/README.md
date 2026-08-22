@@ -1,6 +1,6 @@
 # RustApp Scripts
 
-This directory contains TranslateIT's source validators and controlled Windows release entrypoints.
+This directory contains TranslateIT's source validators, Windows release entrypoints, and bounded target-PC acceptance tooling.
 
 ## Source checks
 
@@ -61,6 +61,34 @@ find colocated payload
 
 Windows driver-security consent is not bypassed or auto-clicked. Re-running Setup is the repair/reinstall path. Uninstall removes TranslateIT-owned external runtime but preserves app-local user data and the system VB-CABLE driver.
 
+## Target-PC acceptance harness
+
+`run_target_pc_acceptance.ps1` is a local Windows acceptance harness. It does not install, uninstall, change audio settings, create My Voice, or mutate installed application runtime. It writes only acceptance evidence under ignored `src-tauri/target/` unless `-OutputPath` is supplied.
+
+Before running Setup:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase PreInstall
+```
+
+This verifies that the release folder contains exactly `TranslateIT-Setup.exe` + `TranslateIT-Payload.7z` and that both SHA-256 values match `translateit-r3-release-build.json`.
+
+After Setup completes and Windows has been restarted when requested:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase InstalledRuntime
+```
+
+The installed-runtime phase auto-discovers the normal per-machine installation when possible. If discovery is ambiguous, pass the exact installation directory:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase InstalledRuntime -InstallRoot "C:\Program Files\TranslateIT"
+```
+
+By default the installed-runtime phase requires the target CUDA/BF16 path. `-AllowCpuFallback` is only for an intentional degraded-mode test; it must not be used to turn a failed CUDA target into a pass.
+
+The harness checks the installed runtime manifest, private Python/dependency versions including Accelerate, model revisions, VB-CABLE presence/restart evidence, private Torch CUDA/BF16 capability, ASR preload, MiLMMT preload, and real installed-worker ID→EN + EN→ID translation fixtures. It does **not** replace manual proof of UAC/driver consent, physical microphone capture, My Voice quality, Meeting-app reception, repeated Start/Stop behavior, uninstall/reinstall, or clean-machine operation.
+
 ## CI ownership
 
 `.github/workflows/release-payload-verify.yml` is the single R3 release workflow owner:
@@ -81,4 +109,4 @@ Source/hosted verification can establish declarations, controlled staging, paylo
 - Do not add network bootstrap/model downloads to installed Setup.
 - Do not add a user-facing 7-Zip dependency, manual extraction flow, or second installer.
 - Do not create another release pipeline merely to gather duplicate evidence.
-- Keep generated hook/payload/build evidence under ignored output paths.
+- Keep generated hook/payload/build/acceptance evidence under ignored output paths.
