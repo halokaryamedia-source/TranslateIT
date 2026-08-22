@@ -28,7 +28,7 @@ src-tauri/target/translateit-release/
 └─ TranslateIT-Payload.7z
 ```
 
-`build_release.ps1` is the controlled Windows release entry. It validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records both SHA-256 values and the app/payload identity.
+`build_release.ps1` is the controlled Windows release entry. It requires a committed tracked working tree, records the exact Git source commit, validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records the source commit, both SHA-256 values, and the app/payload identity.
 
 `build_r3_external_payload.py` uses a build-time-only 7-Zip CLI to create the 7z/LZMA2 payload. 7-Zip is not an installed-product dependency. The generated archive is validated with `tar`/bsdtar, which is also the Windows install-time reader/extractor.
 
@@ -71,7 +71,9 @@ Before running Setup:
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acceptance.ps1 -Phase PreInstall
 ```
 
-This verifies that the release folder contains exactly `TranslateIT-Setup.exe` + `TranslateIT-Payload.7z` and that both SHA-256 values match `translateit-r3-release-build.json`.
+`PreInstall` requires a clean tracked source tree and verifies that `translateit-r3-release-build.json` was generated from the exact current Git commit. A release pair built before later source changes is rejected even when its old Setup/Payload hashes are internally consistent. If `source_commit` is missing or differs from current HEAD, rebuild with `build_release.ps1` before testing.
+
+It also verifies that the release folder contains exactly `TranslateIT-Setup.exe` + `TranslateIT-Payload.7z` and that both SHA-256 values match the release-build evidence.
 
 After Setup completes and Windows has been restarted when requested:
 
@@ -87,7 +89,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\run_target_pc_acce
 
 By default the installed-runtime phase requires the target CUDA/BF16 path. `-AllowCpuFallback` is only for an intentional degraded-mode test; it must not be used to turn a failed CUDA target into a pass.
 
-The harness checks the installed runtime manifest, private Python/dependency versions including Accelerate, model revisions, VB-CABLE presence/restart evidence, private Torch CUDA/BF16 capability, ASR preload, MiLMMT preload, and real installed-worker ID→EN + EN→ID translation fixtures. It does **not** replace manual proof of UAC/driver consent, physical microphone capture, My Voice quality, Meeting-app reception, repeated Start/Stop behavior, uninstall/reinstall, or clean-machine operation.
+The harness checks the installed runtime manifest, private Python/dependency versions including Accelerate, model revisions, VB-CABLE presence/restart evidence, private Torch CUDA/BF16 capability, ASR preload, MiLMMT preload, and real installed-worker ID→EN + EN→ID translation fixtures. When local release-build evidence is present, it also confirms that the installed pair corresponds to the current source commit.
+
+It does **not** replace manual proof of UAC/driver consent, physical microphone capture, My Voice quality, Meeting-app reception, repeated Start/Stop behavior, uninstall/reinstall, or clean-machine operation.
 
 ## CI ownership
 
@@ -95,13 +99,14 @@ The harness checks the installed runtime manifest, private Python/dependency ver
 
 - relevant pull requests to `Local` run the source-contract job;
 - relevant pushes to `Local` run the source-contract job and the controlled Windows payload-proof job;
+- the source-contract job parse-checks the Windows release build and target-PC acceptance PowerShell scripts;
 - there is no manual-dispatch path for the current branch model.
 
 The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.
 
 ## Proof boundary
 
-Source/hosted verification can establish declarations, controlled staging, payload structure, and build evidence. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
+Source/hosted verification can establish declarations, controlled staging, payload structure, build evidence, and acceptance-harness syntax. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
 
 ## Rules
 

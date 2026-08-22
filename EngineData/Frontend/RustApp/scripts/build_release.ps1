@@ -23,6 +23,26 @@ function Require-File([string]$Path, [string]$Label) {
 function Get-Sha256([string]$Path) {
     return (Get-FileHash -Algorithm SHA256 -LiteralPath $Path).Hash.ToLowerInvariant()
 }
+function Resolve-SourceCommit {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) {
+        throw 'Git is required on the release build machine to bind the release pair to the exact committed source revision.'
+    }
+    $commit = (& $git.Source -C $RepoRoot rev-parse HEAD 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-fA-F]{40}$') {
+        throw "Could not resolve the release source commit: $commit"
+    }
+    $trackedChanges = (& $git.Source -C $RepoRoot status --porcelain --untracked-files=no 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0) {
+        throw 'Could not verify the release source working tree.'
+    }
+    if (-not [string]::IsNullOrWhiteSpace($trackedChanges)) {
+        throw "Release build requires committed tracked source with no local modifications. Commit or revert these changes first:`n$trackedChanges"
+    }
+    return $commit.ToLowerInvariant()
+}
+
+$SourceCommit = Resolve-SourceCommit
 
 Push-Location $AppRoot
 try {
@@ -97,6 +117,7 @@ try {
     }
     $releaseBuild = [ordered]@{
         schema = 'translateit.r3.release_pair.v1'
+        source_commit = $SourceCommit
         app_version = [string]$payloadBuild.app_version
         payload_schema = [string]$payloadBuild.schema
         setup_file = 'TranslateIT-Setup.exe'
@@ -114,6 +135,7 @@ try {
     Write-Host '[release] R3 offline release pair ready:'
     Write-Host "[release]   $SetupPath"
     Write-Host "[release]   $PayloadPath"
+    Write-Host "[release] Source commit: $SourceCommit"
     Write-Host "[release] Build evidence: $ReleaseEvidence"
 }
 finally {

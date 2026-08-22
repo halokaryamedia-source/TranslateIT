@@ -13,6 +13,7 @@ $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
 $AppRoot = Split-Path -Parent $PSScriptRoot
+$RepoRoot = (Resolve-Path (Join-Path $AppRoot "..\..\..")).Path
 if ([string]::IsNullOrWhiteSpace($ReleaseDir)) {
     $ReleaseDir = Join-Path $AppRoot "src-tauri\target\translateit-release"
 }
@@ -56,6 +57,28 @@ function Get-Sha256 {
 function Read-JsonFile {
     param([string]$Path)
     return (Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json -ErrorAction Stop)
+}
+
+function Get-SourceState {
+    $git = Get-Command git -ErrorAction SilentlyContinue
+    if ($null -eq $git) {
+        return [ordered]@{ ok = $false; clean = $false; commit = ""; detail = "Git is required to bind this local acceptance run to the exact Local source commit." }
+    }
+    try {
+        $commit = (& $git.Source -C $RepoRoot rev-parse HEAD 2>&1 | Out-String).Trim().ToLowerInvariant()
+        if ($LASTEXITCODE -ne 0 -or $commit -notmatch '^[0-9a-f]{40}$') {
+            return [ordered]@{ ok = $false; clean = $false; commit = ""; detail = "Could not resolve current repository HEAD: $commit" }
+        }
+        $trackedChanges = (& $git.Source -C $RepoRoot status --porcelain --untracked-files=no 2>&1 | Out-String).Trim()
+        if ($LASTEXITCODE -ne 0) {
+            return [ordered]@{ ok = $false; clean = $false; commit = $commit; detail = "Could not inspect current tracked working-tree state." }
+        }
+        $clean = [string]::IsNullOrWhiteSpace($trackedChanges)
+        $detail = if ($clean) { "HEAD=$commit; tracked working tree clean" } else { "HEAD=$commit; tracked changes present: $trackedChanges" }
+        return [ordered]@{ ok = $true; clean = $clean; commit = $commit; detail = $detail }
+    } catch {
+        return [ordered]@{ ok = $false; clean = $false; commit = ""; detail = $_.Exception.Message }
+    }
 }
 
 function Write-Evidence {
@@ -212,6 +235,12 @@ if ($Phase -eq "PreInstall") {
     $setup = Join-Path $ReleaseDir "TranslateIT-Setup.exe"
     $payload = Join-Path $ReleaseDir "TranslateIT-Payload.7z"
     $releaseEvidence = Join-Path $AppRoot "src-tauri\target\translateit-r3-release-build.json"
+    $source = Get-SourceState
+    $Runtime.source = $source
+    Add-Check "current-source-commit-resolved" ([bool]$source.ok) ([string]$source.detail)
+    if ([bool]$source.ok) {
+        Add-Check "current-tracked-source-clean" ([bool]$source.clean) ([string]$source.detail)
+    }
 
     $releaseDirExists = Test-Path -LiteralPath $ReleaseDir -PathType Container
     Add-Check "release-directory" $releaseDirExists "Expected release directory: $ReleaseDir"
@@ -235,13 +264,19 @@ if ($Phase -eq "PreInstall") {
         $build = Read-JsonFile $releaseEvidence
         $setupHash = Get-Sha256 $setup
         $payloadHash = Get-Sha256 $payload
+        $releaseSourceCommit = [string](Get-Value $build "source_commit" "")
         Add-Check "release-evidence-schema" ([string]$build.schema -eq "translateit.r3.release_pair.v1") ([string]$build.schema)
+        Add-Check "release-source-commit-present" ($releaseSourceCommit -match '^[0-9a-f]{40}$') $releaseSourceCommit
+        if ([bool]$source.ok) {
+            Add-Check "release-built-from-current-source" ($releaseSourceCommit -eq [string]$source.commit) ("release=" + $releaseSourceCommit + "; current=" + [string]$source.commit)
+        }
         Add-Check "installer-mode-per-machine" ([string]$build.installer_mode -eq "perMachine") ([string]$build.installer_mode)
         Add-Check "release-is-offline" ([bool]$build.offline) ("offline=" + [string]$build.offline)
         Add-Check "setup-sha256" ($setupHash -eq [string]$build.setup_sha256) $setupHash
         Add-Check "payload-sha256" ($payloadHash -eq [string]$build.payload_sha256) $payloadHash
         Add-Check "target-acceptance-not-preclaimed" ([string]$build.target_pc_acceptance -eq "deferred") ([string]$build.target_pc_acceptance)
         $Runtime.release_build = [ordered]@{
+            source_commit = $releaseSourceCommit
             app_version = [string]$build.app_version
             setup_sha256 = $setupHash
             payload_sha256 = $payloadHash
@@ -297,8 +332,16 @@ Add-Check "installed-gpt-sovits-revision" ([string]$manifest.voice_revision -eq 
 
 if (Test-Path -LiteralPath $releaseEvidence -PathType Leaf) {
     $build = Read-JsonFile $releaseEvidence
+    $source = Get-SourceState
+    $releaseSourceCommit = [string](Get-Value $build "source_commit" "")
+    $Runtime.source = $source
+    $Runtime.release_source_commit = $releaseSourceCommit
     Add-Check "installed-payload-matches-local-release" ([string]$manifest.payload_sha256 -eq [string]$build.payload_sha256) ([string]$manifest.payload_sha256)
     Add-Check "installed-app-version-matches-release" ([string]$manifest.app_version -eq [string]$build.app_version) ([string]$manifest.app_version)
+    Add-Check "installed-release-source-commit-present" ($releaseSourceCommit -match '^[0-9a-f]{40}$') $releaseSourceCommit
+    if ([bool]$source.ok) {
+        Add-Check "installed-release-built-from-current-source" ($releaseSourceCommit -eq [string]$source.commit) ("release=" + $releaseSourceCommit + "; current=" + [string]$source.commit)
+    }
 }
 
 $stageAbsent = -not (Test-Path -LiteralPath (Join-Path $InstallRoot ".translateit-r3-stage"))
