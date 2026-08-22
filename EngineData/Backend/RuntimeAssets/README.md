@@ -1,6 +1,6 @@
 # RuntimeAssets
 
-`RuntimeAssets` is TranslateIT's controlled local release/runtime asset boundary. Application orchestration remains in the canonical Tauri/Rust and LocalWorker owners; this tree contains models, voice assets, audio-provider payload, and generated notices only.
+`RuntimeAssets` is TranslateIT's controlled local release/runtime asset boundary. Application orchestration remains in the Tauri/Rust and LocalWorker owners; this tree contains models, voice assets, audio-provider payload, and generated notices only.
 
 ## Current layout
 
@@ -18,7 +18,7 @@ RuntimeAssets/
 └─ ThirdPartyNotices/THIRD_PARTY_NOTICES.txt
 ```
 
-The machine-readable model authority is `EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json`. Required Hugging Face snapshots use immutable revisions and `.translateit_model_revision` markers. Translation authority is:
+The machine-readable model inventory is `EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json`. Required Hugging Face snapshots use immutable revisions and `.translateit_model_revision` markers. Translation identity is:
 
 ```text
 xiaomi-research/MiLMMT-46-1B-v1.0
@@ -32,7 +32,7 @@ Large runtime bytes are ignored by Git and staged as controlled release inputs. 
 
 Release staging and validation are owned by `EngineData/Frontend/RustApp/scripts/`. The payload builder binds the external payload to the app version/schema and exact SHA-256. Installer source owns transactional runtime replacement, VB-CABLE vendor invocation/restart signaling, and uninstall cleanup of TranslateIT-owned external runtime. User data and the system VB-CABLE driver are preserved by uninstall policy.
 
-Presence in this tree is not runtime acceptance. It does not prove CUDA/model execution, translation quality, VoiceLab quality, Windows driver behavior, virtual-audio delivery, or clean-machine installation.
+Presence in this tree is not runtime acceptance. It does not prove CUDA/model execution, translation quality, My Voice quality, Windows driver behavior, virtual-audio delivery, or clean-machine installation.
 
 ## Provenance / notice boundary
 

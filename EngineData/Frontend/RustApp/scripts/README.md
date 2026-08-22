@@ -1,22 +1,22 @@
 # RustApp Scripts
 
-This directory contains TranslateIT's bounded source validators and controlled Windows release entrypoints.
+This directory contains TranslateIT's source validators and controlled Windows release entrypoints.
 
 ## Source checks
 
 ```text
 validate:source-contracts
-├─ startup/runtime path contract
-├─ Meeting route contract
+├─ startup/runtime path checks
+├─ Meeting route checks
 ├─ Rust/Tauri manifest preflight
 ├─ frontend build preflight
-└─ R3 Tauri/package source contract
+└─ R3 Tauri/package source checks
 
 validate:quick
-└─ source contracts + TypeScript typecheck
+└─ source checks + TypeScript typecheck
 ```
 
-`check:tauri-rust-local` is explicit local compile proof and is not run merely to validate documentation/source routing.
+`check:tauri-rust-local` is explicit local compile verification and is not run merely to validate documentation/source routing.
 
 ## R3 release boundary
 
@@ -28,9 +28,9 @@ src-tauri/target/translateit-release/
 └─ TranslateIT-Payload.7z
 ```
 
-`build_release.ps1` is the controlled Windows release entry. It validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the trusted NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records both SHA-256 values and the app/payload identity.
+`build_release.ps1` is the controlled Windows release entry. It validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records both SHA-256 values and the app/payload identity.
 
-`build_r3_external_payload.py` uses a **build-time-only 7-Zip CLI** to create the 7z/LZMA2 payload. 7-Zip is not an installed-product dependency. The generated archive is validated with `tar`/bsdtar, which is also the Windows install-time reader/extractor.
+`build_r3_external_payload.py` uses a build-time-only 7-Zip CLI to create the 7z/LZMA2 payload. 7-Zip is not an installed-product dependency. The generated archive is validated with `tar`/bsdtar, which is also the Windows install-time reader/extractor.
 
 Large external payload roots are:
 
@@ -65,14 +65,15 @@ Windows driver-security consent is not bypassed or auto-clicked. Re-running Setu
 
 `.github/workflows/release-payload-verify.yml` is the single R3 release workflow owner:
 
-- cheap source contract on relevant push/PR changes;
-- heavy controlled Windows payload staging/build evidence only when manually dispatched.
+- relevant pull requests to `Local` run the source-contract job;
+- relevant pushes to `Local` run the source-contract job and the controlled Windows payload-proof job;
+- there is no manual-dispatch path for the current branch model.
 
-The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by a read-only `uv lock --check` workflow.
+The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.
 
 ## Proof boundary
 
-Source/hosted proof can establish declarations, controlled staging, payload structure, and build evidence. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
+Source/hosted verification can establish declarations, controlled staging, payload structure, and build evidence. It does not prove actual Windows Setup execution, driver consent/restart, installed model execution, GPU/audio behavior, Meeting delivery, or clean-machine readiness.
 
 ## Rules
 
