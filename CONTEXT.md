@@ -16,7 +16,7 @@ TranslateIT is a local-first Windows Indonesian ↔ English translator with four
 ```text
 Meeting
 Text
-VoiceLab
+My Voice
 Settings
 ```
 
@@ -47,7 +47,7 @@ Tauri 2 desktop application
 └─ one canonical Python WorkerRuntime for ASR / translation / Voice Actor inference
 ```
 
-Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns local ASR, Indonesian ↔ English translation, and trained Voice Actor inference. VoiceLab training is a bounded build operation, not a second daily inference runtime.
+Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns local ASR, Indonesian ↔ English translation, and trained Voice Actor inference. My Voice training is a bounded build operation, not a second daily inference runtime.
 
 ## Translation contract
 
@@ -75,15 +75,15 @@ Runtime rules:
 
 The canonical WorkerRuntime pins Transformers 4.57.6. The former 4.50.0 compatibility result remains historical evidence only. Keep `pyproject.toml`, `uv.lock`, release-license material, and repo validators synchronized with the 4.57.6 boundary.
 
-## ASR and VoiceLab
+## ASR and My Voice
 
-ASR primary remains `dropbox-dash/faster-whisper-large-v3-turbo`, with the existing medium fallback boundary. Voice Actor inference remains GPT-SoVITS V2ProPlus and one approved persistent actor under:
+ASR primary remains `dropbox-dash/faster-whisper-large-v3-turbo`, with the existing medium fallback boundary. Voice Actor inference remains GPT-SoVITS V2ProPlus and one approved persistent My Voice profile under the current on-disk user-data path:
 
 ```text
 UserData/SavedProject/VoiceLab/MyVoice
 ```
 
-A rebuild cannot replace the approved actor until evaluation and explicit user approval complete. Meeting Start binds the approved actor identity to that Meeting generation and fails closed if it changes or becomes unavailable.
+A rebuild cannot replace the approved voice until evaluation and explicit user approval complete. Meeting Start binds the approved voice identity to that Meeting generation and fails closed if it changes or becomes unavailable.
 
 ## Runtime assets and R3 release
 

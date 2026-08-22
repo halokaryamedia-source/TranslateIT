@@ -8,7 +8,7 @@
     type VirtualMicRouteContractStatus,
   } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
-  import { voiceLabBuildApi } from "../app/bridge/voiceLabBuildApi";
+  import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
 
@@ -22,7 +22,7 @@
     onMeetingAction,
     onRefresh,
     onFixSetup,
-    onOpenVoiceLab,
+    onOpenMyVoice,
   }: {
     snapshot: ProductRuntimeSnapshot;
     meetingStatus: MeetingSessionStatus | null;
@@ -31,7 +31,7 @@
     onMeetingAction: () => void | Promise<void>;
     onRefresh: () => void | Promise<void>;
     onFixSetup: () => void | Promise<void>;
-    onOpenVoiceLab: () => void;
+    onOpenMyVoice: () => void;
   } = $props();
 
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
@@ -95,7 +95,7 @@
 
   async function refreshMyVoiceStatus(): Promise<void> {
     try {
-      myVoiceReady = (await voiceLabBuildApi.getStatus()).approved_voice_ready;
+      myVoiceReady = (await myVoiceBuildApi.getStatus()).approved_voice_ready;
     } catch {
       myVoiceReady = null;
     }
@@ -176,7 +176,7 @@
             <span class="ti-field-label">My Voice</span>
           </div>
           <strong class="mt-2 block text-[13px] font-semibold leading-5">{myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking..." : "Not created"}</strong>
-          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your approved English meeting voice." : "Create My Voice in VoiceLab before starting."}</p>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your approved English meeting voice." : "Open My Voice and create your meeting voice before starting."}</p>
           {#if !myVoiceReady}
             <div class="mt-3">
               <StatusBadge label={myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady === null ? "neutral" : "warning"} />
@@ -237,7 +237,7 @@
           {/if}
         {/if}
         {#if myVoiceReady === false && !meeting.live && !meeting.busy}
-          <button type="button" class="ti-button min-w-40" onclick={onOpenVoiceLab}>Create My Voice</button>
+          <button type="button" class="ti-button min-w-40" onclick={onOpenMyVoice}>Create My Voice</button>
         {:else}
           <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled || myVoiceReady === null} onclick={onMeetingAction}>{primaryLabel}</button>
         {/if}

@@ -10,19 +10,19 @@
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
-  import { voiceLabApi } from "./app/bridge/voiceLabApi";
-  import { voiceLabBuildApi } from "./app/bridge/voiceLabBuildApi";
+  import { myVoiceApi } from "./app/bridge/myVoiceApi";
+  import { myVoiceBuildApi } from "./app/bridge/myVoiceBuildApi";
   import { defaultSettings } from "./app/shared/state";
   import type { RuntimeSettings } from "./app/shared/types";
   import Sidebar from "./components/layout/Sidebar.svelte";
   import FirstSetup from "./pages/FirstSetup.svelte";
   import Meeting from "./pages/Meeting.svelte";
+  import MyVoice from "./pages/MyVoice.svelte";
   import Settings from "./pages/Settings.svelte";
   import Text from "./pages/Text.svelte";
-  import VoiceLab from "./pages/VoiceLab.svelte";
 
   const MEETING_REFRESH_MS = 1200;
-  type AppRoute = "meeting" | "text" | "voicelab" | "settings";
+  type AppRoute = "meeting" | "text" | "my-voice" | "settings";
   type CloseDialogAction = "stop" | "retry" | null;
 
   let booting = $state(true);
@@ -34,7 +34,7 @@
   let meetingActionBusy = $state(false);
   let setupActionBusy = $state(false);
   let micTestBusy = $state(false);
-  let voiceLabRecording = $state(false);
+  let myVoiceRecording = $state(false);
   let meetingStatus = $state<MeetingSessionStatus | null>(null);
   let meetingTurns = $state<MeetingCommittedTurnsSnapshot | null>(null);
 
@@ -94,8 +94,8 @@
   }
 
   function navigate(next: AppRoute): void {
-    if (voiceLabRecording && next !== "voicelab") {
-      setNotice("Stop the current VoiceLab recording before leaving VoiceLab.");
+    if (myVoiceRecording && next !== "my-voice") {
+      setNotice("Stop the current My Voice recording before leaving My Voice.");
       return;
     }
     route = next;
@@ -171,11 +171,11 @@
     route = "meeting";
   }
 
-  async function openVoiceLabFromSetup(next: RuntimeSettings): Promise<void> {
+  async function openMyVoiceFromSetup(next: RuntimeSettings): Promise<void> {
     setupSettings = cloneSettings(next);
     setupRequired = false;
     await refreshSnapshot("Create My Voice before starting Meeting translation.", next);
-    route = "voicelab";
+    route = "my-voice";
   }
 
   async function handleMeetingAction(): Promise<void> {
@@ -242,8 +242,8 @@
 
   async function toggleMicTest(): Promise<void> {
     if (micTestBusy || !snapshot) return;
-    if (voiceLabRecording) {
-      setNotice("Stop the VoiceLab recording before using Mic Test.");
+    if (myVoiceRecording) {
+      setNotice("Stop the My Voice recording before using Mic Test.");
       return;
     }
     if (snapshot.meeting.applicationOwned) {
@@ -329,29 +329,29 @@
     await getCurrentWindow().destroy();
   }
 
-  async function voiceLabBlocksClose(): Promise<boolean> {
-    const voiceLab = await voiceLabApi.getState();
-    if (voiceLab.recording_line_id !== null) {
+  async function myVoiceBlocksClose(): Promise<boolean> {
+    const myVoice = await myVoiceApi.getState();
+    if (myVoice.recording_line_id !== null) {
       showCloseDialog(
         "Voice recording is still running",
-        "Stop the current VoiceLab recording before closing TranslateIT so the take can be reviewed safely.",
+        "Stop the current My Voice recording before closing TranslateIT so the take can be reviewed safely.",
         null,
       );
       return true;
     }
-    if (voiceLab.pending_review) {
+    if (myVoice.pending_review) {
       showCloseDialog(
         "Review the current voice take",
-        "Accept or retry the current VoiceLab take before closing TranslateIT.",
+        "Accept or retry the current My Voice take before closing TranslateIT.",
         null,
       );
       return true;
     }
 
-    const build = await voiceLabBuildApi.getStatus();
+    const build = await myVoiceBuildApi.getStatus();
     if (build.phase === "unavailable") {
       showCloseDialog(
-        "Can't check VoiceLab yet",
+        "Can't check My Voice yet",
         "TranslateIT can't confirm whether My Voice is still being created. Keep the app open and try again.",
         "retry",
       );
@@ -360,7 +360,7 @@
     if (build.active) {
       showCloseDialog(
         "My Voice is still being created",
-        "Stop VoiceLab creation before closing TranslateIT so the training process can end safely.",
+        "Stop My Voice creation before closing TranslateIT so the training process can end safely.",
         null,
       );
       return true;
@@ -372,7 +372,7 @@
     if (closeCheckInFlight || stopAndCloseBusy) return;
     closeCheckInFlight = true;
     try {
-      if (await voiceLabBlocksClose()) return;
+      if (await myVoiceBlocksClose()) return;
 
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
@@ -421,7 +421,7 @@
     if (stopAndCloseBusy) return;
     stopAndCloseBusy = true;
     try {
-      if (await voiceLabBlocksClose()) return;
+      if (await myVoiceBlocksClose()) return;
 
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
@@ -534,7 +534,7 @@
     </section>
   </main>
 {:else if setupRequired}
-  <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} onOpenVoiceLab={openVoiceLabFromSetup} />
+  <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} onOpenMyVoice={openMyVoiceFromSetup} />
 {:else if snapshot}
   <main class="flex h-screen min-h-0 bg-[var(--ti-bg)]">
     <Sidebar active={route} {presence} onNavigate={navigate} />
@@ -566,7 +566,7 @@
             onMeetingAction={handleMeetingAction}
             onRefresh={() => refreshSnapshot("Setup checked.")}
             onFixSetup={fixSetup}
-            onOpenVoiceLab={() => navigate("voicelab")}
+            onOpenMyVoice={() => navigate("my-voice")}
           />
         {:else if route === "text"}
           <Text
@@ -575,10 +575,10 @@
             onSettingsChange={applySettings}
             onNotice={setNotice}
           />
-        {:else if route === "voicelab"}
-          <VoiceLab
+        {:else if route === "my-voice"}
+          <MyVoice
             onNotice={setNotice}
-            onRecordingChange={(recording) => { voiceLabRecording = recording; }}
+            onRecordingChange={(recording) => { myVoiceRecording = recording; }}
           />
         {:else}
           <Settings

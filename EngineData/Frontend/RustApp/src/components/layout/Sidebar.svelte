@@ -1,7 +1,7 @@
 <script lang="ts">
   import { AudioLines, Languages, Mic, Settings } from "@lucide/svelte";
 
-  type AppRoute = "meeting" | "text" | "voicelab" | "settings";
+  type AppRoute = "meeting" | "text" | "my-voice" | "settings";
 
   let {
     active,
@@ -16,7 +16,7 @@
   const items = [
     { route: "meeting" as const, label: "Meeting", description: "Voice translation", icon: Mic },
     { route: "text" as const, label: "Text", description: "Indonesian ↔ English", icon: Languages },
-    { route: "voicelab" as const, label: "VoiceLab", description: "Create My Voice", icon: AudioLines },
+    { route: "my-voice" as const, label: "My Voice", description: "Create your meeting voice", icon: AudioLines },
     { route: "settings" as const, label: "Settings", description: "Audio & setup", icon: Settings },
   ];
 

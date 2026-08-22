@@ -1,6 +1,6 @@
 # TranslateIT Tauri Desktop Application
 
-This directory is the current desktop application package on branch `New`.
+This directory is the current desktop application package on branch `Local`.
 
 ## Frontend Ownership
 
@@ -12,6 +12,7 @@ index.html
    ├─ pages/FirstSetup.svelte
    ├─ pages/Meeting.svelte
    ├─ pages/Text.svelte
+   ├─ pages/MyVoice.svelte
    └─ pages/Settings.svelte
 ```
 
@@ -23,6 +24,9 @@ src/app/bridge/runtimeProductFacade.ts
 
 src/app/bridge/runtimeApi.ts
 -> Tauri command boundary
+
+src/app/bridge/myVoiceApi.ts + myVoiceBuildApi.ts
+-> My Voice recording/build command boundary
 
 src-tauri/src/commands/
 -> Rust desktop/runtime commands
@@ -51,14 +55,14 @@ No SvelteKit, frontend router, Redux-like state library, heavy UI framework, CSS
 
 ## Product Surface
 
-Normal UI remains Meeting / Text / Settings, with First Setup shown when required. Audio Studio, History/Saved, Documents, tone/mode controls, and developer pipeline controls are not initial core.
+Normal UI is Meeting / Text / My Voice / Settings, with Setup shown when required. Audio Studio, History/Saved, Documents, tone/mode controls, and developer pipeline controls are not initial core.
 
-Meeting lifecycle, settings persistence, audio truth, model/provider truth, and translation execution remain owned by the existing Rust/Python runtime. Svelte state is presentation/application state only.
+Meeting lifecycle, settings persistence, audio truth, model/provider truth, My Voice training state, and translation execution remain owned by the existing Rust/Python runtime. Svelte state is presentation/application state only.
 
 ## Dependency / Proof Boundary
 
-The source migration was authored through ChatGPT -> GitHub. The previous `package-lock.json` must not be treated as valid for the new Svelte dependency graph and should be regenerated when dependencies are materialized locally.
+Frontend dependencies and `package-lock.json` are current repository-owned inputs. Source changes require the existing Svelte typecheck/build and code-health gates before they are treated as verified.
 
-The user has chosen to defer local testing while major frontend work is still being assembled. Before release, the project still requires Svelte dependency installation/autofix/typecheck/build/render proof plus the existing Rust/Tauri/Python/audio/installer proof described by the canonical project docs.
+Target-PC behavior still requires the Rust/Tauri/Python/audio/installer proof described by the canonical project docs; repository/hosted checks do not substitute for installed Windows acceptance.
 
 Resume work through root `AGENTS.md`, `CONTEXT.md`, and `docs/knowledge/next-action.md`.

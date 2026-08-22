@@ -2,7 +2,7 @@
   import { ArrowLeft, Check, ChevronRight } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
-  import { voiceLabBuildApi } from "../app/bridge/voiceLabBuildApi";
+  import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
   import {
     runtimeProductFacade,
     type ProductAudioDeviceKind,
@@ -17,11 +17,11 @@
   let {
     initialSettings,
     onComplete,
-    onOpenVoiceLab,
+    onOpenMyVoice,
   }: {
     initialSettings: RuntimeSettings;
     onComplete: (settings: RuntimeSettings) => void | Promise<void>;
-    onOpenVoiceLab: (settings: RuntimeSettings) => void | Promise<void>;
+    onOpenMyVoice: (settings: RuntimeSettings) => void | Promise<void>;
   } = $props();
 
   function cloneSettings(value: RuntimeSettings): RuntimeSettings {
@@ -85,7 +85,7 @@
 
   async function refreshMyVoice(): Promise<void> {
     try {
-      myVoiceReady = (await voiceLabBuildApi.getStatus()).approved_voice_ready;
+      myVoiceReady = (await myVoiceBuildApi.getStatus()).approved_voice_ready;
     } catch {
       myVoiceReady = null;
     }
@@ -245,13 +245,13 @@
     busy = false;
   }
 
-  async function openVoiceLab(): Promise<void> {
+  async function openMyVoice(): Promise<void> {
     if (busy) return;
     busy = true;
-    message = "Saving setup before opening VoiceLab...";
+    message = "Saving setup before opening My Voice...";
     const saved = await persistSetupFact("deferred", 5);
     busy = false;
-    if (saved) await onOpenVoiceLab(settings);
+    if (saved) await onOpenMyVoice(settings);
   }
 
   async function completeSetup(): Promise<void> {
@@ -272,7 +272,7 @@
   });
 </script>
 
-<main class="grid min-h-screen place-items-center overflow-y-auto bg-[var(--ti-bg)] px-8 py-10" aria-label="TranslateIT First Setup">
+<main class="grid min-h-screen place-items-center overflow-y-auto bg-[var(--ti-bg)] px-8 py-10" aria-label="TranslateIT Setup">
   <section class="ti-panel w-full max-w-[900px] overflow-hidden">
     <header class="flex items-center gap-3 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-7 py-5">
       <div class="grid size-10 place-items-center rounded-[12px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-base font-bold">T</div>
@@ -319,7 +319,7 @@
         <div><span class="ti-kicker">Ready</span><h1 class="ti-page-title">{myVoiceReady && snapshot?.readiness.meetingReady ? "You're ready to translate." : "One more thing needs attention."}</h1><p class="ti-page-copy">TranslateIT checks the essentials before you start a meeting.</p></div>
         <div class="ti-subtle-card divide-y divide-[var(--ti-border)] overflow-hidden">
           <StatusRow label="Microphone" value={currentMicrophone()} status={snapshot?.readiness.microphoneReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : "warning"} />
-          <StatusRow label="My Voice" value={myVoiceReady ? "Approved voice ready" : myVoiceReady === null ? "Checking My Voice" : "Create My Voice in VoiceLab"} status={myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady ? "good" : myVoiceReady === null ? "neutral" : "warning"} />
+          <StatusRow label="My Voice" value={myVoiceReady ? "Approved voice ready" : myVoiceReady === null ? "Checking My Voice" : "Open My Voice to create it"} status={myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady ? "good" : myVoiceReady === null ? "neutral" : "warning"} />
           <StatusRow label="Meeting microphone" value={currentMeetingMicrophone()} status={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} />
           <StatusRow label="Incoming translation" value="English → Indonesian text" detail="Optional; it doesn't block your translated voice." status="Optional" tone="neutral" />
         </div>
@@ -348,7 +348,7 @@
             {#if myVoiceReady}
               <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingReady} onclick={() => void completeSetup()}><Check size={16} /> Open Meeting</button>
             {:else}
-              <button type="button" class="ti-button" disabled={busy} onclick={() => void openVoiceLab()}>Create My Voice <ChevronRight size={16} /></button>
+              <button type="button" class="ti-button" disabled={busy} onclick={() => void openMyVoice()}>Create My Voice <ChevronRight size={16} /></button>
             {/if}
           {/if}
         </div>

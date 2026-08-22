@@ -2,10 +2,10 @@
   import { Check, Play, Square } from "@lucide/svelte";
   import { onMount } from "svelte";
   import {
-    voiceLabBuildApi,
-    type VoiceLabBuildActionResult,
-    type VoiceLabBuildStatus,
-  } from "../../app/bridge/voiceLabBuildApi";
+    myVoiceBuildApi,
+    type MyVoiceBuildActionResult,
+    type MyVoiceBuildStatus,
+  } from "../../app/bridge/myVoiceBuildApi";
 
   let {
     onNotice,
@@ -15,11 +15,11 @@
     refreshRevision?: number;
   } = $props();
 
-  let build = $state<VoiceLabBuildStatus>({
+  let build = $state<MyVoiceBuildStatus>({
     active: false,
     generation: null,
     phase: "checking",
-    message: "Checking VoiceLab recordings...",
+    message: "Checking My Voice recordings...",
     accepted_take_count: 0,
     accepted_duration_ms: 0,
     minimum_duration_ms: 60_000,
@@ -56,15 +56,15 @@
     timer = setTimeout(() => void refresh(), 1400);
   }
 
-  function applyStatus(next: VoiceLabBuildStatus): void {
+  function applyStatus(next: MyVoiceBuildStatus): void {
     build = next;
     schedulePoll();
   }
 
-  function productMessage(result: VoiceLabBuildActionResult): string {
+  function productMessage(result: MyVoiceBuildActionResult): string {
     switch (result.state) {
       case "building":
-        return "Creating My Voice. You can leave VoiceLab open while it works.";
+        return "Creating My Voice. You can leave My Voice open while it works.";
       case "approved":
         return "My Voice is ready for Meeting translation.";
       case "cancelled":
@@ -80,7 +80,7 @@
       case "build_blocked":
         return "Stop Meeting translation before creating My Voice, then try again.";
       case "cancel_pending":
-        return "My Voice is still stopping. Keep VoiceLab open and try again shortly.";
+        return "My Voice is still stopping. Keep My Voice open and try again shortly.";
       case "evaluation_required":
         return "Review the voice previews before approving My Voice.";
       case "approval_failed":
@@ -96,7 +96,7 @@
       case "cancel_failed":
         return "My Voice couldn't stop safely yet. Try again or check Diagnostics.";
       default:
-        return result.ok ? "VoiceLab action completed." : "VoiceLab couldn't complete this action. Check Diagnostics and try again.";
+        return result.ok ? "My Voice action completed." : "My Voice couldn't complete this action. Check Diagnostics and try again.";
     }
   }
 
@@ -111,7 +111,7 @@
     if (build.phase === "training") return "Creating your English meeting voice from your accepted recordings.";
     if (build.phase === "evaluating") return "Preparing new sentences so you can listen before approving My Voice.";
     if (build.phase === "cancelling") return "Finishing the current stop safely.";
-    return "VoiceLab is working on My Voice.";
+    return "My Voice is being created.";
   }
 
   function idleGuidance(): string {
@@ -122,13 +122,13 @@
     return "Your accepted recordings are ready.";
   }
 
-  function applyResult(result: VoiceLabBuildActionResult): void {
+  function applyResult(result: MyVoiceBuildActionResult): void {
     applyStatus(result.build);
     onNotice(productMessage(result));
   }
 
   async function refresh(): Promise<void> {
-    applyStatus(await voiceLabBuildApi.getStatus());
+    applyStatus(await myVoiceBuildApi.getStatus());
   }
 
   async function startBuild(): Promise<void> {
@@ -136,7 +136,7 @@
     stopAudio();
     busy = true;
     try {
-      applyResult(await voiceLabBuildApi.start(authorized));
+      applyResult(await myVoiceBuildApi.start(authorized));
     } finally {
       busy = false;
     }
@@ -146,7 +146,7 @@
     if (busy || !build.active) return;
     busy = true;
     try {
-      applyResult(await voiceLabBuildApi.cancel());
+      applyResult(await myVoiceBuildApi.cancel());
     } finally {
       busy = false;
     }
@@ -157,7 +157,7 @@
     stopAudio();
     busy = true;
     try {
-      applyResult(await voiceLabBuildApi.approve());
+      applyResult(await myVoiceBuildApi.approve());
     } finally {
       busy = false;
     }
@@ -165,9 +165,9 @@
 
   async function playEvaluation(lineId: number): Promise<void> {
     if (busy || playingLineId !== null) return;
-    const bytes = await voiceLabBuildApi.getEvaluationAudio(lineId);
+    const bytes = await myVoiceBuildApi.getEvaluationAudio(lineId);
     if (!bytes) {
-      onNotice("This VoiceLab preview is unavailable.");
+      onNotice("This My Voice preview is unavailable.");
       return;
     }
     stopAudio();
@@ -177,13 +177,13 @@
     audio.onended = stopAudio;
     audio.onerror = () => {
       stopAudio();
-      onNotice("This VoiceLab preview couldn't be played.");
+      onNotice("This My Voice preview couldn't be played.");
     };
     try {
       await audio.play();
     } catch {
       stopAudio();
-      onNotice("This VoiceLab preview couldn't be played.");
+      onNotice("This My Voice preview couldn't be played.");
     }
   }
 
