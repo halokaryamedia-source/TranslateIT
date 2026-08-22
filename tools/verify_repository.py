@@ -248,7 +248,7 @@ def check_readme(errors: list[str]) -> None:
         "branch `Local`",
         "Meeting",
         "Text",
-        "VoiceLab",
+        "My Voice",
         "Settings",
         "GITHUB_RULES.md",
         "R3",
