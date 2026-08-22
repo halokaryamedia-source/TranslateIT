@@ -107,7 +107,7 @@ function Invoke-ChildPowerShell {
     & $ShellExe -NoLogo -NoProfile -ExecutionPolicy Bypass -File $ScriptPath @Arguments
     $code = $LASTEXITCODE
     if ($code -ne 0) {
-        throw "PowerShell helper failed with exit code $code: $ScriptPath"
+        throw "PowerShell helper failed with exit code ${code}: $ScriptPath"
     }
 }
 
