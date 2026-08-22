@@ -6,7 +6,7 @@ pub mod helper_bridge_runtime;
 pub mod meeting_session;
 pub mod registry;
 pub mod runtime_inventory;
-pub mod runtime_capture;
+pub mod mic_test;
 pub mod runtime;
 pub mod settings;
 pub mod text_translate;
