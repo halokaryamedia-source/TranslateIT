@@ -47,6 +47,20 @@ jobs:
           node-version: "22"
       - name: Compile payload builder
         run: python -m py_compile EngineData/Frontend/RustApp/scripts/build_r3_external_payload.py
+      - name: Parse target-PC acceptance harness
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'EngineData/Frontend/RustApp/scripts/run_target_pc_acceptance.ps1'),
+            [ref]$tokens,
+            [ref]$errors
+          )
+          if (@($errors).Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_.Message }
+            throw 'Target-PC acceptance harness contains PowerShell parse errors.'
+          }
       - name: Check release validators
         working-directory: EngineData/Frontend/RustApp
         run: |
