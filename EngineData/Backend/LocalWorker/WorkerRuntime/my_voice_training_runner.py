@@ -1,8 +1,8 @@
-"""Headless execution boundary for pinned GPT-SoVITS VoiceLab stages.
+"""Headless execution boundary for pinned GPT-SoVITS My Voice training stages.
 
-TranslateIT consumes only the approved English VoiceLab / My Voice path. This
-module keeps the pinned upstream source intact while removing WebUI and unrelated
-multilingual/LoRA import requirements from the product runtime boundary.
+TranslateIT consumes only the approved English My Voice path. This module keeps
+the pinned upstream source intact while removing WebUI and unrelated multilingual/
+LoRA import requirements from the product runtime boundary.
 """
 
 from __future__ import annotations
@@ -57,18 +57,8 @@ def _load_audio(source_root: Path, file: Any, sample_rate: Any) -> np.ndarray:
     try:
         output, _ = (
             ffmpeg.input(audio_path, threads=0)
-            .output(
-                "-",
-                format="f32le",
-                acodec="pcm_f32le",
-                ac=1,
-                ar=int(sample_rate),
-            )
-            .run(
-                cmd=[str(ffmpeg_program), "-nostdin"],
-                capture_stdout=True,
-                capture_stderr=True,
-            )
+            .output("-", format="f32le", acodec="pcm_f32le", ac=1, ar=int(sample_rate))
+            .run(cmd=[str(ffmpeg_program), "-nostdin"], capture_stdout=True, capture_stderr=True)
         )
     except Exception as exc:
         raise RuntimeError("voice_lab:upstream_audio_decode_failed") from exc
@@ -84,7 +74,6 @@ def _module(name: str) -> types.ModuleType:
 
 def _install_english_only_import_shims() -> None:
     text_package = importlib.import_module("text")
-
     chinese_module = sys.modules.get("text.chinese")
     if chinese_module is None:
         chinese_module = _module("text.chinese")
@@ -139,12 +128,8 @@ def _run_english_text_stage() -> None:
         wav_name, _speaker, language, text = line.split("|", 3)
         if language.strip().lower() != "en":
             raise RuntimeError("voice_lab:non_english_training_text_not_supported")
-        phones, word2ph, normalized = clean_text(
-            text.replace("%", "-").replace("￥", ","), "en", version
-        )
-        rows.append(
-            f"{os.path.basename(clean_path(wav_name))}\t{' '.join(phones)}\t{word2ph}\t{normalized}"
-        )
+        phones, word2ph, normalized = clean_text(text.replace("%", "-").replace("￥", ","), "en", version)
+        rows.append(f"{os.path.basename(clean_path(wav_name))}\t{' '.join(phones)}\t{word2ph}\t{normalized}")
 
     output_root.mkdir(parents=True, exist_ok=True)
     target = output_root / f"2-name2text-{part}.txt"
@@ -162,14 +147,12 @@ def install_headless_my_utils(source_root: Path) -> None:
             sys.path.insert(0, path)
 
     _install_english_only_import_shims()
-
     tools_package = importlib.import_module("tools")
     module = _module("tools.my_utils")
     module.clean_path = clean_path
     module.load_audio = lambda file, sr: _load_audio(source_root, file, sr)
     sys.modules["tools.my_utils"] = module
     setattr(tools_package, "my_utils", module)
-
     _install_english_only_tts_model_init()
 
 
@@ -194,7 +177,7 @@ def run_upstream_script(source_root: Path, script: Path, script_args: list[str])
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: voice_lab_upstream_stage.py <source-root> <script> [args...]", file=sys.stderr)
+        print("usage: my_voice_training_runner.py <source-root> <script> [args...]", file=sys.stderr)
         return 2
     run_upstream_script(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3:])
     return 0

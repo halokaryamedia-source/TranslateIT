@@ -35,32 +35,32 @@ function unavailableAction(message: string): GuidedRecordingActionResult {
 
 export const myVoiceApi = {
   async getState(): Promise<GuidedRecordingState> {
-    return (await runCommand<GuidedRecordingState>("get_voice_lab_guided_recording_state")) ?? unavailableState();
+    return (await runCommand<GuidedRecordingState>("get_my_voice_guided_recording_state")) ?? unavailableState();
   },
 
   async startTake(lineId: number, authorizedVoiceConfirmed: boolean): Promise<GuidedRecordingActionResult> {
-    return (await runCommand<GuidedRecordingActionResult>("start_voice_lab_guided_take", {
+    return (await runCommand<GuidedRecordingActionResult>("start_my_voice_guided_take", {
       lineId,
       authorizedVoiceConfirmed,
     })) ?? unavailableAction("My Voice could not start recording.");
   },
 
   async stopTake(lineId: number): Promise<GuidedRecordingActionResult> {
-    return (await runCommand<GuidedRecordingActionResult>("stop_voice_lab_guided_take", { lineId }))
+    return (await runCommand<GuidedRecordingActionResult>("stop_my_voice_guided_take", { lineId }))
       ?? unavailableAction("My Voice could not stop recording safely.");
   },
 
   async retryTake(lineId: number): Promise<GuidedRecordingActionResult> {
-    return (await runCommand<GuidedRecordingActionResult>("retry_voice_lab_guided_take", { lineId }))
+    return (await runCommand<GuidedRecordingActionResult>("retry_my_voice_guided_take", { lineId }))
       ?? unavailableAction("My Voice could not discard the review take.");
   },
 
   async acceptTake(lineId: number): Promise<GuidedRecordingActionResult> {
-    return (await runCommand<GuidedRecordingActionResult>("accept_voice_lab_guided_take", { lineId }))
+    return (await runCommand<GuidedRecordingActionResult>("accept_my_voice_guided_take", { lineId }))
       ?? unavailableAction("My Voice could not save the accepted take.");
   },
 
   async getTakeAudio(lineId: number): Promise<ArrayBuffer | null> {
-    return runCommand<ArrayBuffer>("get_voice_lab_guided_take_audio", { lineId });
+    return runCommand<ArrayBuffer>("get_my_voice_guided_take_audio", { lineId });
   },
 };

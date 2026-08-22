@@ -6,11 +6,11 @@ import unittest
 import wave
 from pathlib import Path
 
-from voice_lab_build import BuildError, validate_take_signal
-from voice_lab_gpt_sovits import VoiceLabProviderError, select_reference, training_takes
+from my_voice_build import BuildError, validate_take_signal
+from my_voice_gpt_sovits import MyVoiceProviderError, select_reference, training_takes
 
 
-class VoiceLabBuildContractTests(unittest.TestCase):
+class MyVoiceBuildContractTests(unittest.TestCase):
     @staticmethod
     def write_canonical_wav(path: Path, duration_ms: int) -> None:
         frames = 32_000 * duration_ms // 1_000
@@ -54,7 +54,7 @@ class VoiceLabBuildContractTests(unittest.TestCase):
                 "takes": [{"line_id": 1, "exact_text": "same sentence", "wav_file": "take_0001.wav"}],
                 "held_out_lines": [{"line_id": 1001, "exact_text": "same sentence"}],
             }
-            with self.assertRaisesRegex(VoiceLabProviderError, "invalid_held_out_line"):
+            with self.assertRaisesRegex(MyVoiceProviderError, "invalid_held_out_line"):
                 training_takes(root, manifest)
 
     def test_noncanonical_take_is_rejected(self) -> None:
@@ -70,7 +70,7 @@ class VoiceLabBuildContractTests(unittest.TestCase):
                 "takes": [{"line_id": 1, "exact_text": "training sentence", "wav_file": path.name}],
                 "held_out_lines": [{"line_id": 1001, "exact_text": "held out sentence"}],
             }
-            with self.assertRaisesRegex(VoiceLabProviderError, "noncanonical_take"):
+            with self.assertRaisesRegex(MyVoiceProviderError, "noncanonical_take"):
                 training_takes(root, manifest)
 
     def test_build_gate_rejects_excessive_silence(self) -> None:

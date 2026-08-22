@@ -112,14 +112,10 @@ const expectedVbCableFiles = {
 const errors = [];
 const fail = (message) => errors.push(message);
 const requireFile = (path, label = path) => {
-  if (!existsSync(path) || !statSync(path).isFile() || statSync(path).size <= 0) {
-    fail(`Missing required release file: ${label}`);
-  }
+  if (!existsSync(path) || !statSync(path).isFile() || statSync(path).size <= 0) fail(`Missing required release file: ${label}`);
 };
 const requireDir = (path, label = path) => {
-  if (!existsSync(path) || !statSync(path).isDirectory()) {
-    fail(`Missing required release directory: ${label}`);
-  }
+  if (!existsSync(path) || !statSync(path).isDirectory()) fail(`Missing required release directory: ${label}`);
 };
 const sha256File = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
 const hasAnyFile = (root) => {
@@ -143,13 +139,11 @@ for (const file of [
   "worker_runtime_common.py",
   "worker_io_runtime.py",
   "translation_envelope.py",
-  "voice_lab_build.py",
-  "voice_lab_gpt_sovits.py",
-  "voice_lab_upstream_stage.py",
+  "my_voice_build.py",
+  "my_voice_gpt_sovits.py",
+  "my_voice_training_runner.py",
   "model_manifest.json",
-]) {
-  requireFile(join(workerRoot, file), `WorkerRuntime/${file}`);
-}
+]) requireFile(join(workerRoot, file), `WorkerRuntime/${file}`);
 
 requireFile(join(pythonRoot, "python.exe"), "LocalWorker/PythonRuntime/python.exe");
 requireFile(join(pythonRoot, "LICENSE.txt"), "LocalWorker/PythonRuntime/LICENSE.txt");
@@ -157,30 +151,14 @@ requireFile(join(pythonRoot, "PYTHON_SOURCE.txt"), "LocalWorker/PythonRuntime/PY
 requireFile(join(pythonRoot, "python312._pth"), "LocalWorker/PythonRuntime/python312._pth");
 if (existsSync(join(pythonRoot, "PYTHON_SOURCE.txt"))) {
   const sourceRecord = readFileSync(join(pythonRoot, "PYTHON_SOURCE.txt"), "utf8");
-  for (const marker of [
-    "source_kind=cpython-embeddable",
-    "release=3.12.10",
-    "source_url=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
-    "archive_bytes=11133606",
-    "archive_md5=fe8ef205f2e9c3ba44d0cf9954e1abd3",
-    `archive_sha256=${expectedPythonArchiveSha256}`,
-  ]) {
+  for (const marker of ["source_kind=cpython-embeddable", "release=3.12.10", "source_url=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip", "archive_bytes=11133606", "archive_md5=fe8ef205f2e9c3ba44d0cf9954e1abd3", `archive_sha256=${expectedPythonArchiveSha256}`]) {
     if (!sourceRecord.includes(marker)) fail(`PYTHON_SOURCE.txt provenance marker is missing: ${marker}`);
   }
 }
 if (existsSync(join(pythonRoot, "python312._pth"))) {
-  const activePaths = readFileSync(join(pythonRoot, "python312._pth"), "utf8")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-  if (JSON.stringify(activePaths) !== JSON.stringify(["python312.zip", ".", "..\\WorkerRuntime"])) {
-    fail("PythonRuntime/python312._pth must expose only python312.zip, vendored PythonRuntime packages, and canonical sibling WorkerRuntime.");
-  }
-  if (activePaths.some((line) => line.toLowerCase() === "import site")) {
-    fail("PythonRuntime/python312._pth must keep import site disabled; system/user site-packages are not release dependencies.");
-  }
+  const activePaths = readFileSync(join(pythonRoot, "python312._pth"), "utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n").map((line) => line.trim()).filter((line) => line && !line.startsWith("#"));
+  if (JSON.stringify(activePaths) !== JSON.stringify(["python312.zip", ".", "..\\WorkerRuntime"])) fail("PythonRuntime/python312._pth must expose only python312.zip, vendored PythonRuntime packages, and canonical sibling WorkerRuntime.");
+  if (activePaths.some((line) => line.toLowerCase() === "import site")) fail("PythonRuntime/python312._pth must keep import site disabled; system/user site-packages are not release dependencies.");
 }
 
 for (const [distInfoName, requirement] of Object.entries(exceptionalPythonLicenseMaterials)) {
@@ -192,16 +170,12 @@ for (const [distInfoName, requirement] of Object.entries(exceptionalPythonLicens
   requireFile(sourcePath, `${distInfoName}/licenses/TRANSLATEIT_SOURCE.txt`);
   if (existsSync(sourcePath)) {
     const sourceRecord = readFileSync(sourcePath, "utf8");
-    for (const marker of requirement.source) {
-      if (!sourceRecord.includes(marker)) fail(`${distInfoName} exceptional license source marker is missing: ${marker}`);
-    }
+    for (const marker of requirement.source) if (!sourceRecord.includes(marker)) fail(`${distInfoName} exceptional license source marker is missing: ${marker}`);
   }
   for (const [file, expectedHash] of Object.entries(requirement.files)) {
     const path = join(licensesRoot, file);
     requireFile(path, `${distInfoName}/licenses/${file}`);
-    if (existsSync(path) && sha256File(path) !== expectedHash) {
-      fail(`${distInfoName} exceptional license material hash mismatch: ${file}`);
-    }
+    if (existsSync(path) && sha256File(path) !== expectedHash) fail(`${distInfoName} exceptional license material hash mismatch: ${file}`);
   }
 }
 
@@ -220,27 +194,16 @@ if (existsSync(noticeBundlePath)) {
 const manifestPath = join(workerRoot, "model_manifest.json");
 if (existsSync(manifestPath)) {
   let manifest;
-  try {
-    manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
-  } catch {
-    fail("WorkerRuntime/model_manifest.json is not valid JSON.");
-  }
+  try { manifest = JSON.parse(readFileSync(manifestPath, "utf8")); } catch { fail("WorkerRuntime/model_manifest.json is not valid JSON."); }
   if (manifest) {
-    if (manifest.schema !== "translateit.local_model_inventory.v2" || manifest.inventory_scope !== "full_product_release_assets") {
-      fail("WorkerRuntime/model_manifest.json is not the canonical full-product release inventory.");
-    }
+    if (manifest.schema !== "translateit.local_model_inventory.v2" || manifest.inventory_scope !== "full_product_release_assets") fail("WorkerRuntime/model_manifest.json is not the canonical full-product release inventory.");
     for (const model of manifest.models ?? []) {
       if (model.required !== true) continue;
       const expectedPath = String(model.expected_path ?? "").trim();
-      if (!expectedPath.startsWith("EngineData/Backend/RuntimeAssets/")) {
-        fail(`Required model ${model.model_id ?? "<unknown>"} has an invalid release path.`);
-        continue;
-      }
+      if (!expectedPath.startsWith("EngineData/Backend/RuntimeAssets/")) { fail(`Required model ${model.model_id ?? "<unknown>"} has an invalid release path.`); continue; }
       const relative = expectedPath.slice("EngineData/Backend/RuntimeAssets/".length);
       const target = join(runtimeAssetsRoot, ...relative.split("/"));
-      if (!existsSync(target) || (!statSync(target).isFile() && !hasAnyFile(target))) {
-        fail(`Required release asset is missing or empty: ${model.model_id} -> ${expectedPath}`);
-      }
+      if (!existsSync(target) || (!statSync(target).isFile() && !hasAnyFile(target))) fail(`Required release asset is missing or empty: ${model.model_id} -> ${expectedPath}`);
     }
   }
 }
@@ -254,14 +217,7 @@ const nltkSourcePath = join(voiceSourceRoot, "NLTK_DATA_SOURCE.txt");
 requireFile(nltkSourcePath, "GPT-SoVITS/Source/NLTK_DATA_SOURCE.txt");
 if (existsSync(nltkSourcePath)) {
   const sourceRecord = readFileSync(nltkSourcePath, "utf8");
-  for (const marker of [
-    "source_kind=nltk_data",
-    "repository=nltk/nltk_data",
-    `revision=${expectedNltkRevision}`,
-    ...Object.entries(expectedNltkPackages).map(([name, hash]) => `${name} sha256=${hash}`),
-  ]) {
-    if (!sourceRecord.includes(marker)) fail(`NLTK_DATA_SOURCE.txt provenance marker is missing: ${marker}`);
-  }
+  for (const marker of ["source_kind=nltk_data", "repository=nltk/nltk_data", `revision=${expectedNltkRevision}`, ...Object.entries(expectedNltkPackages).map(([name, hash]) => `${name} sha256=${hash}`)]) if (!sourceRecord.includes(marker)) fail(`NLTK_DATA_SOURCE.txt provenance marker is missing: ${marker}`);
 }
 const ffmpegPath = join(voiceSourceRoot, "ffmpeg.exe");
 const ffmpegLicensePath = join(voiceSourceRoot, "FFMPEG_LICENSE.txt");
@@ -269,57 +225,19 @@ const ffmpegSourcePath = join(voiceSourceRoot, "FFMPEG_SOURCE.txt");
 requireFile(ffmpegPath, "GPT-SoVITS/Source/ffmpeg.exe");
 requireFile(ffmpegLicensePath, "GPT-SoVITS/Source/FFMPEG_LICENSE.txt");
 requireFile(ffmpegSourcePath, "GPT-SoVITS/Source/FFMPEG_SOURCE.txt");
-if (existsSync(ffmpegPath) && sha256File(ffmpegPath) !== expectedFfmpegExeSha256) {
-  fail("GPT-SoVITS/Source/ffmpeg.exe does not match the pinned BtbN LGPL static executable.");
-}
+if (existsSync(ffmpegPath) && sha256File(ffmpegPath) !== expectedFfmpegExeSha256) fail("GPT-SoVITS/Source/ffmpeg.exe does not match the pinned BtbN LGPL static executable.");
 if (existsSync(ffmpegLicensePath)) {
-  if (sha256File(ffmpegLicensePath) !== expectedFfmpegLicenseSha256) {
-    fail("GPT-SoVITS/Source/FFMPEG_LICENSE.txt must be the exact LICENSE.txt from the pinned BtbN archive.");
-  }
+  if (sha256File(ffmpegLicensePath) !== expectedFfmpegLicenseSha256) fail("GPT-SoVITS/Source/FFMPEG_LICENSE.txt must be the exact LICENSE.txt from the pinned BtbN archive.");
   const ffmpegLicense = readFileSync(ffmpegLicensePath, "utf8");
-  if (!ffmpegLicense.includes("GNU LESSER GENERAL PUBLIC LICENSE") || !ffmpegLicense.includes("Version 3, 29 June 2007")) {
-    fail("FFMPEG_LICENSE.txt does not contain the expected LGPL v3 license text.");
-  }
+  if (!ffmpegLicense.includes("GNU LESSER GENERAL PUBLIC LICENSE") || !ffmpegLicense.includes("Version 3, 29 June 2007")) fail("FFMPEG_LICENSE.txt does not contain the expected LGPL v3 license text.");
 }
 if (existsSync(ffmpegSourcePath)) {
   const sourceRecord = readFileSync(ffmpegSourcePath, "utf8");
-  for (const marker of [
-    "source_kind=ffmpeg",
-    "binary_builder=BtbN/FFmpeg-Builds",
-    "builder_release_tag=autobuild-2026-08-10-13-17",
-    "builder_commit=2437e7b868da3c11872367b15f3c613b87c24819",
-    "archive=ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip",
-    "archive_sha256=b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab",
-    "ffmpeg_version=n8.1.2-34-g9b6c8969e0-20260810",
-    "ffmpeg_source_commit=9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b",
-    `ffmpeg_exe_sha256=${expectedFfmpegExeSha256}`,
-    "license_profile=LGPL-3.0-or-later",
-    "build_profile=win64-lgpl-static",
-  ]) {
-    if (!sourceRecord.includes(marker)) fail(`FFMPEG_SOURCE.txt provenance marker is missing: ${marker}`);
-  }
+  for (const marker of ["source_kind=ffmpeg", "binary_builder=BtbN/FFmpeg-Builds", "builder_release_tag=autobuild-2026-08-10-13-17", "builder_commit=2437e7b868da3c11872367b15f3c613b87c24819", "archive=ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip", "archive_sha256=b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab", "ffmpeg_version=n8.1.2-34-g9b6c8969e0-20260810", "ffmpeg_source_commit=9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b", `ffmpeg_exe_sha256=${expectedFfmpegExeSha256}`, "license_profile=LGPL-3.0-or-later", "build_profile=win64-lgpl-static"]) if (!sourceRecord.includes(marker)) fail(`FFMPEG_SOURCE.txt provenance marker is missing: ${marker}`);
 }
-for (const dir of [
-  ["GPT_SoVITS", "GPT-SoVITS core source"],
-  ["nltk_data/corpora/cmudict", "NLTK cmudict"],
-  ["nltk_data/taggers/averaged_perceptron_tagger", "NLTK perceptron tagger"],
-  ["nltk_data/taggers/averaged_perceptron_tagger_eng", "NLTK English perceptron tagger"],
-]) {
-  requireDir(join(voiceSourceRoot, ...dir[0].split("/")), dir[1]);
-}
+for (const dir of [["GPT_SoVITS", "GPT-SoVITS core source"], ["nltk_data/corpora/cmudict", "NLTK cmudict"], ["nltk_data/taggers/averaged_perceptron_tagger", "NLTK perceptron tagger"], ["nltk_data/taggers/averaged_perceptron_tagger_eng", "NLTK English perceptron tagger"]]) requireDir(join(voiceSourceRoot, ...dir[0].split("/")), dir[1]);
 
-const forbiddenVoicePayload = [
-  "webui.py",
-  "api.py",
-  "api_v2.py",
-  "GPT_SoVITS/inference_webui.py",
-  "tools/asr",
-  "tools/uvr5",
-  "tools/subfix_webui.py",
-  "ffplay.exe",
-  "ffprobe.exe",
-];
-for (const relative of forbiddenVoicePayload) {
+for (const relative of ["webui.py", "api.py", "api_v2.py", "GPT_SoVITS/inference_webui.py", "tools/asr", "tools/uvr5", "tools/subfix_webui.py", "ffplay.exe", "ffprobe.exe"]) {
   const target = join(voiceSourceRoot, ...relative.split("/"));
   if (existsSync(target)) fail(`Unapproved GPT-SoVITS WebUI/server/auxiliary payload must not be bundled: ${relative}`);
 }
@@ -327,31 +245,18 @@ for (const relative of forbiddenVoicePayload) {
 requireFile(join(vbCableRoot, "NOTICE.txt"), "AudioProvider/VBCABLE/NOTICE.txt");
 if (existsSync(join(vbCableRoot, "NOTICE.txt"))) {
   const notice = readFileSync(join(vbCableRoot, "NOTICE.txt"), "utf8").toLowerCase();
-  for (const marker of [
-    "vb-audio",
-    "donationware",
-    "vb-cable",
-    "https://vb-cable.com/",
-    "https://shop.vb-audio.com/en/win-apps/11-vb-cable.html",
-    "managed professional/company/institution",
-  ]) {
-    if (!notice.includes(marker)) fail(`VB-CABLE distribution notice marker is missing: ${marker}`);
-  }
+  for (const marker of ["vb-audio", "donationware", "vb-cable", "https://vb-cable.com/", "https://shop.vb-audio.com/en/win-apps/11-vb-cable.html", "managed professional/company/institution"]) if (!notice.includes(marker)) fail(`VB-CABLE distribution notice marker is missing: ${marker}`);
 }
 requireDir(vbCablePackageRoot, "AudioProvider/VBCABLE/Package");
 if (existsSync(vbCablePackageRoot) && statSync(vbCablePackageRoot).isDirectory()) {
   const entries = readdirSync(vbCablePackageRoot, { withFileTypes: true });
   const actualNames = entries.map((entry) => entry.name).sort((a, b) => a.localeCompare(b));
   const expectedNames = Object.keys(expectedVbCableFiles).sort((a, b) => a.localeCompare(b));
-  if (entries.some((entry) => !entry.isFile()) || JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) {
-    fail("AudioProvider/VBCABLE/Package must be the exact flat 31-file extraction of reviewed VBCABLE_Driver_Pack45.zip.");
-  }
+  if (entries.some((entry) => !entry.isFile()) || JSON.stringify(actualNames) !== JSON.stringify(expectedNames)) fail("AudioProvider/VBCABLE/Package must be the exact flat 31-file extraction of reviewed VBCABLE_Driver_Pack45.zip.");
   for (const [name, expectedHash] of Object.entries(expectedVbCableFiles)) {
     const path = join(vbCablePackageRoot, name);
     requireFile(path, `AudioProvider/VBCABLE/Package/${name}`);
-    if (existsSync(path) && sha256File(path) !== expectedHash) {
-      fail(`VB-CABLE Pack45 file does not match reviewed official bytes: ${name}`);
-    }
+    if (existsSync(path) && sha256File(path) !== expectedHash) fail(`VB-CABLE Pack45 file does not match reviewed official bytes: ${name}`);
   }
 }
 
@@ -361,4 +266,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-payload] Required private Python runtime, canonical modular WorkerRuntime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");
+console.log("[release-payload] Required private Python runtime, canonical modular WorkerRuntime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS My Voice payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");

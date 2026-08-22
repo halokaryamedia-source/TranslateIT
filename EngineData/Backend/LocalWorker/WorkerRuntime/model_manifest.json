@@ -77,7 +77,7 @@
       "revision": "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"
     },
     {
-      "model_id": "gpt-sovits-v2proplus-voicelab",
+      "model_id": "gpt-sovits-v2proplus-my-voice",
       "required": true,
       "stage": "voice_actor_build_and_inference",
       "backend": "gpt-sovits-v2proplus",
@@ -90,7 +90,7 @@
       "download_url": null,
       "install_method": "approved_release_asset",
       "license": "mit (RVC-Boss/GPT-SoVITS source); bundled pretrained and third-party runtime assets retain their own license/attribution requirements",
-      "notes": "Required full-product-release VoiceLab creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. Preserve upstream and third-party notices; FFmpeg and the frozen Python dependency graph have separate release-license gates documented by controlled payload owners.",
+      "notes": "Required full-product-release My Voice creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. Preserve upstream and third-party notices; FFmpeg and the frozen Python dependency graph have separate release-license gates documented by controlled payload owners.",
       "revision": "d523079fc05d9a8028d6085bffe4a2757c32abb6",
       "asset_repo_id": "lj1995/GPT-SoVITS",
       "asset_revision": "336b2ec4e8d4ac74740798dd40af44e74659ecaf",

@@ -85,7 +85,7 @@ $sitePackages = Join-Path $Worker '.venv\Lib\site-packages'
 if (-not (Test-Path -LiteralPath $sitePackages -PathType Container)) { throw 'Frozen WorkerRuntime site-packages missing.' }
 Copy-Tree $sitePackages $PythonRoot
 $privatePython = Join-Path $PythonRoot 'python.exe'
-& $privatePython -s -c "import torch, torchaudio, transformers, ctranslate2, faster_whisper, sentencepiece, soundfile, numpy, voice_lab_gpt_sovits; print('[release-stage][python] private imports PASS', torch.__version__, transformers.__version__)"
+& $privatePython -s -c "import torch, torchaudio, transformers, ctranslate2, faster_whisper, sentencepiece, soundfile, numpy, my_voice_gpt_sovits; print('[release-stage][python] private imports PASS', torch.__version__, transformers.__version__)"
 if ($LASTEXITCODE -ne 0) { throw 'Private Python runtime import smoke failed.' }
 
 Write-Host '[release-stage] Acquire required Hugging Face models from canonical manifest'
@@ -239,10 +239,10 @@ foreach ($exeName in @('VBCABLE_Setup.exe', 'VBCABLE_Setup_x64.exe')) {
 Write-Host '[release-stage] Remove transient download metadata from staged runtime'
 Get-ChildItem -LiteralPath $Assets -Directory -Recurse -Force -ErrorAction SilentlyContinue | Where-Object { $_.Name -eq '.cache' } | Sort-Object FullName -Descending | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
-Write-Host '[release-stage] Static VoiceLab source-asset preflight through private Python'
+Write-Host '[release-stage] Static My Voice source-asset preflight through private Python'
 $env:SOURCE_ROOT = $VoiceSource
-& $privatePython -s -c "from pathlib import Path; import os; import voice_lab_gpt_sovits as v; a=v.source_assets(Path(os.environ['SOURCE_ROOT'])); print('[release-stage][voice] source assets PASS', sorted(a.keys()))"
-if ($LASTEXITCODE -ne 0) { throw 'VoiceLab staged source asset validation failed.' }
+& $privatePython -s -c "from pathlib import Path; import os; import my_voice_gpt_sovits as v; a=v.source_assets(Path(os.environ['SOURCE_ROOT'])); print('[release-stage][voice] source assets PASS', sorted(a.keys()))"
+if ($LASTEXITCODE -ne 0) { throw 'My Voice staged source asset validation failed.' }
 
 Write-Host '[release-stage] Controlled input sizes'
 foreach ($pair in @(

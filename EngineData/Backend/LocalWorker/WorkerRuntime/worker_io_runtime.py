@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-import voice_lab_gpt_sovits as voice_actor_provider
+import my_voice_gpt_sovits as voice_actor_provider
 import worker_runtime_common as common
 
 ASR_MODEL = common.ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
@@ -141,7 +141,7 @@ def clear_voice_actor_runtime() -> None:
 
 def voice_actor_blocker(exc: Exception) -> str:
     detail = str(exc).strip()
-    if isinstance(exc, voice_actor_provider.VoiceLabProviderError) and detail:
+    if isinstance(exc, voice_actor_provider.MyVoiceProviderError) and detail:
         safe = "".join(ch for ch in detail if ch.isascii() and (ch.isalnum() or ch in "_:-"))
         if safe:
             return f"voice_actor:{safe[:160]}"
@@ -151,10 +151,10 @@ def voice_actor_blocker(exc: Exception) -> str:
 def voice_actor_package_token(package: dict[str, Any]) -> str:
     fingerprint = package.get("fingerprint")
     if not isinstance(fingerprint, tuple) or not fingerprint:
-        raise voice_actor_provider.VoiceLabProviderError("actor_identity_missing")
+        raise voice_actor_provider.MyVoiceProviderError("actor_identity_missing")
     token = json.dumps(fingerprint, ensure_ascii=True, separators=(",", ":"))
     if not token or len(token) > 512:
-        raise voice_actor_provider.VoiceLabProviderError("actor_identity_invalid")
+        raise voice_actor_provider.MyVoiceProviderError("actor_identity_invalid")
     return token
 
 
@@ -177,10 +177,10 @@ def get_voice_actor_runtime() -> dict[str, Any]:
     clear_voice_actor_runtime()
     runtime = voice_actor_provider.load_voice_actor_runtime(common.GPT_SOVITS_SOURCE_ROOT, common.VOICE_ACTOR_ROOT)
     if runtime.get("fingerprint") != fingerprint:
-        raise voice_actor_provider.VoiceLabProviderError("actor_changed_during_load")
+        raise voice_actor_provider.MyVoiceProviderError("actor_changed_during_load")
     latest = voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
     if latest["fingerprint"] != fingerprint:
-        raise voice_actor_provider.VoiceLabProviderError("actor_changed_during_load")
+        raise voice_actor_provider.MyVoiceProviderError("actor_changed_during_load")
     VOICE_ACTOR_RUNTIME = runtime
     VOICE_ACTOR_RUNTIME_FINGERPRINT = fingerprint
     return runtime
@@ -219,15 +219,15 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         token = voice_actor_package_token(package)
         if expected and token != expected:
             clear_voice_actor_runtime()
-            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
+            raise voice_actor_provider.MyVoiceProviderError("actor_changed_since_meeting_start")
         runtime = get_voice_actor_runtime()
         runtime_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
         if expected and runtime_token != expected:
             clear_voice_actor_runtime()
-            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
+            raise voice_actor_provider.MyVoiceProviderError("actor_changed_since_meeting_start")
         synthesis = voice_actor_provider.synthesize_voice_actor(runtime, text, output_path)
         if not output_path.is_file() or output_path.stat().st_size <= 44:
-            raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
+            raise voice_actor_provider.MyVoiceProviderError("inference_audio_invalid")
         return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice",
                 "language_code": "en", "device": synthesis["device"],
                 "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"],

@@ -57,9 +57,9 @@ const expectedResources = {
   "../../../Backend/LocalWorker/WorkerRuntime/worker_runtime_common.py": "EngineData/Backend/LocalWorker/WorkerRuntime/worker_runtime_common.py",
   "../../../Backend/LocalWorker/WorkerRuntime/worker_io_runtime.py": "EngineData/Backend/LocalWorker/WorkerRuntime/worker_io_runtime.py",
   "../../../Backend/LocalWorker/WorkerRuntime/translation_envelope.py": "EngineData/Backend/LocalWorker/WorkerRuntime/translation_envelope.py",
-  "../../../Backend/LocalWorker/WorkerRuntime/voice_lab_build.py": "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_build.py",
-  "../../../Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py": "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py",
-  "../../../Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py": "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py",
+  "../../../Backend/LocalWorker/WorkerRuntime/my_voice_build.py": "EngineData/Backend/LocalWorker/WorkerRuntime/my_voice_build.py",
+  "../../../Backend/LocalWorker/WorkerRuntime/my_voice_gpt_sovits.py": "EngineData/Backend/LocalWorker/WorkerRuntime/my_voice_gpt_sovits.py",
+  "../../../Backend/LocalWorker/WorkerRuntime/my_voice_training_runner.py": "EngineData/Backend/LocalWorker/WorkerRuntime/my_voice_training_runner.py",
   "../../../Backend/LocalWorker/WorkerRuntime/model_manifest.json": "EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json",
   "../../../Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt": "EngineData/Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt",
   "../../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt": "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt",
@@ -120,8 +120,8 @@ requireMarkers(build, "release build", [
 
 if (manifest.schema !== "translateit.local_model_inventory.v2" || manifest.inventory_scope !== "full_product_release_assets") fail("model_manifest.json release inventory contract drifted.");
 const requiredIds = new Set((manifest.models ?? []).filter((item) => item.required === true).map((item) => item.model_id));
-for (const id of ["faster-whisper-large-v3-turbo", "milmmt-46-1b-v1.0", "gpt-sovits-v2proplus-voicelab"]) if (!requiredIds.has(id)) fail(`Required model missing: ${id}`);
-for (const legacy of ["marianmt-id-en", "marianmt-en-id", "m2m100-418m"]) if (requiredIds.has(legacy)) fail(`Legacy translator remains required: ${legacy}`);
+for (const id of ["faster-whisper-large-v3-turbo", "milmmt-46-1b-v1.0", "gpt-sovits-v2proplus-my-voice"]) if (!requiredIds.has(id)) fail(`Required model missing: ${id}`);
+for (const legacy of ["marianmt-id-en", "marianmt-en-id", "m2m100-418m", "gpt-sovits-v2proplus-voicelab"]) if (requiredIds.has(legacy)) fail(`Legacy model identifier remains required: ${legacy}`);
 const milmmt = (manifest.models ?? []).find((item) => item.model_id === "milmmt-46-1b-v1.0");
 if (milmmt?.repo_id !== "xiaomi-research/MiLMMT-46-1B-v1.0" || milmmt?.revision !== "4fc480b6c58dec29c159dcdf9fde0f6d5c354995") fail("MiLMMT release identity drifted.");
 if (!entrypoint.includes('with_name("realtime_local_worker_base.py")') || !entrypoint.includes("milmmt_translation_provider.install(globals())")) fail("Canonical worker entrypoint drifted.");

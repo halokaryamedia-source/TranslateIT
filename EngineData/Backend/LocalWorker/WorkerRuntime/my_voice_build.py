@@ -1,7 +1,7 @@
-"""One-shot VoiceLab build child owned by the Rust desktop runtime.
+"""One-shot My Voice build child owned by the Rust desktop runtime.
 
 This process is intentionally not a server and not a second daily AI worker. It
-validates the frozen VoiceLab dataset, delegates the pinned GPT-SoVITS V2ProPlus
+validates the frozen My Voice dataset, delegates the pinned GPT-SoVITS V2ProPlus
 stages, and produces one reviewable candidate package.
 """
 
@@ -16,10 +16,10 @@ import wave
 from pathlib import Path
 from typing import Any
 
-from voice_lab_gpt_sovits import (
+from my_voice_gpt_sovits import (
     ENGINE,
     ENGINE_REVISION,
-    VoiceLabProviderError,
+    MyVoiceProviderError,
     build_candidate,
 )
 
@@ -61,16 +61,13 @@ def atomic_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def write_status(path: Path, phase: str, message: str) -> None:
-    atomic_json(
-        path,
-        {
-            "schema_version": SCHEMA_VERSION,
-            "engine": ENGINE,
-            "engine_revision": ENGINE_REVISION,
-            "phase": phase,
-            "message": message,
-        },
-    )
+    atomic_json(path, {
+        "schema_version": SCHEMA_VERSION,
+        "engine": ENGINE,
+        "engine_revision": ENGINE_REVISION,
+        "phase": phase,
+        "message": message,
+    })
 
 
 def validate_manifest(dataset_dir: Path) -> dict[str, Any]:
@@ -107,9 +104,6 @@ def validate_take_signal(path: Path) -> None:
     silent = sum(1 for sample in samples if abs(sample) <= SILENCE_ABS_PCM16)
     clipped = sum(1 for sample in samples if abs(sample) >= CLIPPING_ABS_PCM16)
 
-    # These are deliberately conservative structural gates. They reject only
-    # obviously unusable datasets before expensive training; target-user audio
-    # remains the authority for any future tuning of these bounds.
     if silent / frame_count >= MAX_SILENCE_FRACTION:
         raise BuildError(f"take_excessive_silence:{path.name}")
     if clipped / frame_count >= MAX_CLIPPING_FRACTION:
@@ -144,7 +138,7 @@ def main() -> int:
         dataset_dir = Path(args.dataset_dir).resolve()
         manifest = validate_manifest(dataset_dir)
         validate_dataset_signal(dataset_dir, manifest)
-        write_status(status_path, "preparing", "Preparing VoiceLab training data.")
+        write_status(status_path, "preparing", "Preparing My Voice training data.")
         build_candidate(
             source_root=Path(args.source_root).resolve(),
             dataset_dir=dataset_dir,
@@ -154,15 +148,15 @@ def main() -> int:
             manifest=manifest,
             status_writer=lambda phase, message: write_status(status_path, phase, message),
         )
-        write_status(status_path, "ready_for_review", "Voice Actor samples are ready for review.")
+        write_status(status_path, "ready_for_review", "My Voice samples are ready for review.")
         return 0
-    except (BuildError, VoiceLabProviderError) as exc:
+    except (BuildError, MyVoiceProviderError) as exc:
         write_status(status_path, "failed", str(exc))
-        print(f"voice_lab_build_failed:{exc}", file=os.sys.stderr)
+        print(f"my_voice_build_failed:{exc}", file=os.sys.stderr)
         return 2
     except Exception as exc:
         write_status(status_path, "failed", f"unexpected:{type(exc).__name__}")
-        print(f"voice_lab_build_failed:unexpected:{type(exc).__name__}", file=os.sys.stderr)
+        print(f"my_voice_build_failed:unexpected:{type(exc).__name__}", file=os.sys.stderr)
         return 3
 
 

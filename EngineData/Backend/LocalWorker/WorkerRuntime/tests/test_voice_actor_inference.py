@@ -41,7 +41,7 @@ def test_actor_package_validation_matches_approved_contract(tmp_path: Path) -> N
     assert package["gpt_path"] == actor / "gpt.ckpt"
     assert len(package["fingerprint"]) == 4
     write_actor(actor, revision="0" * 40)
-    with pytest.raises(provider.VoiceLabProviderError, match="actor_engine_contract_mismatch"):
+    with pytest.raises(provider.MyVoiceProviderError, match="actor_engine_contract_mismatch"):
         provider.validate_actor_package(actor)
 
 
@@ -82,20 +82,8 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
     fingerprint = (("actor.json", 1, 1),)
-    monkeypatch.setattr(
-        worker.voice_actor_provider,
-        "validate_actor_package",
-        lambda _root: {"fingerprint": fingerprint},
-    )
-    monkeypatch.setattr(
-        worker,
-        "get_voice_actor_runtime",
-        lambda: {
-            "device": "cpu",
-            "reference_cached": True,
-            "fingerprint": fingerprint,
-        },
-    )
+    monkeypatch.setattr(worker.voice_actor_provider, "validate_actor_package", lambda _root: {"fingerprint": fingerprint})
+    monkeypatch.setattr(worker, "get_voice_actor_runtime", lambda: {"device": "cpu", "reference_cached": True, "fingerprint": fingerprint})
     def synthesize(_runtime, _text, output_path):
         output_path.write_bytes(b"R" * 80)
         return {"sample_rate": 32_000, "device": "cpu", "reference_cached": True}
@@ -117,7 +105,7 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
     def unavailable():
-        raise worker.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
+        raise worker.voice_actor_provider.MyVoiceProviderError("approved_actor_missing")
     monkeypatch.setattr(worker, "get_voice_actor_runtime", unavailable)
     result = worker.handle_voice_actor_synthesize({"text": "Hello.", "output_path": str(output)})
     assert result["ok"] is False
@@ -127,16 +115,8 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
 
 def test_static_worker_readiness_requires_approved_actor_and_inference_assets(monkeypatch) -> None:
     worker = load_worker_module()
-    monkeypatch.setattr(
-        worker.voice_actor_provider,
-        "validate_actor_package",
-        lambda _root: {"fingerprint": (("actor.json", 1, 1),)},
-    )
-    monkeypatch.setattr(
-        worker.voice_actor_provider,
-        "inference_source_assets",
-        lambda _root: {"gsv": Path("gsv")},
-    )
+    monkeypatch.setattr(worker.voice_actor_provider, "validate_actor_package", lambda _root: {"fingerprint": (("actor.json", 1, 1),)})
+    monkeypatch.setattr(worker.voice_actor_provider, "inference_source_assets", lambda _root: {"gsv": Path("gsv")})
     status = worker.voice_actor_static_status()
     assert status["ready"] is True
     assert status["actor_token"] == '[["actor.json",1,1]]'
@@ -148,19 +128,9 @@ def test_meeting_actor_token_rejects_mid_session_actor_change(tmp_path: Path, mo
     cache.mkdir()
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
-    monkeypatch.setattr(
-        worker.voice_actor_provider,
-        "validate_actor_package",
-        lambda _root: {"fingerprint": (("actor.json", 2, 2),)},
-    )
+    monkeypatch.setattr(worker.voice_actor_provider, "validate_actor_package", lambda _root: {"fingerprint": (("actor.json", 2, 2),)})
     output = cache / "voice.wav"
-    result = worker.handle_voice_actor_synthesize(
-        {
-            "text": "Hello.",
-            "output_path": str(output),
-            "expected_actor_token": '[["actor.json",1,1]]',
-        }
-    )
+    result = worker.handle_voice_actor_synthesize({"text": "Hello.", "output_path": str(output), "expected_actor_token": '[["actor.json",1,1]]'})
     assert result["ok"] is False
     assert result["blocker"] == "voice_actor:actor_changed_since_meeting_start"
     assert not output.exists()

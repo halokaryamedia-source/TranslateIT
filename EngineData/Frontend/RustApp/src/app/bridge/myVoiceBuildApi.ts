@@ -50,25 +50,25 @@ function unavailableAction(message: string): MyVoiceBuildActionResult {
 
 export const myVoiceBuildApi = {
   async getStatus(): Promise<MyVoiceBuildStatus> {
-    return (await runCommand<MyVoiceBuildStatus>("get_voice_lab_build_status")) ?? unavailableStatus();
+    return (await runCommand<MyVoiceBuildStatus>("get_my_voice_build_status")) ?? unavailableStatus();
   },
 
   async start(authorizedVoiceConfirmed: boolean): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("start_voice_lab_build", { authorizedVoiceConfirmed }))
+    return (await runCommand<MyVoiceBuildActionResult>("start_my_voice_build", { authorizedVoiceConfirmed }))
       ?? unavailableAction("My Voice could not start being created.");
   },
 
   async cancel(): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("cancel_voice_lab_build"))
+    return (await runCommand<MyVoiceBuildActionResult>("cancel_my_voice_build"))
       ?? unavailableAction("My Voice could not confirm that creation stopped.");
   },
 
   async approve(): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("approve_voice_lab_candidate"))
+    return (await runCommand<MyVoiceBuildActionResult>("approve_my_voice_candidate"))
       ?? unavailableAction("My Voice could not be approved.");
   },
 
   async getEvaluationAudio(lineId: number): Promise<ArrayBuffer | null> {
-    return runCommand<ArrayBuffer>("get_voice_lab_evaluation_audio", { lineId });
+    return runCommand<ArrayBuffer>("get_my_voice_evaluation_audio", { lineId });
   },
 };

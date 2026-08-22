@@ -9,7 +9,7 @@ use crate::engine::paths::ProjectPaths;
 use crate::engine::runtime_state::latest_runtime_session_state;
 
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
-const VOICE_LAB_SCHEMA_VERSION: u32 = 1;
+const MY_VOICE_SCHEMA_VERSION: u32 = 1;
 const VOICE_ACTOR_ENGINE: &str = "gpt-sovits-v2proplus";
 const VOICE_ACTOR_ENGINE_REVISION: &str = "d523079fc05d9a8028d6085bffe4a2757c32abb6";
 const ACTOR_MANIFEST_FILE: &str = "actor.json";
@@ -59,7 +59,7 @@ pub struct VoiceActorPackageManifest {
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
-pub struct VoiceLabBuildSnapshot {
+pub struct MyVoiceBuildSnapshot {
     pub active: bool,
     pub generation: Option<u64>,
     pub phase: String,
@@ -99,9 +99,9 @@ struct BuildLifecycle {
 }
 
 impl BuildLifecycle {
-    fn snapshot(&self) -> VoiceLabBuildSnapshot {
+    fn snapshot(&self) -> MyVoiceBuildSnapshot {
         match self.active.as_ref() {
-            Some(active) => VoiceLabBuildSnapshot {
+            Some(active) => MyVoiceBuildSnapshot {
                 active: true,
                 generation: Some(active.generation),
                 phase: active.phase.as_str().to_string(),
@@ -111,7 +111,7 @@ impl BuildLifecycle {
         }
     }
 
-    fn begin(&mut self) -> Result<VoiceLabBuildSnapshot, String> {
+    fn begin(&mut self) -> Result<MyVoiceBuildSnapshot, String> {
         if self.active.is_some() {
             return Err("voice_lab:build_already_active".to_string());
         }
@@ -129,7 +129,7 @@ impl BuildLifecycle {
         generation: u64,
         expected: BuildPhase,
         next: BuildPhase,
-    ) -> Result<VoiceLabBuildSnapshot, String> {
+    ) -> Result<MyVoiceBuildSnapshot, String> {
         let Some(active) = self.active.as_mut() else {
             return Err("voice_lab:no_active_build".to_string());
         };
@@ -143,7 +143,7 @@ impl BuildLifecycle {
         Ok(self.snapshot())
     }
 
-    fn cancel(&mut self, generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+    fn cancel(&mut self, generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
         let Some(active) = self.active.as_mut() else {
             return Err("voice_lab:no_active_build".to_string());
         };
@@ -157,7 +157,7 @@ impl BuildLifecycle {
         Ok(self.snapshot())
     }
 
-    fn finish(&mut self, generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+    fn finish(&mut self, generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
         let Some(active) = self.active.as_ref() else {
             return Err("voice_lab:no_active_build".to_string());
         };
@@ -171,7 +171,7 @@ impl BuildLifecycle {
         Ok(self.snapshot())
     }
 
-    fn fail(&mut self, generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+    fn fail(&mut self, generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
         let Some(active) = self.active.as_ref() else {
             return Err("voice_lab:no_active_build".to_string());
         };
@@ -188,7 +188,7 @@ impl BuildLifecycle {
 }
 
 #[derive(Debug, Clone)]
-pub struct VoiceLabStoragePaths {
+pub struct MyVoiceStoragePaths {
     pub cache_root: PathBuf,
     pub takes_dir: PathBuf,
     pub build_dataset_dir: PathBuf,
@@ -197,12 +197,14 @@ pub struct VoiceLabStoragePaths {
     pub approved_actor_dir: PathBuf,
 }
 
-impl VoiceLabStoragePaths {
+impl MyVoiceStoragePaths {
     pub fn from_project_paths(paths: &ProjectPaths) -> Self {
         Self::from_roots(Path::new(&paths.user_cache_dir), Path::new(&paths.user_saved_dir))
     }
 
     fn from_roots(cache_root: &Path, saved_root: &Path) -> Self {
+        // Keep the historical directory name so existing local recordings and approved
+        // voice data remain discoverable. New source vocabulary is My Voice.
         let cache_root = cache_root.join("VoiceLab");
         let saved_root = saved_root.join("VoiceLab");
         Self {
@@ -232,8 +234,8 @@ fn promotion_lock() -> &'static Mutex<()> {
     PROMOTION_LOCK.get_or_init(|| Mutex::new(()))
 }
 
-fn idle_snapshot() -> VoiceLabBuildSnapshot {
-    VoiceLabBuildSnapshot {
+fn idle_snapshot() -> MyVoiceBuildSnapshot {
+    MyVoiceBuildSnapshot {
         active: false,
         generation: None,
         phase: "idle".to_string(),
@@ -241,7 +243,7 @@ fn idle_snapshot() -> VoiceLabBuildSnapshot {
     }
 }
 
-fn meeting_blocks_voice_lab() -> bool {
+fn meeting_blocks_my_voice() -> bool {
     let report = latest_runtime_session_state();
     match report.snapshot {
         Some(snapshot) => snapshot.owner_id == APPLICATION_MEETING_OWNER_ID,
@@ -249,11 +251,11 @@ fn meeting_blocks_voice_lab() -> bool {
     }
 }
 
-pub fn current_voice_lab_build_snapshot() -> VoiceLabBuildSnapshot {
+pub fn current_my_voice_build_snapshot() -> MyVoiceBuildSnapshot {
     build_store()
         .lock()
         .map(|state| state.snapshot())
-        .unwrap_or_else(|_| VoiceLabBuildSnapshot {
+        .unwrap_or_else(|_| MyVoiceBuildSnapshot {
             active: true,
             generation: None,
             phase: "state_unavailable".to_string(),
@@ -261,15 +263,15 @@ pub fn current_voice_lab_build_snapshot() -> VoiceLabBuildSnapshot {
         })
 }
 
-pub fn voice_lab_build_blocks_meeting() -> bool {
+pub fn my_voice_build_blocks_meeting() -> bool {
     build_store()
         .lock()
         .map(|state| state.blocks_meeting())
         .unwrap_or(true)
 }
 
-pub fn begin_voice_lab_build() -> Result<VoiceLabBuildSnapshot, String> {
-    if meeting_blocks_voice_lab() {
+pub fn begin_my_voice_build() -> Result<MyVoiceBuildSnapshot, String> {
+    if meeting_blocks_my_voice() {
         return Err("voice_lab:meeting_active".to_string());
     }
     build_store()
@@ -278,35 +280,35 @@ pub fn begin_voice_lab_build() -> Result<VoiceLabBuildSnapshot, String> {
         .begin()
 }
 
-pub fn mark_voice_lab_build_training(generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+pub fn mark_my_voice_build_training(generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
     build_store()
         .lock()
         .map_err(|_| "voice_lab:build_state_unavailable".to_string())?
         .transition(generation, BuildPhase::Preparing, BuildPhase::Training)
 }
 
-pub fn mark_voice_lab_build_evaluating(generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+pub fn mark_my_voice_build_evaluating(generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
     build_store()
         .lock()
         .map_err(|_| "voice_lab:build_state_unavailable".to_string())?
         .transition(generation, BuildPhase::Training, BuildPhase::Evaluating)
 }
 
-pub fn request_voice_lab_build_cancel(generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+pub fn request_my_voice_build_cancel(generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
     build_store()
         .lock()
         .map_err(|_| "voice_lab:build_state_unavailable".to_string())?
         .cancel(generation)
 }
 
-pub fn finish_voice_lab_build(generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+pub fn finish_my_voice_build(generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
     build_store()
         .lock()
         .map_err(|_| "voice_lab:build_state_unavailable".to_string())?
         .finish(generation)
 }
 
-pub fn fail_voice_lab_build(generation: u64) -> Result<VoiceLabBuildSnapshot, String> {
+pub fn fail_my_voice_build(generation: u64) -> Result<MyVoiceBuildSnapshot, String> {
     build_store()
         .lock()
         .map_err(|_| "voice_lab:build_state_unavailable".to_string())?
@@ -319,17 +321,17 @@ pub fn prepare_guided_dataset(
     manifest: &GuidedDatasetManifest,
 ) -> Result<PathBuf, String> {
     ensure_build_generation(generation, BuildPhase::Preparing)?;
-    prepare_guided_dataset_at(&VoiceLabStoragePaths::from_project_paths(paths), manifest)
+    prepare_guided_dataset_at(&MyVoiceStoragePaths::from_project_paths(paths), manifest)
 }
 
 pub fn promote_voice_actor_candidate(paths: &ProjectPaths) -> Result<(), String> {
-    if meeting_blocks_voice_lab() {
+    if meeting_blocks_my_voice() {
         return Err("voice_lab:meeting_active".to_string());
     }
-    if voice_lab_build_blocks_meeting() {
+    if my_voice_build_blocks_meeting() {
         return Err("voice_lab:build_active".to_string());
     }
-    promote_voice_actor_candidate_at(&VoiceLabStoragePaths::from_project_paths(paths))
+    promote_voice_actor_candidate_at(&MyVoiceStoragePaths::from_project_paths(paths))
 }
 
 fn ensure_build_generation(generation: u64, phase: BuildPhase) -> Result<(), String> {
@@ -353,7 +355,7 @@ fn canonical_take_file_name(line_id: u32) -> String {
 }
 
 fn validate_guided_dataset_manifest(manifest: &GuidedDatasetManifest) -> Result<(), String> {
-    if manifest.schema_version != VOICE_LAB_SCHEMA_VERSION {
+    if manifest.schema_version != MY_VOICE_SCHEMA_VERSION {
         return Err("voice_lab:unsupported_dataset_schema".to_string());
     }
     if !manifest.authorized_voice_confirmed {
@@ -403,7 +405,7 @@ fn validate_guided_dataset_manifest(manifest: &GuidedDatasetManifest) -> Result<
 }
 
 fn prepare_guided_dataset_at(
-    storage: &VoiceLabStoragePaths,
+    storage: &MyVoiceStoragePaths,
     manifest: &GuidedDatasetManifest,
 ) -> Result<PathBuf, String> {
     validate_guided_dataset_manifest(manifest)?;
@@ -449,7 +451,7 @@ fn validate_actor_package(dir: &Path) -> Result<VoiceActorPackageManifest, Strin
     let manifest = serde_json::from_slice::<VoiceActorPackageManifest>(&bytes)
         .map_err(|error| format!("voice_lab:actor_manifest_invalid_json:{error}"))?;
 
-    if manifest.schema_version != VOICE_LAB_SCHEMA_VERSION
+    if manifest.schema_version != MY_VOICE_SCHEMA_VERSION
         || manifest.engine != VOICE_ACTOR_ENGINE
         || manifest.engine_revision != VOICE_ACTOR_ENGINE_REVISION
     {
@@ -489,7 +491,7 @@ fn validate_nonempty_regular_file(path: &Path, label: &str) -> Result<(), String
     Ok(())
 }
 
-fn promote_voice_actor_candidate_at(storage: &VoiceLabStoragePaths) -> Result<(), String> {
+fn promote_voice_actor_candidate_at(storage: &MyVoiceStoragePaths) -> Result<(), String> {
     let _guard = promotion_lock()
         .lock()
         .map_err(|_| "voice_lab:promotion_state_unavailable".to_string())?;
@@ -540,7 +542,7 @@ fn promote_voice_actor_candidate_at(storage: &VoiceLabStoragePaths) -> Result<()
     Ok(())
 }
 
-fn recover_interrupted_promotion(storage: &VoiceLabStoragePaths) -> Result<(), String> {
+fn recover_interrupted_promotion(storage: &MyVoiceStoragePaths) -> Result<(), String> {
     let staging = storage.saved_root.join(".MyVoice.next");
     let previous = storage.saved_root.join(".MyVoice.previous");
 
@@ -678,7 +680,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_nanos())
             .unwrap_or(0);
-        std::env::temp_dir().join(format!("translateit_voicelab_{label}_{now}"))
+        std::env::temp_dir().join(format!("translateit_my_voice_{label}_{now}"))
     }
 
     fn write_wav(path: &Path, duration_ms: u64) {
@@ -704,7 +706,7 @@ mod tests {
 
     fn dataset() -> GuidedDatasetManifest {
         GuidedDatasetManifest {
-            schema_version: VOICE_LAB_SCHEMA_VERSION,
+            schema_version: MY_VOICE_SCHEMA_VERSION,
             authorized_voice_confirmed: true,
             takes: vec![GuidedTakeContract {
                 line_id: 1,
@@ -720,7 +722,7 @@ mod tests {
 
     fn actor_manifest(duration_ms: u64) -> VoiceActorPackageManifest {
         VoiceActorPackageManifest {
-            schema_version: VOICE_LAB_SCHEMA_VERSION,
+            schema_version: MY_VOICE_SCHEMA_VERSION,
             engine: VOICE_ACTOR_ENGINE.to_string(),
             engine_revision: VOICE_ACTOR_ENGINE_REVISION.to_string(),
             gpt_weight_file: GPT_WEIGHT_FILE.to_string(),
@@ -776,7 +778,7 @@ mod tests {
     #[test]
     fn accepted_dataset_is_frozen_from_canonical_guided_wavs_only() {
         let root = test_root("dataset");
-        let storage = VoiceLabStoragePaths::from_roots(&root.join("cache"), &root.join("saved"));
+        let storage = MyVoiceStoragePaths::from_roots(&root.join("cache"), &root.join("saved"));
         write_wav(&storage.takes_dir.join(canonical_take_file_name(1)), 1_200);
         let path = prepare_guided_dataset_at(&storage, &dataset()).expect("prepare dataset");
         assert!(path.is_file());
@@ -802,7 +804,7 @@ mod tests {
     #[test]
     fn invalid_rebuild_candidate_never_replaces_current_actor() {
         let root = test_root("promotion");
-        let storage = VoiceLabStoragePaths::from_roots(&root.join("cache"), &root.join("saved"));
+        let storage = MyVoiceStoragePaths::from_roots(&root.join("cache"), &root.join("saved"));
         write_actor(&storage.approved_actor_dir, b"old");
         write_actor(&storage.candidate_actor_dir, b"new");
         promote_voice_actor_candidate_at(&storage).expect("first promotion");

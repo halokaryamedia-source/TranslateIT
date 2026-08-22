@@ -16,7 +16,7 @@ use crate::engine::runtime_state::{
     mark_runtime_session_cleanup_incomplete, revoke_runtime_session_authority,
 };
 
-use super::voice_lab::{current_voice_lab_build_snapshot, VoiceLabStoragePaths};
+use super::my_voice::{current_my_voice_build_snapshot, MyVoiceStoragePaths};
 
 const CAPTURE_OWNER_ID: &str = "translateit_rust_live_capture";
 const MAX_REPLAY_WAV_BYTES: u64 = 8 * 1024 * 1024;
@@ -153,11 +153,7 @@ const GUIDED_LINES: &[(u32, &str)] = &[
 ];
 
 #[derive(Debug, Clone, Serialize)]
-pub struct GuidedLineStatus {
-    pub line_id: u32,
-    pub text: String,
-    pub accepted: bool,
-}
+pub struct GuidedLineStatus { pub line_id: u32, pub text: String, pub accepted: bool }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GuidedRecordingState {
@@ -174,90 +170,49 @@ pub struct GuidedRecordingActionResult {
     pub recording: GuidedRecordingState,
 }
 
-struct PendingDraft {
-    line_id: u32,
-    path: PathBuf,
-    review: GuidedTakeReview,
-}
-
+struct PendingDraft { line_id: u32, path: PathBuf, review: GuidedTakeReview }
 static PENDING_DRAFT: OnceLock<Mutex<Option<PendingDraft>>> = OnceLock::new();
-
-fn draft_store() -> &'static Mutex<Option<PendingDraft>> {
-    PENDING_DRAFT.get_or_init(|| Mutex::new(None))
-}
+fn draft_store() -> &'static Mutex<Option<PendingDraft>> { PENDING_DRAFT.get_or_init(|| Mutex::new(None)) }
 
 fn guided_text(line_id: u32) -> Option<&'static str> {
-    GUIDED_LINES
-        .iter()
-        .find(|(id, _)| *id == line_id)
-        .map(|(_, text)| *text)
+    GUIDED_LINES.iter().find(|(id, _)| *id == line_id).map(|(_, text)| *text)
 }
 
-fn take_file_name(line_id: u32) -> String {
-    format!("take_{line_id:04}.wav")
-}
-
-fn storage_paths() -> VoiceLabStoragePaths {
-    VoiceLabStoragePaths::from_project_paths(&ProjectPaths::discover())
-}
-
-fn draft_path(line_id: u32) -> PathBuf {
-    storage_paths()
-        .cache_root
-        .join("Draft")
-        .join(take_file_name(line_id))
-}
-
-fn accepted_path(line_id: u32) -> PathBuf {
-    storage_paths().takes_dir.join(take_file_name(line_id))
-}
+fn take_file_name(line_id: u32) -> String { format!("take_{line_id:04}.wav") }
+fn storage_paths() -> MyVoiceStoragePaths { MyVoiceStoragePaths::from_project_paths(&ProjectPaths::discover()) }
+fn draft_path(line_id: u32) -> PathBuf { storage_paths().cache_root.join("Draft").join(take_file_name(line_id)) }
+fn accepted_path(line_id: u32) -> PathBuf { storage_paths().takes_dir.join(take_file_name(line_id)) }
 
 fn current_state() -> GuidedRecordingState {
-    let pending_review = draft_store()
-        .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().map(|draft| draft.review.clone()));
+    let pending_review = draft_store().lock().ok().and_then(|guard| guard.as_ref().map(|draft| draft.review.clone()));
     GuidedRecordingState {
         recording_line_id: active_guided_take_line_id(),
         pending_review,
-        lines: GUIDED_LINES
-            .iter()
-            .map(|(line_id, text)| GuidedLineStatus {
-                line_id: *line_id,
-                text: (*text).to_string(),
-                accepted: accepted_path(*line_id).is_file(),
-            })
-            .collect(),
+        lines: GUIDED_LINES.iter().map(|(line_id, text)| GuidedLineStatus {
+            line_id: *line_id,
+            text: (*text).to_string(),
+            accepted: accepted_path(*line_id).is_file(),
+        }).collect(),
     }
 }
 
 fn result(ok: bool, state: &str, message: impl Into<String>) -> GuidedRecordingActionResult {
-    GuidedRecordingActionResult {
-        ok,
-        state: state.to_string(),
-        message: message.into(),
-        recording: current_state(),
-    }
+    GuidedRecordingActionResult { ok, state: state.to_string(), message: message.into(), recording: current_state() }
 }
 
 #[tauri::command]
-pub fn get_voice_lab_guided_recording_state() -> GuidedRecordingState {
-    current_state()
-}
+pub fn get_my_voice_guided_recording_state() -> GuidedRecordingState { current_state() }
 
 #[tauri::command]
-pub fn start_voice_lab_guided_take(
-    line_id: u32,
-    authorized_voice_confirmed: bool,
-) -> GuidedRecordingActionResult {
+pub fn start_my_voice_guided_take(line_id: u32, authorized_voice_confirmed: bool) -> GuidedRecordingActionResult {
     if !authorized_voice_confirmed {
         return result(false, "authorization_required", "Confirm that you own or are authorized to use this voice before recording.");
     }
     if guided_text(line_id).is_none() {
-        return result(false, "invalid_line", "This guided reading line is not part of the current VoiceLab script.");
+        return result(false, "invalid_line", "This guided reading line is not part of the current My Voice script.");
     }
-    if current_voice_lab_build_snapshot().active {
-        return result(false, "build_active", "Finish or cancel the current VoiceLab build before recording more lines.");
+    if current_my_voice_build_snapshot().active {
+        return result(false, "build_active", "Finish or cancel the current My Voice build before recording more lines.");
     }
     if draft_store().lock().ok().and_then(|guard| guard.as_ref().map(|draft| draft.line_id)).is_some() {
         return result(false, "review_pending", "Replay, retry, or accept the current take before recording another line.");
@@ -265,10 +220,10 @@ pub fn start_voice_lab_guided_take(
 
     let session = begin_direct_live_capture_session();
     let Some(snapshot) = session.snapshot.as_ref() else {
-        return result(false, "runtime_unavailable", "VoiceLab cannot verify microphone ownership right now.");
+        return result(false, "runtime_unavailable", "My Voice cannot verify microphone ownership right now.");
     };
     if !session.blocker.is_empty() || snapshot.owner_id != CAPTURE_OWNER_ID {
-        return result(false, "microphone_in_use", "Stop Meeting translation or Mic Test before recording a VoiceLab line.");
+        return result(false, "microphone_in_use", "Stop Meeting translation or Mic Test before recording a My Voice line.");
     }
     if let Err(blocker) = arm_guided_take(line_id) {
         let _ = clear_runtime_session_if_generation(snapshot.generation);
@@ -284,41 +239,34 @@ pub fn start_voice_lab_guided_take(
 }
 
 #[tauri::command]
-pub fn stop_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
+pub fn stop_my_voice_guided_take(line_id: u32) -> GuidedRecordingActionResult {
     if active_guided_take_line_id() != Some(line_id) {
         return result(false, "line_mismatch", "The requested line is not the guided take currently being recorded.");
     }
     let current = latest_runtime_session_state();
     let Some(snapshot) = current.snapshot.as_ref() else {
-        return result(false, "runtime_unavailable", "VoiceLab cannot verify microphone ownership right now.");
+        return result(false, "runtime_unavailable", "My Voice cannot verify microphone ownership right now.");
     };
     if snapshot.owner_id != CAPTURE_OWNER_ID {
-        return result(false, "owner_conflict", "VoiceLab does not own the active microphone session.");
+        return result(false, "owner_conflict", "My Voice does not own the active microphone session.");
     }
     let generation = snapshot.generation;
     if snapshot.authority_active {
-        let revoked = revoke_runtime_session_authority(
-            generation,
-            "VoiceLab Stop accepted. Capture authority was revoked before microphone cleanup.",
-        );
+        let revoked = revoke_runtime_session_authority(generation, "My Voice Stop accepted. Capture authority was revoked before microphone cleanup.");
         if revoked.snapshot.as_ref().map(|value| value.authority_active).unwrap_or(true) {
-            return result(false, "stop_failed", "VoiceLab could not revoke recording ownership safely.");
+            return result(false, "stop_failed", "My Voice could not revoke recording ownership safely.");
         }
     }
 
     let stopped = stop_live_capture_runtime();
     if !stopped.ok {
-        let _ = mark_runtime_session_cleanup_incomplete(
-            generation,
-            true,
-            "VoiceLab recording authority is revoked, but microphone cleanup still needs attention.",
-        );
+        let _ = mark_runtime_session_cleanup_incomplete(generation, true, "My Voice recording authority is revoked, but microphone cleanup still needs attention.");
         return result(false, "stop_failed", stopped.message);
     }
     let captured = take_guided_audio();
     let cleared = clear_runtime_session_if_generation(generation);
     if cleared.has_active_session || cleared.snapshot.is_some() {
-        return result(false, "cleanup_unverified", "The microphone stopped, but VoiceLab could not confirm that recording ownership was cleared.");
+        return result(false, "cleanup_unverified", "The microphone stopped, but My Voice could not confirm that recording ownership was cleared.");
     }
     let Ok((captured, review)) = captured else {
         return result(false, "take_unusable", captured.err().unwrap_or_else(|| "voice_lab:take_unusable".to_string()));
@@ -327,17 +275,12 @@ pub fn stop_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
         return result(false, "line_mismatch", "The recorded audio does not belong to the requested guided line.");
     }
     let draft = draft_path(line_id);
-    if let Err(error) = write_pcm16_wav(
-        &draft,
-        GUIDED_TAKE_SAMPLE_RATE_HZ,
-        GUIDED_TAKE_CHANNELS,
-        &captured.samples_mono,
-    ) {
-        return result(false, "draft_write_failed", format!("VoiceLab could not save the review take: {error}"));
+    if let Err(error) = write_pcm16_wav(&draft, GUIDED_TAKE_SAMPLE_RATE_HZ, GUIDED_TAKE_CHANNELS, &captured.samples_mono) {
+        return result(false, "draft_write_failed", format!("My Voice could not save the review take: {error}"));
     }
     let mut guard = match draft_store().lock() {
         Ok(guard) => guard,
-        Err(_) => return result(false, "draft_state_unavailable", "VoiceLab could not retain the review take state."),
+        Err(_) => return result(false, "draft_state_unavailable", "My Voice could not retain the review take state."),
     };
     *guard = Some(PendingDraft { line_id, path: draft, review });
     drop(guard);
@@ -345,10 +288,10 @@ pub fn stop_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
 }
 
 #[tauri::command]
-pub fn retry_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
+pub fn retry_my_voice_guided_take(line_id: u32) -> GuidedRecordingActionResult {
     let mut guard = match draft_store().lock() {
         Ok(guard) => guard,
-        Err(_) => return result(false, "draft_state_unavailable", "VoiceLab cannot access the pending review take."),
+        Err(_) => return result(false, "draft_state_unavailable", "My Voice cannot access the pending review take."),
     };
     let Some(draft) = guard.as_ref() else {
         drop(guard);
@@ -361,17 +304,15 @@ pub fn retry_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult 
     let path = draft.path.clone();
     *guard = None;
     drop(guard);
-    if path.exists() {
-        let _ = fs::remove_file(path);
-    }
+    if path.exists() { let _ = fs::remove_file(path); }
     result(true, "ready", "The review take was discarded. The previous accepted take, if any, was kept.")
 }
 
 #[tauri::command]
-pub fn accept_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
+pub fn accept_my_voice_guided_take(line_id: u32) -> GuidedRecordingActionResult {
     let mut guard = match draft_store().lock() {
         Ok(guard) => guard,
-        Err(_) => return result(false, "draft_state_unavailable", "VoiceLab cannot access the pending review take."),
+        Err(_) => return result(false, "draft_state_unavailable", "My Voice cannot access the pending review take."),
     };
     let Some(draft) = guard.as_ref() else {
         drop(guard);
@@ -389,7 +330,7 @@ pub fn accept_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult
     if let Some(parent) = target.parent() {
         if let Err(error) = fs::create_dir_all(parent) {
             drop(guard);
-            return result(false, "save_failed", format!("VoiceLab could not prepare take storage: {error}"));
+            return result(false, "save_failed", format!("My Voice could not prepare take storage: {error}"));
         }
     }
     let previous = target.with_extension("wav.previous");
@@ -397,25 +338,23 @@ pub fn accept_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult
     if target.exists() {
         if let Err(error) = fs::rename(&target, &previous) {
             drop(guard);
-            return result(false, "save_failed", format!("VoiceLab could not preserve the previous accepted take: {error}"));
+            return result(false, "save_failed", format!("My Voice could not preserve the previous accepted take: {error}"));
         }
     }
     if let Err(error) = fs::rename(&draft.path, &target) {
         if previous.exists() && !target.exists() { let _ = fs::rename(&previous, &target); }
         drop(guard);
-        return result(false, "save_failed", format!("VoiceLab could not accept this take: {error}"));
+        return result(false, "save_failed", format!("My Voice could not accept this take: {error}"));
     }
     if previous.exists() { let _ = fs::remove_file(previous); }
     *guard = None;
     drop(guard);
-    result(true, "accepted", "Take accepted and saved for the Voice Actor dataset.")
+    result(true, "accepted", "Take accepted and saved for the My Voice dataset.")
 }
 
 #[tauri::command]
-pub fn get_voice_lab_guided_take_audio(line_id: u32) -> Result<tauri::ipc::Response, String> {
-    if guided_text(line_id).is_none() {
-        return Err("voice_lab:invalid_guided_line".to_string());
-    }
+pub fn get_my_voice_guided_take_audio(line_id: u32) -> Result<tauri::ipc::Response, String> {
+    if guided_text(line_id).is_none() { return Err("voice_lab:invalid_guided_line".to_string()); }
     let pending_path = draft_store()
         .lock()
         .map_err(|_| "voice_lab:guided_draft_state_unavailable".to_string())?
@@ -424,9 +363,7 @@ pub fn get_voice_lab_guided_take_audio(line_id: u32) -> Result<tauri::ipc::Respo
         .map(|draft| draft.path.clone());
     let path = pending_path.unwrap_or_else(|| accepted_path(line_id));
     let metadata = fs::metadata(&path).map_err(|_| "voice_lab:take_audio_missing".to_string())?;
-    if !metadata.is_file() || metadata.len() < 44 || metadata.len() > MAX_REPLAY_WAV_BYTES {
-        return Err("voice_lab:take_audio_invalid".to_string());
-    }
+    if !metadata.is_file() || metadata.len() < 44 || metadata.len() > MAX_REPLAY_WAV_BYTES { return Err("voice_lab:take_audio_invalid".to_string()); }
     let bytes = fs::read(path).map_err(|_| "voice_lab:take_audio_read_failed".to_string())?;
     Ok(tauri::ipc::Response::new(bytes))
 }
