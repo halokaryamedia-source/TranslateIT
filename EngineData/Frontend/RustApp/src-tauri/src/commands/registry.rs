@@ -19,7 +19,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::settings::select_audio_device,
         crate::commands::mic_test::start_capture,
         crate::commands::mic_test::stop_capture,
-        crate::commands::text_translate::translate_text,
+        crate::commands::text_translation::translate_text,
         crate::commands::voice_lab_recording::get_voice_lab_guided_recording_state,
         crate::commands::voice_lab_recording::start_voice_lab_guided_take,
         crate::commands::voice_lab_recording::stop_voice_lab_guided_take,

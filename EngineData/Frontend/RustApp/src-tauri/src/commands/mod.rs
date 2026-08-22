@@ -9,7 +9,7 @@ pub mod runtime_inventory;
 pub mod mic_test;
 pub mod runtime;
 pub mod settings;
-pub mod text_translate;
+pub mod text_translation;
 pub mod virtual_mic_route;
 pub mod voice_lab;
 pub mod voice_lab_build;
