@@ -2,7 +2,9 @@
 
 ## Purpose
 
-This folder owns local voice-runtime assets used by TranslateIT. Product orchestration remains in the canonical Rust/Tauri + LocalWorker owners; this folder contains model/provider payload only.
+This folder owns local voice-runtime assets used by TranslateIT. Product orchestration remains in the Rust/Tauri + LocalWorker owners; this folder contains model/runtime payload only.
+
+The product feature is **My Voice**. Existing `voice_lab_*` source filenames, error namespaces, and `UserData/.../VoiceLab/...` directories are retained compatibility identifiers until an explicit protocol/storage migration replaces them.
 
 ## Current / Target Layout
 
@@ -51,11 +53,11 @@ d523079fc05d9a8028d6085bffe4a2757c32abb6
 
 That revision is the reviewed GPT-SoVITS V2ProPlus source baseline. The source tree and model binaries are release/runtime payload, not Git-tracked application source.
 
-The complete controlled staging input may initially contain the pinned Chinese RoBERTa directory from the reviewed GPT-SoVITS asset snapshot so baseline provenance/preflight can be checked. Before packaging, `scripts/optimize_release_payload.py` replaces those model bytes with `TRANSLATEIT_ENGLISH_ONLY.txt`. This is valid only because TranslateIT's approved VoiceLab dataset, held-out evaluation, and Meeting My Voice synthesis are English-only: the pinned `voice_lab_upstream_stage.py` bypasses Chinese BERT model initialization and supplies zero BERT features for non-Chinese text. Chinese/multilingual GPT-SoVITS use is not an approved release capability.
+The complete controlled staging input may initially contain the pinned Chinese RoBERTa directory from the reviewed GPT-SoVITS asset snapshot so baseline provenance/preflight can be checked. Before packaging, `scripts/optimize_release_payload.py` replaces those model bytes with `TRANSLATEIT_ENGLISH_ONLY.txt`. This is valid only because TranslateIT's approved My Voice dataset, held-out evaluation, and Meeting synthesis are English-only: the pinned `voice_lab_upstream_stage.py` bypasses Chinese BERT model initialization and supplies zero BERT features for non-Chinese text. Chinese/multilingual GPT-SoVITS use is not an approved release capability.
 
-`ffmpeg.exe` is the local decoder used by the approved headless English training path. VoiceLab does not rely on a system-PATH FFmpeg installation. `FFMPEG_LICENSE.txt` and `FFMPEG_SOURCE.txt` are required release companions for that exact binary. `ffplay.exe`, `ffprobe.exe`, and libav DLLs are not part of the current runtime contract because the approved path does not consume them.
+`ffmpeg.exe` is the local decoder used by the approved headless English training path. My Voice does not rely on a system-PATH FFmpeg installation. `FFMPEG_LICENSE.txt` and `FFMPEG_SOURCE.txt` are required release companions for that exact binary. `ffplay.exe`, `ffprobe.exe`, and libav DLLs are not part of the current runtime contract because the approved path does not consume them.
 
-The three NLTK directories are packaged English G2P resources. They are runtime assets rather than first-use downloads; VoiceLab must not fetch them while creating a voice.
+The three NLTK directories are packaged English G2P resources. They are runtime assets rather than first-use downloads; My Voice must not fetch them while creating a voice.
 
 ## Active Orchestration Routes
 
@@ -67,15 +69,17 @@ existing realtime_local_worker.py
 -> Voice/GPTSoVITS/Source
 ```
 
-VoiceLab build/evaluation is owned by:
+My Voice build/evaluation is owned by:
 
 ```text
-Rust VoiceLab build command
--> canonical LocalWorker Python interpreter
+Rust My Voice build command
+-> LocalWorker Python interpreter
 -> EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_build.py
 -> EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py
 -> Voice/GPTSoVITS/Source
 ```
+
+The `VoiceLab` segment in the saved-project path and the `voice_lab_*` filenames above are compatibility identifiers, not the product name.
 
 The headless stage runner removes the upstream WebUI coupling from `tools.my_utils` for the two functions consumed by the approved path (`clean_path` and `load_audio`) and provides the bounded English-only import/model-init/text-stage shims proven by the Windows release profile. It does not replace GPT-SoVITS acoustic/semantic models, training, or TTS logic.
 
@@ -114,7 +118,7 @@ The staged voice source must include `NLTK_DATA_SOURCE.txt` with that repository
 
 ### FFmpeg
 
-The VoiceLab decoder provenance/profile is pinned to one reviewed **static LGPL Windows build** rather than the historical provenance-unknown binary:
+The My Voice decoder provenance/profile is pinned to one reviewed **static LGPL Windows build** rather than the historical provenance-unknown binary:
 
 ```text
 builder                 BtbN/FFmpeg-Builds
@@ -130,7 +134,7 @@ license profile         LGPL-3.0-or-later
 build profile           win64-lgpl static executable
 ```
 
-Hosted inspection of this exact archive confirmed `--pkg-config-flags=--static` and `--enable-version3`, no `--enable-gpl`, no `--enable-nonfree`, and zero DLL files in the archive. `ffmpeg -L` reports GNU Lesser General Public License version 3 or later. A decode smoke using the same VoiceLab shape (`WAV -> f32le / mono / 32 kHz`) also passed. The static executable therefore preserves the existing single-`ffmpeg.exe` runtime behavior; TranslateIT does not add libav DLL loading, `ffprobe`, `ffplay`, or another decoder owner.
+Hosted inspection of this exact archive confirmed `--pkg-config-flags=--static` and `--enable-version3`, no `--enable-gpl`, no `--enable-nonfree`, and zero DLL files in the archive. `ffmpeg -L` reports GNU Lesser General Public License version 3 or later. A decode smoke using the same My Voice shape (`WAV -> f32le / mono / 32 kHz`) also passed. The static executable therefore preserves the existing single-`ffmpeg.exe` runtime behavior; TranslateIT does not add libav DLL loading, `ffprobe`, `ffplay`, or another decoder owner.
 
 The staged runtime must contain exactly these FFmpeg companions beside the GPT-SoVITS source:
 
@@ -156,14 +160,14 @@ license_profile=LGPL-3.0-or-later
 build_profile=win64-lgpl-static
 ```
 
-This resolves the **binary provenance and observed license profile** source-side; it is not a legal-opinion or whole-release clearance claim. A distributable release must preserve the LGPL license text and make the exact corresponding FFmpeg source/build provenance available in the manner required for that distribution. The release operator remains responsible for satisfying the applicable LGPL and third-party obligations. Do not replace this pin with BtbN `latest`, another build variant, or an arbitrary `ffmpeg.exe` without repeating the provenance/profile and VoiceLab decode proof.
+This resolves the **binary provenance and observed license profile** source-side; it is not a legal-opinion or whole-release clearance claim. A distributable release must preserve the LGPL license text and make the exact corresponding FFmpeg source/build provenance available in the manner required for that distribution. The release operator remains responsible for satisfying the applicable LGPL and third-party obligations. Do not replace this pin with BtbN `latest`, another build variant, or an arbitrary `ffmpeg.exe` without repeating the provenance/profile and My Voice decode proof.
 
 ## Rules
 
-- Keep one canonical Python runtime. Do not add a second GPT-SoVITS environment.
+- Keep one Python runtime. Do not add a second GPT-SoVITS environment.
 - The final release may remove only the Python distributions and Chinese RoBERTa bytes owned by the profiled release optimizer; changing that exclusion boundary requires new Windows evidence.
 - Do not add Gradio/WebUI, FunASR, UVR5, ModelScope download flows, or provider dashboards merely because upstream includes them.
-- Do not download models or English G2P resources on the user's machine during normal VoiceLab creation.
-- Do not silently fall back from a selected trained Voice Actor to Piper/SAPI.
+- Do not download models or English G2P resources on the user's machine during normal My Voice creation.
+- Do not silently fall back from a selected trained My Voice actor to Piper/SAPI.
 - Keep GPT-SoVITS source payload, pretrained models, trained weights, generated audio, FFmpeg binary, and NLTK payload out of Git.
 - Runtime asset presence is not proof of model load, training quality, CUDA behavior, speaker similarity, or Meeting latency.
