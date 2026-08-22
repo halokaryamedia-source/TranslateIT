@@ -48,24 +48,47 @@ function unavailableAction(message: string): MyVoiceBuildActionResult {
   return { ok: false, state: "frontend_bridge_error", message, build: unavailableStatus() };
 }
 
+function productMessage(message: string): string {
+  return message.replace(/\bVoiceLab\b/g, "My Voice");
+}
+
+function normalizeStatus(status: MyVoiceBuildStatus): MyVoiceBuildStatus {
+  return { ...status, message: productMessage(status.message) };
+}
+
+function normalizeAction(action: MyVoiceBuildActionResult): MyVoiceBuildActionResult {
+  return {
+    ...action,
+    message: productMessage(action.message),
+    build: normalizeStatus(action.build),
+  };
+}
+
 export const myVoiceBuildApi = {
   async getStatus(): Promise<MyVoiceBuildStatus> {
-    return (await runCommand<MyVoiceBuildStatus>("get_voice_lab_build_status")) ?? unavailableStatus();
+    const status = await runCommand<MyVoiceBuildStatus>("get_voice_lab_build_status");
+    return status ? normalizeStatus(status) : unavailableStatus();
   },
 
   async start(authorizedVoiceConfirmed: boolean): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("start_voice_lab_build", { authorizedVoiceConfirmed }))
-      ?? unavailableAction("My Voice could not start creating your voice.");
+    const action = await runCommand<MyVoiceBuildActionResult>("start_voice_lab_build", { authorizedVoiceConfirmed });
+    return action
+      ? normalizeAction(action)
+      : unavailableAction("My Voice could not start creating your voice.");
   },
 
   async cancel(): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("cancel_voice_lab_build"))
-      ?? unavailableAction("My Voice could not confirm that creation stopped.");
+    const action = await runCommand<MyVoiceBuildActionResult>("cancel_voice_lab_build");
+    return action
+      ? normalizeAction(action)
+      : unavailableAction("My Voice could not confirm that creation stopped.");
   },
 
   async approve(): Promise<MyVoiceBuildActionResult> {
-    return (await runCommand<MyVoiceBuildActionResult>("approve_voice_lab_candidate"))
-      ?? unavailableAction("My Voice could not approve the new voice.");
+    const action = await runCommand<MyVoiceBuildActionResult>("approve_voice_lab_candidate");
+    return action
+      ? normalizeAction(action)
+      : unavailableAction("My Voice could not approve the new voice.");
   },
 
   async getEvaluationAudio(lineId: number): Promise<ArrayBuffer | null> {
