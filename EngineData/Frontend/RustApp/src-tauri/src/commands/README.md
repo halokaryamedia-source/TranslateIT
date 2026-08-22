@@ -1,18 +1,24 @@
 # Tauri Command Modules
 
-The production command layer is intentionally small and follows the current Meeting / Text / Settings product.
+This folder contains the Tauri command boundary for the current Meeting / Text / My Voice / Settings product.
 
-## Active Boundaries
+## Active modules
 
-- `meeting_session.rs` — application Meeting status, committed turns, Start, Stop, and required/optional lane orchestration.
-- `helper_bridge.rs` / `helper_bridge_runtime.rs` — one persistent local worker bridge and scheduler.
-- `audio.rs` — microphone/device status and candidate checks used by setup.
-- `runtime_capture.rs` — Mic Test Start/Stop wrappers only.
-- `runtime.rs` / `runtime_inventory.rs` — explicit model-presence verification used by setup; normal readiness does not repeatedly scan models.
-- `settings.rs` — runtime settings load/save.
-- `text_translate.rs` — explicit Text translation through the same worker.
-- `virtual_mic_route.rs` / `virtual_audio_route_runtime.rs` — internal Meeting Microphone route owners; they are not a manual frontend command surface.
-- `pipeline_handoff.rs` — the small reset hook still required by Meeting cleanup.
-- `registry.rs` — the authoritative production invoke surface.
+- `meeting_session.rs` — Meeting status, committed turns, Start/Stop orchestration, and Meeting lifecycle commands.
+- `helper_bridge.rs` / `helper_bridge_runtime.rs` — persistent local Python worker bridge and scheduler.
+- `audio.rs` — microphone/device status and device checks used by setup.
+- `runtime_capture.rs` — Mic Test Start/Stop wrappers.
+- `runtime.rs` / `runtime_inventory.rs` — runtime readiness and explicit model-presence verification.
+- `settings.rs` — runtime settings load/save and audio-device selection.
+- `text_translate.rs` — standalone Text translation through the same worker.
+- `virtual_mic_route.rs` — managed virtual microphone used by the meeting application.
+- `voice_lab.rs`, `voice_lab_recording.rs`, `voice_lab_build.rs` — legacy internal module/protocol identifiers for the product feature now named **My Voice**. These names remain temporarily because they are coupled to persisted storage/protocol contracts; they are not user-facing product vocabulary.
+- `diagnostic_trace.rs` — bounded diagnostics trace command support.
+- `bridge_paths.rs` — packaged private Python/runtime path resolution.
+- `registry.rs` — authoritative Tauri invoke registration list.
 
-Deferred feature command modules are removed rather than kept as compatibility surface. New command wrappers should be added only when a current product requirement and direct caller require them.
+## Naming rule
+
+New product-facing or semantic source must use **My Voice** (`MyVoice`, `myVoice`, or `my_voice` according to language convention). Do not introduce new `VoiceLab` product terminology. Existing `voice_lab` command/storage identifiers may remain only where changing them would require an explicit compatibility migration.
+
+New command wrappers should be added only when a current product requirement and direct caller require them.

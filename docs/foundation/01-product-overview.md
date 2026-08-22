@@ -1,7 +1,7 @@
 # TranslateIT — Product Overview
 
 **Status:** Active Policy  
-**Updated:** 2026-08-13
+**Updated:** 2026-08-22
 
 ## Purpose
 
@@ -18,8 +18,8 @@ features: choose the language pair, start translation, speak normally, allow a s
 completeness delay when needed, and stop when finished. TranslateIT does not need to
 copy another product's implementation or supported languages.
 
-A trained custom English voice is now an approved required product capability before
-target-Windows validation. The product-facing name is **VoiceLab**. VoiceLab exists to
+A trained custom English voice is an approved required product capability before
+target-Windows validation. The product-facing name is **My Voice**. My Voice exists to
 create one high-fidelity local Voice Actor from the user's own authorized recordings;
 it is not a general audio studio, provider playground, or instant-cloning showcase.
 
@@ -62,12 +62,12 @@ Indonesian text <-> English text
 ```
 
 Text remains a small standalone utility using the same canonical translation behavior
-as Meeting where practical. Text does not depend on VoiceLab or Meeting audio
+as Meeting where practical. Text does not depend on My Voice or Meeting audio
 readiness.
 
-### VoiceLab
+### My Voice
 
-VoiceLab has one normal purpose and one normal workflow:
+My Voice has one normal purpose and one normal workflow:
 
 ```text
 authorized user voice
@@ -83,7 +83,7 @@ The adopted custom-TTS engine direction is **GPT-SoVITS V2ProPlus**. Training is
 occasional build operation; daily Meeting use performs inference only. A finished Voice
 Actor is reusable across normal application launches and Meetings without retraining.
 
-VoiceLab quality is prioritized over instant cloning. Training duration, recording
+My Voice quality is prioritized over instant cloning. Training duration, recording
 minutes, epoch count, and speaker-similarity thresholds are implementation/evidence
 details rather than arbitrary product constants. The build should select a useful
 checkpoint from real evidence rather than assuming the last or longest training run is
@@ -98,18 +98,18 @@ Meeting control -> Start Translation / Stop Translation
 Outbound        -> ID speech -> EN trained Voice Actor
 Incoming        -> EN speech -> ID text, optional
 Text            -> ID <-> EN
-VoiceLab        -> guided recording -> trained reusable Voice Actor
+My Voice        -> guided recording -> trained reusable Voice Actor
 Runtime         -> local-first after required assets are installed
 ```
 
-VoiceLab is required to reach the next product-validation boundary, but it must not
+My Voice is required to reach the next product-validation boundary, but it must not
 turn Text into a voice-dependent workflow or create a parallel Meeting/runtime owner.
 
 ## Deliberately Removed From Initial Core
 
 The following are not part of the initial product target because they increase
 behavioral, UI, runtime, or proof complexity without being required for successful
-translation and the approved VoiceLab workflow:
+translation and the approved My Voice workflow:
 
 - Pause / Resume;
 - Push to Talk;
@@ -123,8 +123,8 @@ translation and the approved VoiceLab workflow:
 - automatic History / Saved as a general initial release dependency;
 - Audio Studio / broadcast-production workflows;
 - multiple custom-voice engines/providers or user-facing engine selection;
-- zero-shot / quick-clone alternate VoiceLab modes;
-- import-audio branching in the first VoiceLab implementation;
+- zero-shot / quick-clone alternate My Voice modes;
+- import-audio branching in the first My Voice implementation;
 - additional language pairs;
 - incoming Indonesian TTS;
 - document translation;
@@ -162,10 +162,10 @@ product requirement.
 
 ## Voice Engine Principle
 
-VoiceLab and Meeting expose **one custom-voice behavior**:
+My Voice and Meeting expose **one custom-voice behavior**:
 
 ```text
-VoiceLab build
+My Voice build
 -> one trained GPT-SoVITS V2ProPlus Voice Actor
 
 Meeting English text
@@ -175,7 +175,7 @@ Meeting English text
 ```
 
 Do not retain Piper, SAPI, OpenVoice, Qwen voice cloning, MeloTTS, RVC postprocessing,
-or another provider as a silent alternate custom-TTS path after the VoiceLab migration
+or another provider as a silent alternate custom-TTS path after the My Voice migration
 is complete. Historical/current fallback source may remain temporarily only while the
 migration is incomplete and must not be mistaken for the final product contract.
 
@@ -212,7 +212,7 @@ No participant identity is invented from mixed device-level audio.
 One desktop application, one canonical Meeting session owner, one daily local-worker
 inference path, one translation behavior, and one custom-TTS engine remain the target.
 
-VoiceLab training is a bounded build operation, not a second daily inference engine.
+My Voice training is a bounded build operation, not a second daily inference engine.
 Training and an active Meeting must not compete for the same AI/GPU runtime. The first
 implementation keeps them mutually exclusive rather than adding background training,
 resource arbitration, automatic pause/resume, or a second worker.
@@ -226,7 +226,7 @@ Meeting outbound
 > diagnostics / setup work
 ```
 
-VoiceLab training runs only outside an active Meeting and therefore does not become a
+My Voice training runs only outside an active Meeting and therefore does not become a
 new live scheduler priority.
 
 Queues are bounded. Old/stale work must be discarded rather than played or displayed
@@ -260,14 +260,14 @@ Normal top-level navigation target is:
 ```text
 Meeting
 Text
-VoiceLab
+My Voice
 Settings
 ```
 
 Meeting remains the default workspace.
 
 There is no initial top-level History/Saved workspace. Live Meeting transcript is
-transient session state used for current comprehension only. VoiceLab's approved Voice
+transient session state used for current comprehension only. My Voice's approved Voice
 Actor is a distinct explicit user-owned saved artifact, not automatic conversation
 History.
 
@@ -302,15 +302,18 @@ the initial core. Very large input is never silently truncated.
 Normal translation does not require persistent conversation storage.
 
 ```text
-UserData/CacheData -> temporary runtime/audio artifacts + VoiceLab build workspace
+UserData/CacheData -> temporary runtime/audio artifacts + My Voice build workspace
 UserData/LogData   -> minimal/redacted diagnostics
-UserData/SavedProject/VoiceLab -> explicitly approved persistent Voice Actor
+UserData/SavedProject/VoiceLab -> legacy on-disk location for the explicitly approved My Voice actor
 ```
+
+The `VoiceLab` directory name above is a retained storage-compatibility identifier, not
+the product name. New product/UI terminology must use **My Voice**.
 
 Raw microphone audio, Meeting Sound audio, generated Meeting TTS, and live transcript
 bodies are temporary by default.
 
-VoiceLab guided recordings and training intermediates remain temporary build data until
+My Voice guided recordings and training intermediates remain temporary build data until
 the user explicitly approves the resulting Voice Actor. Rejected/abandoned builds do
 not become persistent saved voices. Rebuilding a Voice Actor must not destroy the
 previous approved actor before the new build is successfully evaluated and approved.
@@ -339,7 +342,7 @@ simple current activity
 Stop Translation
 ```
 
-VoiceLab should emphasize one guided creation workflow rather than exposing training
+My Voice should emphasize one guided creation workflow rather than exposing training
 internals. Normal users should not choose engine versions, checkpoints, epochs,
 providers, sampling internals, CUDA modes, or model paths.
 
@@ -351,7 +354,7 @@ controls, model names, provider names, or engineering detail in normal use.
 A feature is not considered ready because source exists. Product success requires
 matching evidence for the claim.
 
-Before target-Windows validation, VoiceLab source must at minimum have a coherent
+Before target-Windows validation, My Voice source must at minimum have a coherent
 single-engine build/inference contract, persistent Voice Actor ownership, and Meeting
 readiness wiring without a parallel TTS owner. Actual speaker similarity, training
 quality, GPU performance, and Meeting latency remain runtime claims and therefore need
@@ -368,9 +371,9 @@ Target Windows acceptance still includes:
 - optional incoming Meeting Sound behavior;
 - safe Stop/Close;
 - acceptable latency and stability on the target machine;
-- VoiceLab training/rebuild quality and daily inference practicality.
+- My Voice training/rebuild quality and daily inference practicality.
 
-Features outside the approved translator + VoiceLab boundary must not delay proving
+Features outside the approved translator + My Voice boundary must not delay proving
 this product works.
 
 ## Related

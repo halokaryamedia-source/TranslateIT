@@ -1,8 +1,8 @@
 # TranslateIT — Product Requirements
 
 **Status:** Active Policy  
-**Updated:** 2026-08-13  
-**Scope:** Simplified Windows translation core + required VoiceLab custom voice
+**Updated:** 2026-08-22  
+**Scope:** Simplified Windows translation core + required My Voice custom voice
 
 This document is the durable product-requirement owner for TranslateIT on branch
 `Local`.
@@ -11,7 +11,7 @@ The current product decision is explicit:
 
 > **A small translator that works reliably is more important than preserving a broad
 > feature set. The required English Meeting voice should be a trained high-fidelity
-> representation of the user's own authorized voice, created once in VoiceLab and
+> representation of the user's own authorized voice, created once in My Voice and
 > reused without retraining during normal Meeting use.**
 
 TranslateIT does not need multiple voice engines, instant-clone modes, provider
@@ -28,7 +28,7 @@ for online meetings.
 ### PR-002 — Secondary Text workflow
 
 **MUST:** Indonesian <-> English Text remain independently usable without Meeting audio
-or VoiceLab readiness.
+or My Voice readiness.
 
 ### PR-003 — Translation success before feature breadth
 
@@ -46,7 +46,7 @@ The approved product boundary before target-Windows validation is intentionally 
 ```text
 Meeting
 Text
-VoiceLab
+My Voice
 Settings
 ```
 
@@ -56,8 +56,8 @@ Settings
 - general History / Saved UI;
 - Audio Studio / broadcast-production workflows;
 - multiple custom-voice engines/providers;
-- quick-clone / zero-shot alternate VoiceLab modes;
-- imported-audio branching in the first VoiceLab workflow;
+- quick-clone / zero-shot alternate My Voice modes;
+- imported-audio branching in the first My Voice workflow;
 - additional language pairs;
 - user-facing tone modes;
 - user-facing Realtime / Quality modes;
@@ -94,13 +94,13 @@ or generated voice to cloud services.
 path remain authoritative for normal inference.
 
 **MUST:** GPT-SoVITS V2ProPlus is the single approved custom-TTS engine direction for
-VoiceLab and Meeting until a future explicit product decision replaces it.
+My Voice and Meeting until a future explicit product decision replaces it.
 
 **MUST NOT:** A second daily TTS engine, translator engine, product shell, compatibility
 runtime, provider selector, or fallback voice path be created merely to avoid resolving
 an integration problem.
 
-**MAY:** VoiceLab invoke bounded long-running training work distinct from daily
+**MAY:** My Voice invoke bounded long-running training work distinct from daily
 inference, provided it is not a second normal Meeting inference authority and does not
 run concurrently with an active Meeting.
 
@@ -161,7 +161,7 @@ outbound translation.
 Your Microphone
 Meeting Sound
 TranslateIT Meeting Microphone
-My Voice / VoiceLab readiness
+My Voice readiness
 Local Translation Ready
 ```
 
@@ -341,11 +341,11 @@ bidirectional quality, latency, memory, and packaging requirements.
 
 **MUST NOT:** Normal users choose translation model/provider names.
 
-## 7. VoiceLab And Custom TTS
+## 7. My Voice And Custom TTS
 
-### PR-110 — One VoiceLab workflow
+### PR-110 — One My Voice workflow
 
-**MUST:** The first VoiceLab implementation expose one normal custom-voice creation
+**MUST:** The first My Voice implementation expose one normal custom-voice creation
 workflow:
 
 ```text
@@ -364,12 +364,12 @@ professional/broadcast tiers, or multiple creation modes to the first workflow.
 
 ### PR-111 — Authorized voice only
 
-**MUST:** VoiceLab require explicit confirmation that the user owns the recorded voice
+**MUST:** My Voice require explicit confirmation that the user owns the recorded voice
 or has authorization to create and use the Voice Actor.
 
 ### PR-112 — Guided English source truth
 
-**MUST:** The first VoiceLab dataset be collected from application-provided English
+**MUST:** The first My Voice dataset be collected from application-provided English
 reading lines so each accepted take has an exact known transcript.
 
 **MUST NOT:** Add a second ASR/transcription dependency merely to label guided
@@ -387,7 +387,7 @@ silence, or clipping severe enough to make the take unsuitable.
 
 ### PR-114 — Quality-first training
 
-**MUST:** VoiceLab fine-tune GPT-SoVITS V2ProPlus for the approved speaker rather than
+**MUST:** My Voice fine-tune GPT-SoVITS V2ProPlus for the approved speaker rather than
 performing only zero-shot/reference cloning at normal Meeting inference time.
 
 **MUST:** Training is an explicit occasional build operation. A completed approved Voice
@@ -406,7 +406,7 @@ actor must be evaluated from actual generated output and build evidence.
 
 ### PR-116 — Held-out evaluation and best actor selection
 
-**MUST:** VoiceLab evaluate candidate trained checkpoints using English sentences not
+**MUST:** My Voice evaluate candidate trained checkpoints using English sentences not
 used as training takes.
 
 **SHOULD:** Build-time ranking use speaker-similarity evidence from the same approved
@@ -436,6 +436,9 @@ to `UserData/CacheData/VoiceLab` while a build is in progress.
 **MUST:** The explicitly approved Voice Actor belongs to
 `UserData/SavedProject/VoiceLab`.
 
+The `VoiceLab` directory names in these two paths are retained storage-compatibility
+identifiers. They do not define the product-facing feature name.
+
 **MUST:** Rebuilding My Voice leave the previous approved actor intact until a new actor
 has completed training/evaluation and the user approves its promotion.
 
@@ -447,7 +450,7 @@ runtime owner.
 **MUST:** Meeting Start load/warm the trained actor, prepare/cache its canonical
 reference, and obtain bounded functional custom-TTS readiness before `Live` can commit.
 
-**MUST NOT:** A VoiceLab training job run concurrently with an active Meeting or become
+**MUST NOT:** A My Voice training job run concurrently with an active Meeting or become
 background live-scheduler work. Initial behavior is mutual exclusion, not automatic
 resource arbitration or pause/resume complexity.
 
@@ -495,7 +498,7 @@ Meeting outbound
 > diagnostics / setup work
 ```
 
-VoiceLab training does not enter this live priority queue; it is mutually exclusive
+My Voice training does not enter this live priority queue; it is mutually exclusive
 with Meeting.
 
 **MUST:** Queues remain bounded and stale work be discarded rather than presented late
@@ -529,7 +532,7 @@ conversation/audio state, and only then report the session ended.
 **MUST NOT:** NVIDIA GPU be an absolute requirement for Text translation or application
 startup.
 
-**MAY:** VoiceLab training and practical realtime Voice Actor Meeting inference require
+**MAY:** My Voice training and practical realtime Voice Actor Meeting inference require
 stronger hardware than standalone Text, when target evidence proves that constraint.
 
 ### PR-062 — CPU operation
@@ -634,7 +637,7 @@ translation to work.
 
 **NOT INITIAL CORE:** automatic History and general Saved UI/workflow.
 
-VoiceLab's explicitly approved Voice Actor is a narrow user-owned persistent asset and
+My Voice's explicitly approved Voice Actor is a narrow user-owned persistent asset and
 does not create general History/Saved semantics.
 
 ### PR-101 — Temporary audio/transcript
@@ -642,7 +645,7 @@ does not create general History/Saved semantics.
 **DEFAULT:** Raw microphone audio, Meeting Sound audio, generated Meeting TTS, and live
 Meeting transcript bodies are temporary session/runtime data.
 
-**DEFAULT:** VoiceLab recording/build artifacts remain temporary until a resulting Voice
+**DEFAULT:** My Voice recording/build artifacts remain temporary until a resulting Voice
 Actor is explicitly approved.
 
 ### PR-102 — Diagnostics privacy
@@ -656,9 +659,9 @@ Actor is explicitly approved.
 Preserve the responsibility split:
 
 ```text
-UserData/CacheData/              -> temporary runtime/session + VoiceLab build data
+UserData/CacheData/              -> temporary runtime/session + My Voice build data
 UserData/LogData/                -> minimal/redacted diagnostics
-UserData/SavedProject/VoiceLab/  -> explicitly approved persistent Voice Actor
+UserData/SavedProject/VoiceLab/  -> explicitly approved persistent My Voice actor (legacy directory name)
 ```
 
 ## 13. Normal UI And Settings
@@ -670,7 +673,7 @@ Normal top-level navigation is:
 ```text
 Meeting
 Text
-VoiceLab
+My Voice
 Settings
 ```
 
@@ -719,7 +722,7 @@ Meeting
 Advanced
 ```
 
-Meeting owns device/setup preferences. Voice creation belongs to VoiceLab, not another
+Meeting owns device/setup preferences. Voice creation belongs to My Voice, not another
 Settings subsystem. Advanced owns Diagnostics. Diagnostics may show technical details
 but is not the normal manual runtime control plane.
 
@@ -750,12 +753,12 @@ close to the result.
 **MUST:** Healthy and `Ready` states remain visually calm. Warning, unavailable, and
 recovery states receive stronger emphasis only when the user needs to act.
 
-**MUST NOT:** Normal Meeting, Text, VoiceLab, or First Setup UI require users to
+**MUST NOT:** Normal Meeting, Text, My Voice, or Setup UI require users to
 understand runtime, worker, model, pipeline-stage, provider, CUDA, scheduler, or
 lifecycle-internal vocabulary. Technical detail belongs in `Advanced -> Diagnostics`.
 
 **SHOULD:** Familiar product patterns be adapted to TranslateIT's local Meeting and
-guided VoiceLab workflows rather than copied literally from another brand.
+guided My Voice workflows rather than copied literally from another brand.
 
 ## 14. Application Lifecycle
 
@@ -799,7 +802,7 @@ normal Meeting operation.
 ### PR-143 — Core packaged assets
 
 **MUST:** Release inputs provide the required helper/runtime, ASR, **bidirectional
-Indonesian/English translation**, trained Voice Actor inference assets, VoiceLab build
+Indonesian/English translation**, trained Voice Actor inference assets, My Voice build
 assets required by the approved creation workflow, and Meeting-audio route support.
 
 **MUST NOT:** Bundle unrelated GPT-SoVITS WebUI/server/ASR/provider tooling merely because
@@ -815,7 +818,7 @@ claim requires target-Windows/model/audio evidence.
 ### PR-181 — Source closure before target validation
 
 Before target-Windows validation begins, current source must include the approved
-VoiceLab workflow and one canonical trained Voice Actor TTS integration without a
+My Voice workflow and one canonical trained Voice Actor TTS integration without a
 parallel daily engine.
 
 Source/build proof may establish ownership, dependency compatibility, persistence,
@@ -830,7 +833,7 @@ Target-capable acceptance still requires evidence for:
 2. stable final ASR
 3. Indonesian -> English translation
 4. English -> Indonesian translation
-5. VoiceLab training completes for a real authorized speaker dataset
+5. My Voice training completes for a real authorized speaker dataset
 6. held-out generated speech is acceptably similar and approved by the user
 7. approved Voice Actor can be reused after restart without retraining
 8. trained Voice Actor TTS is practical for live Meeting latency on target hardware
@@ -860,15 +863,15 @@ conversation-context prompting
 general History / Saved
 Audio Studio / broadcast voice-production features
 alternate custom-voice engines/providers
-quick-clone / zero-shot VoiceLab modes
-import-audio VoiceLab branch
+quick-clone / zero-shot My Voice modes
+import-audio My Voice branch
 Document Translation
 additional languages
 incoming TTS
 mid-session automatic Meeting Sound default-device rebind
 ```
 
-Reconsider them only after the approved translator + VoiceLab product has target proof
+Reconsider them only after the approved translator + My Voice product has target proof
 and a new explicit product decision shows the added feature is worth its complexity.
 
 ## Related

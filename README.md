@@ -11,7 +11,7 @@ Current top-level navigation:
 ```text
 Meeting
 Text
-VoiceLab
+My Voice
 Settings
 ```
 
@@ -46,9 +46,9 @@ Ready → Starting → Live → Stopping → Ended
 
 Standalone Indonesian ↔ English text translation with explicit direction, Translate, editable result, and Copy.
 
-### VoiceLab
+### My Voice
 
-VoiceLab creates one approved reusable `My Voice` actor from the user's authorized voice:
+My Voice creates one approved reusable English meeting voice from the user's authorized recordings:
 
 ```text
 guided English recording
@@ -56,10 +56,10 @@ guided English recording
 → GPT-SoVITS V2ProPlus training
 → held-out evaluation
 → user listening approval
-→ My Voice
+→ approved My Voice
 ```
 
-Training is occasional. Normal Meeting use reuses the approved actor without retraining.
+Training is occasional. Normal Meeting use reuses the approved voice without retraining.
 
 ### Settings
 
@@ -67,7 +67,7 @@ Normal settings focus on Meeting devices/setup. Technical runtime/model informat
 
 ## Initial boundary
 
-Current initial product intentionally excludes general History/Saved UI, Documents, Audio Studio/broadcast workflows, Push to Talk, Pause/Resume, user-facing Realtime/Quality or tone/context modes, additional languages, imported-audio/quick-clone VoiceLab modes, multiple voice engines/profiles, partial translated subtitles, incoming Indonesian TTS, and automatic mid-session Meeting Sound rebind.
+Current initial product intentionally excludes general History/Saved UI, Documents, Audio Studio/broadcast workflows, Push to Talk, Pause/Resume, user-facing Realtime/Quality or tone/context modes, additional languages, imported-audio/quick-clone My Voice modes, multiple voice engines/profiles, partial translated subtitles, incoming Indonesian TTS, and automatic mid-session Meeting Sound rebind.
 
 ## Architecture
 
@@ -88,7 +88,7 @@ EngineData/Frontend/RustApp/
 → Svelte frontend + Tauri/Rust desktop/runtime
 
 EngineData/Backend/LocalWorker/WorkerRuntime/
-→ canonical local AI worker + VoiceLab build/inference logic
+→ canonical local AI worker + My Voice build/inference logic
 
 EngineData/Backend/RuntimeAssets/
 → controlled production model/audio/runtime assets
@@ -100,7 +100,7 @@ DevelopingData/
 → historical/recovery evidence only
 ```
 
-The desktop application is the single product shell. VoiceLab training is a bounded build operation and does not create a second daily inference worker.
+The desktop application is the single product shell. My Voice training is a bounded build operation and does not create a second daily inference worker.
 
 ## Repository operating model
 
