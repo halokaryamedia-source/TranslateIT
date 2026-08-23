@@ -47,10 +47,45 @@ cd "D:\Work\AI Stuff\TranslateIT"
 
 The wrapper resolves the internal runner from its own repository location, so paths containing spaces are supported and the repository does not depend on one machine-specific absolute path.
 
-The default flow is:
+### Fresh-clone bootstrap
+
+A plain Git clone intentionally does **not** contain the large release runtime/model payload. `Run-Local-Test.ps1` therefore prepares the build machine before it delegates to the normal release/acceptance runner.
+
+It checks for:
+
+```text
+Node.js / npm
+host Python 3.12.x + pip
+Rust toolchain (cargo/rustc)
+7-Zip CLI
+Visual Studio 2022 C++ Build Tools
+```
+
+If locked frontend/Tauri dependencies are absent it runs `npm ci`. If the ignored release inputs are absent or incomplete it runs the repository-owned release staging path for private Python/dependencies, ASR, MiLMMT, GPT-SoVITS assets/source, NLTK data, FFmpeg, and VB-CABLE, then runs `stage_release_license_material.py` before the release build. The first preparation may download several GB and is expected to take materially longer than later runs.
+
+Do not manually copy models, install a second Python runtime into the product, or bypass the staged identity/hash checks merely to make a fresh clone build.
+
+### Windows PowerShell compatibility
+
+The current target-PC bootstrap may be launched from Windows PowerShell 5.1. `Set-Content -Encoding utf8NoBOM` is not supported by PowerShell 5.1, so release staging has an explicit compatibility boundary:
+
+```text
+stage_release_inputs.ps1
+→ PowerShell-version compatibility entrypoint
+
+stage_release_inputs_impl.ps1
+→ canonical full staging implementation
+```
+
+PowerShell 7+ executes the implementation unchanged. Windows PowerShell 5.1 executes a temporary same-directory compatibility copy with only the unsupported encoding enum replaced for the temporary generated Python helper. The runtime/model sources, revisions, hashes, release identity, and staging behavior are otherwise unchanged.
+
+The default local-test flow is:
 
 ```text
 verify branch Local + clean tracked source
+→ verify/build-machine prerequisites
+→ stage fresh-clone release inputs when required
+→ stage reviewed license material
 → build current Setup + Payload
 → verify exact source commit and release hashes
 → launch TranslateIT-Setup.exe with normal UAC
@@ -91,6 +126,7 @@ Automated core acceptance does **not** replace observation of UAC/driver consent
 - relevant pull requests to `Local` run the source-contract job;
 - relevant pushes to `Local` run the source-contract job and the controlled Windows payload-proof job;
 - the source-contract job parse-checks the root wrapper plus the Windows release/acceptance PowerShell helpers;
+- canonical MiLMMT validation also preserves the release staging model-acquisition contract;
 - there is no manual-dispatch path for the current branch model.
 
 The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.
