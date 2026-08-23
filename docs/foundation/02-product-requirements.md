@@ -19,6 +19,17 @@ TranslateIT does not need multiple voice engines, instant-clone modes, provider
 selection, a broadcast-production studio, or cloud voice fallback. Source presence is
 not runtime proof. Evidence requirements remain governed by root `AGENTS.md`.
 
+## 0. Direction Locks Supersede (D-033/D-034, 2026-08-23)
+
+The locks below are **current product law**. Where any statement in sections 1+ conflicts with them, the lock wins and the older statement is historical:
+
+1. One canonical translation pipeline; Realtime/Quality mode vocabulary is retired.
+2. Outbound rolling context = last three own-voice pairs of the live session; incoming is permanently context-free.
+3. Document/file translation is removed; Text is paste-only.
+4. Indonesian <-> English only; no multilingual roadmap.
+5. Full English UI copy.
+6. Personal use: owned machines only; signing/auto-update out of scope.
+7. Meeting voice = built-in male/female packs by default (no training); My Voice is the optional trained upgrade that replaces selection after explicit approval. Older "trained voice required before Meeting" requirements are superseded by this lock.
 ## 1. Product Priority
 
 ### PR-001 — Primary use case

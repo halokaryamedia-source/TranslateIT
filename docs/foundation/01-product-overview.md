@@ -41,7 +41,7 @@ Indonesian speech
 This is the **required core path**. If this path is healthy, optional features must not
 prevent it from working.
 
-The target outbound TTS behavior uses one approved trained Voice Actor. There is no
+The target outbound TTS behavior uses one approved Meeting voice — a built-in pack by default, or the approved trained My Voice after creation. There is no
 normal user-facing provider/model selector and no silent fallback to a different voice
 when the selected/required Voice Actor cannot synthesize safely.
 
@@ -97,7 +97,7 @@ best.
 Platform        -> Windows
 Languages       -> Indonesian + English only
 Meeting control -> Start Translation / Stop Translation
-Outbound        -> ID speech -> EN trained Voice Actor
+Outbound        -> ID speech -> EN Voice Actor (built-in or trained)
 Incoming        -> EN speech -> ID text, optional
 Text            -> ID <-> EN
 My Voice        -> guided recording -> trained reusable Voice Actor
@@ -330,7 +330,7 @@ The UI target remains modern, familiar, and low-density.
 Meeting Ready should answer only:
 
 ```text
-Are the required devices and My Voice ready?
+Are the required devices and a Meeting voice (built-in or My Voice) ready?
 What language pair is active?
 Start Translation
 ```
@@ -368,7 +368,7 @@ Target Windows acceptance still includes:
 - final ASR;
 - ID -> EN translation;
 - EN -> ID translation when incoming is enabled;
-- trained Voice Actor English TTS;
+- Voice Actor English TTS (built-in default or approved My Voice);
 - Meeting Microphone delivery;
 - optional incoming Meeting Sound behavior;
 - safe Stop/Close;
