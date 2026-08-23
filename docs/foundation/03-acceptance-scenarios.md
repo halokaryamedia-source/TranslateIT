@@ -25,11 +25,11 @@ Run first. Uses `WorkerRuntime/run_realtime_worker_smoke.ps1` with `-IncludeOver
 | A4 | Translation ID→EN canonical contract | auto | A2, A3 | ok + `canonical_bidirectional_id_en` + `complete` + `finished_with_eos` |
 | A5 | Translation EN→ID canonical contract | auto | A2, A3 | same, direction `en->id` |
 | A6 | Over-length input rejected before any truncation/compaction | auto | A4 | >2000-char translate returns `ok:false`, blocker `translation:text_too_large`, `max_chars:2000` |
-| A7 | Incomplete generation rejected with named cause | auto-planned | A4 | blocker `output_hit_token_ceiling_without_eos` / `output_ended_without_eos` |
+| A7 | Incomplete generation rejected with named cause | auto | A4 | real `_continuation` fixture `test_milmmt_continuation_rejects_token_ceiling_without_eos` asserts blocker `translation:output_hit_token_ceiling_without_eos`; the ended-without-EOS branch lives in the same validator |
 | A8 | My Voice build→evaluate→approve→bind | manual-app | GPT-SoVITS assets | approved profile exists; readiness reports it |
 | A9 | Actor-token swap fails closed | manual-app | A8 | synthesis refuses on token mismatch |
 
-A7 will need a forced-ceiling fixture; A8/A9 run through the My Voice app workflow.
+A8/A9 run through the My Voice app workflow.
 
 ## Group B — Windows audio (physical microphone)
 

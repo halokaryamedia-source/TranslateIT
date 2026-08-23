@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / INSTALLER-FREE WORKER SMOKE GREEN EXCEPT APPROVED-ACTOR-MISSING / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6 GREEN / NEXT SCENARIO A7`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / INSTALLER-FREE WORKER SMOKE GREEN EXCEPT APPROVED-ACTOR-MISSING / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6 + A7 GREEN / NEXT SCENARIO A8 MANUAL MY VOICE`
 
 ## Active Boundary
 
@@ -27,6 +27,7 @@
 6. **No target-PC success claim yet.** The PowerShell 5.1 fix has not yet completed a full rerun. Setup, installed private runtime, CUDA/BF16, ASR/MiLMMT execution, VB-CABLE, microphone, My Voice, Meeting delivery, uninstall/reinstall, and clean-machine acceptance remain unproven until reached on the Windows PC.
 7. Installer-free pre-check (2026-08-23): after audit-cleanup commits and a 45 GB purge, `validate:quick` passed; `run_realtime_worker_smoke.ps1 -ExpectedDevice Cuda` returned green ASR preload and both MiLMMT directions on CUDA BF16 with canonical contract markers and persistent lifecycle. Only red: `voice_actor:approved_actor_missing` (no approved My Voice yet). Evidence: `UserData/LogData/RustAppValidation/latest_worker_smoke_result.json`. Dev-tree proof only.
 8. Scenario A6 (2026-08-23): `-IncludeOverLengthProbe` extension (smoke schema v9) sent a 3000-char translate; the worker rejected it `ok:false`, blocker `translation:text_too_large`, before any compaction (`elapsed_ms=0`); assertion `over_length_rejected=true`. All other assertions green; the only remaining red stays the missing approved My Voice profile.
+9. Scenario A7 (2026-08-23): real-code fixture `test_milmmt_continuation_rejects_token_ceiling_without_eos` passed (`pytest` exit 0) against `_continuation`, asserting blocker `translation:output_hit_token_ceiling_without_eos`. Evidence: `UserData/LogData/RustAppValidation/a7_incomplete_generation_pytest.txt`. Dev-tree unit proof; the ended-without-EOS branch shares the same validator.
 
 ## Current Entry Points
 
@@ -47,4 +48,4 @@ Do not reopen model selection, MiLMMT tuning, dependency convergence, worker arc
 
 ## Next Step
 
-**Execute scenario A7 (incomplete-generation rejection with named cause) from `docs/foundation/03-acceptance-scenarios.md` via a forced-ceiling fixture in the same smoke script; preserve its JSON evidence and stop to diagnose the first failing owner before A8.**
+**Execute scenario A8 (My Voice build → evaluate → approve → bind) through the app on this workspace; it is a manual user-driven workflow, and the smoke's only red assertion (`voice_actor:approved_actor_missing`) must flip green before B-group audio scenarios begin.**
