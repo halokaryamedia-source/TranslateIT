@@ -49,11 +49,10 @@ A8/A9 run through the My Voice app workflow; their inference-contract tests are 
 | ID | Claim | Mode | Pass criteria |
 |---|---|---|---|
 | B1 | Mic discovery + functional probe | auto+device | `callback_frames_observed > 0` |
-| B2 | Session Listening finalizes segments continuously | manual-device | natural pauses produce finalized segments until Stop |
-| B3 | PTT shares one canonical capture path | manual-device | no second stream; same runtime owner |
-| B4 | VAD edge losses are observable | manual-device | >60 s speech drop and eviction increment visible counters |
-| B5 | Device change locked during session | manual-device | selection blocked with clear message while active |
-| B6 | Virtual route truth is labeled | auto+device | matched pair reported with explicit non-delivery-proof labeling |
+| B2 | Session Listening finalizes segments continuously | manual-device | natural pauses produce finalized segments until Stop; while you speak, incoming shows `Held n/4` instead of vanishing |
+| B3 | VAD edge losses are observable | manual-device | >60 s speech drop and eviction increment visible counters |
+| B4 | Device change locked during session | manual-device | selection blocked with clear message while active |
+| B5 | Virtual route truth is labeled | auto+device | matched pair reported with explicit non-delivery-proof labeling |
 
 ## Group C — Meeting end-to-end (dev-mode app)
 
@@ -61,6 +60,7 @@ Requires green A-group and the relevant B scenarios.
 
 | ID | Claim | Mode | Pass criteria |
 |---|---|---|---|
+| C0 | Day-one start via built-in voice (no My Voice training) | manual-app | select Built-in Male/Female on My Voice page; Meeting Start becomes ready |
 | C1 | Start→ASR→translate→TTS→delivery with stage timing | manual-device | Live reached; outbound stage timings recorded |
 | C2 | Incoming lane isolation | manual-device | EN sound→ID text works; incoming failure does not break outbound |
 | C3 | Stop lifecycle cleanliness | manual-device | full rollback; helper recovery when needed; no dangling handles |
