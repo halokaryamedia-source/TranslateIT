@@ -387,3 +387,14 @@ Owner feedback: tests must describe application functions, stay few but efficien
 
 **Boundary**
 This rebalance does not add device automation: microphone capture, VAD on live input, virtual-route delivery, and full Meeting flow remain manual scenarios B/C/D in docs/foundation/03-acceptance-scenarios.md. The gpu-probe pytest environment gap on CUDA hosts remains a separate known issue.
+
+## D-033 - Meeting Context Asymmetry and Incoming Deferral Solutions
+
+**Decision**
+Two owner-approved designs close the last open ambiguities. (1) Outbound translation (the user's own voice) now carries a rolling context of the last three committed {Indonesian -> English} pairs from the same session, injected inside the official flat Xiaomi prompt format by repeating the language-labelled pair lines; the incoming lane stays permanently context-free because meeting audio has multiple speakers and cross-speaker gender bleed would harm quality. Measured cost on the target GPU: median generate() time 472.2 ms without context vs 475.6 ms with three pairs (+3.4 ms, p95 unchanged). (2) While required outbound work holds worker priority, finalized incoming segments are no longer discarded: they enter a bounded deferred queue (max 4 jobs, max age 20 s), drain FIFO once outbound is idle, and every overflow/expiry drop increments a visible counter instead of disappearing silently.
+
+**Reason**
+Owner required final solutions, not deferrals, for pronoun/persona ambiguity (#1) and silent incoming loss (#4). The asymmetric-context design keeps multi-speaker hazard out while proving benefit on the exact ambiguity class (dia -> he/she) in a live A/B benchmark on the staged runtime.
+
+**Boundary**
+Both solutions are dev-tree implemented with unit/contract coverage (cargo 54, pytest 36) plus the recorded latency benchmark. Live-meeting behavior, perceived quality, and end-to-end latency remain manual Group C observations whenever the owner schedules that session.
