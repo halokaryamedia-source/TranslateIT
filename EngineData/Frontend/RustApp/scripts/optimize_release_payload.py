@@ -15,8 +15,6 @@ EXCLUDED_DISTRIBUTIONS = {
     "colorlog",
     "fast-langdetect",
     "fasttext-predict",
-    "jieba",
-    "jieba-fast",
     "pandas",
     "peft",
     "proces",
@@ -49,7 +47,10 @@ REQUIRED_DISTRIBUTIONS = {
 }
 
 EXPECTED_BASELINE_DISTRIBUTIONS = 116
-EXPECTED_OPTIMIZED_DISTRIBUTIONS = 98
+# License-pinned distributions (validate_release_payload.mjs
+# exceptionalPythonLicenseMaterials) must never be excluded, so the optimized
+# closure keeps them: 116 - 16 exclusions = 100.
+EXPECTED_OPTIMIZED_DISTRIBUTIONS = 100
 
 ENGLISH_ONLY_MARKER = "TRANSLATEIT_ENGLISH_ONLY.txt"
 ENGLISH_ONLY_MARKER_TEXT = (
