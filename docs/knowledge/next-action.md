@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / AUTOMATED SUITE ALL GREEN / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6+A7 GREEN / TESTS FUNCTION-FIRST D-032 / MANUAL SCENARIOS PARKED AWAITING OWNER`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / AUTOMATED SUITE ALL GREEN / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6+A7 GREEN / TESTS FUNCTION-FIRST D-032 / ALL TESTING POSTPONED BY OWNER`
 
 ## Active Boundary
 
@@ -48,4 +48,4 @@ Do not reopen model selection, MiLMMT tuning, dependency convergence, worker arc
 
 ## Next Step
 
-**No automated work is pending; the suite is fully green. Manual device/human scenarios (A8/A9 My Voice, Groups B/C/D) stay parked until the owner explicitly schedules a session; when initiated, launch the app fresh and begin at Group B1.**
+**HOLD - awaiting explicit owner direction.** Automated coverage is complete and green; every test track (A8/A9 My Voice, Groups B/C/D manual sessions, Group E distribution) is postponed by owner decision and must not be initiated or promoted until the owner says so. Owner-ready candidates: resume manual sessions, plan Group E, or decide context/tone policy.
