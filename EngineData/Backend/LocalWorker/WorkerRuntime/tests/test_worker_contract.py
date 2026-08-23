@@ -239,13 +239,16 @@ def test_newline_protocol_rejects_already_expired_request() -> None:
 
 def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -> None:
     worker = load_worker_module()
+    # probe_gpu_runtime resolves torch/ctranslate2 probes from
+    # worker_runtime_common globals, so patch there (post-split layout).
+    common = worker.io_runtime.common
     monkeypatch.setattr(
-        worker,
+        common,
         "torch_status",
         lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
     )
     monkeypatch.setattr(
-        worker,
+        common,
         "ctranslate2_status",
         lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
     )
