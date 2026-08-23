@@ -41,7 +41,7 @@ def test_actor_package_validation_matches_approved_contract(tmp_path: Path) -> N
     package = provider.validate_actor_package(actor)
     assert package["reference_duration_ms"] == 4_000
     assert package["gpt_path"] == actor / "gpt.ckpt"
-    assert len(package["fingerprint"]) == 4
+    assert len(package["fingerprint"]) == 5  # manifest + gpt + sovits + wav identity + wav content hash
     write_actor(actor, revision="0" * 40)
     with pytest.raises(provider.VoiceLabProviderError, match="actor_engine_contract_mismatch"):
         provider.validate_actor_package(actor)
