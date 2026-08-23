@@ -61,9 +61,8 @@ jobs:
         run: npm run typecheck
       - name: Validate frontend source contracts
         run: |
-          npm run validate:startup-readiness
+          npm run validate:command-parity
           npm run validate:virtual-route
-          npm run preflight:frontend-build
 
   python-unused:
     name: Python unused-source check

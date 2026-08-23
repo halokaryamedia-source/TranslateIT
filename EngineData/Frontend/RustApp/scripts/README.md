@@ -6,15 +6,16 @@ This directory contains TranslateIT's source validators and Windows release entr
 
 ```text
 validate:source-contracts
-â”œâ”€ startup/runtime path checks
-â”œâ”€ Meeting route checks
-â”œâ”€ Rust/Tauri manifest preflight
-â”œâ”€ frontend build preflight
-â””â”€ R3 Tauri/package source checks
+├─ command parity (registry.rs <-> frontend bridge, 1:1)
+├─ Meeting route checks
+├─ Rust/Tauri manifest preflight
+└─ R3 Tauri/package source checks
 
 validate:quick
-â””â”€ source checks + TypeScript typecheck
+└─ source checks + TypeScript typecheck
 ```
+
+Functional behavior coverage lives where it belongs: GPU worker smoke (`WorkerRuntime/run_realtime_worker_smoke.ps1`), Rust unit tests for session/audio decisions, and pytest contract tests. The former prose-marker validators (startup-readiness, frontend-build-preflight) were retired because they checked code shape instead of function and rotted silently.
 
 `check:tauri-rust-local` is explicit local compile verification and is not run merely to validate documentation/source routing.
 
