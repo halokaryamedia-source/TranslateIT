@@ -258,3 +258,35 @@ def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -
     assert gpu["selected_device"] == "cpu"
     assert gpu["selected_translation_device"] == "cpu"
     assert gpu["fallback_reason"] == "cuda_unavailable"
+
+
+def test_build_prompt_embeds_rolling_context_pairs_in_official_format() -> None:
+    from milmmt_translation_provider import build_prompt
+
+    prompt = build_prompt(
+        "id",
+        "en",
+        "Besok dia memimpin rapat.",
+        [("Itu kakak saya.", "That is my older brother.")],
+    )
+    assert prompt == (
+        "Translate this from Indonesian to English:\n"
+        "Indonesian: Itu kakak saya.\n"
+        "English: That is my older brother.\n"
+        "Indonesian: Besok dia memimpin rapat.\n"
+        "English:"
+    )
+    assert prompt.count("Translate this from") == 1
+
+
+def test_normalize_context_pairs_caps_at_three_and_sanitizes() -> None:
+    from milmmt_translation_provider import MAX_CONTEXT_PAIRS, normalize_context_pairs
+
+    host = {"compact_runtime_text": lambda value, limit: str(value or "")[:limit]}
+    raw = [[f"s{i}", f"t{i}"] for i in range(5)]
+    pairs = normalize_context_pairs(raw, host)
+    assert len(pairs) == MAX_CONTEXT_PAIRS
+    assert pairs[0] == ("s2", "t2")
+    assert pairs[-1] == ("s4", "t4")
+    assert normalize_context_pairs("not-a-list", host) == []
+    assert normalize_context_pairs([[1, 2, 3], ["a", None]], host) == []

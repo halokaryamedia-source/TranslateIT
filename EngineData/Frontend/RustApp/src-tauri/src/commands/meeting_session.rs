@@ -566,6 +566,31 @@ fn terminal_delivery_state(state: Option<&str>) -> bool {
     )
 }
 
+fn recent_outbound_context_pairs(
+    session_id: &str,
+    max_pairs: usize,
+) -> Vec<[String; 2]> {
+    let Ok(guard) = committed_turn_store().lock() else {
+        return Vec::new();
+    };
+    let Some(store) = guard.as_ref() else {
+        return Vec::new();
+    };
+    if store.session_id != session_id {
+        return Vec::new();
+    }
+    let mut newest_first: Vec<[String; 2]> = store
+        .turns
+        .iter()
+        .rev()
+        .filter(|turn| turn.lane == "you")
+        .take(max_pairs)
+        .map(|turn| [turn.source_text.clone(), turn.translated_text.clone()])
+        .collect();
+    newest_first.reverse();
+    newest_first
+}
+
 fn commit_meeting_turn(
     session_id: &str,
     sequence: u64,
@@ -1248,6 +1273,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         "Final Indonesian transcript is being translated to English.",
     );
     let translation_started_at = Instant::now();
+    let context_pairs = recent_outbound_context_pairs(session_id, 3);
     let translation = send_helper_worker_task(
         "translate",
         json!({
@@ -1255,6 +1281,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             "source_language": "id",
             "target_language": "en",
             "max_new_tokens": 96,
+            "context_pairs": context_pairs,
             "meeting_session_id": session_id,
             "meeting_lane": "you",
             "meeting_generation": generation,

@@ -33,14 +33,42 @@ def language_name(code: str) -> str:
     return names[code]
 
 
-def build_prompt(source_language: str, target_language: str, text: str) -> str:
+def build_prompt(
+    source_language: str,
+    target_language: str,
+    text: str,
+    context_pairs: "list[tuple[str, str]]" = (),
+) -> str:
     source_name = language_name(source_language)
     target_name = language_name(target_language)
-    return (
-        f"Translate this from {source_name} to {target_name}:\n"
-        f"{source_name}: {text}\n"
-        f"{target_name}:"
-    )
+    lines = [f"Translate this from {source_name} to {target_name}:"]
+    # Rolling conversational context stays inside the official flat format:
+    # repeat the language-labelled pair per prior turn, then the live segment.
+    for pair_source, pair_target in context_pairs:
+        lines.append(f"{source_name}: {pair_source}")
+        lines.append(f"{target_name}: {pair_target}")
+    lines.append(f"{source_name}: {text}")
+    lines.append(f"{target_name}:")
+    return "\n".join(lines)
+
+
+MAX_CONTEXT_PAIRS = 3
+MAX_CONTEXT_PAIR_CHARS = 500
+
+
+def normalize_context_pairs(raw_pairs: object, host: dict) -> "list[tuple[str, str]]":
+    """Cap and sanitize optional rolling context from the session layer."""
+    if not isinstance(raw_pairs, list):
+        return []
+    pairs: "list[tuple[str, str]]" = []
+    for raw_pair in raw_pairs[-MAX_CONTEXT_PAIRS:]:
+        if not isinstance(raw_pair, (list, tuple)) or len(raw_pair) != 2:
+            continue
+        source = host["compact_runtime_text"](raw_pair[0], MAX_CONTEXT_PAIR_CHARS)
+        target = host["compact_runtime_text"](raw_pair[1], MAX_CONTEXT_PAIR_CHARS)
+        if source and target:
+            pairs.append((source, target))
+    return pairs
 
 
 def translation_model_for_direction(source_language: str, target_language: str):
@@ -266,7 +294,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         runtime = get_translation_runtime(source_language, target_language)
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
-        prompt = build_prompt(source_language, target_language, text)
+        context_pairs = normalize_context_pairs(payload.get("context_pairs"), host)
+        prompt = build_prompt(source_language, target_language, text, context_pairs)
         inputs = tokenizer(
             prompt,
             add_special_tokens=False,
