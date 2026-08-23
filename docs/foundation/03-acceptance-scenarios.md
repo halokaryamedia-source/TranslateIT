@@ -44,6 +44,8 @@ A8/A9 run through the My Voice app workflow; their inference-contract tests are 
 
 ## Group B — Windows audio (physical microphone)
 
+> Manual groups A8/A9 and B/C/D run **strictly on owner initiative**, after the automated levels are green. They are never the default next step and must not be pushed onto the owner.
+
 | ID | Claim | Mode | Pass criteria |
 |---|---|---|---|
 | B1 | Mic discovery + functional probe | auto+device | `callback_frames_observed > 0` |

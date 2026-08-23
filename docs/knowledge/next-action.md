@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / AUTOMATED SUITE ALL GREEN / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6+A7 GREEN / TESTS FUNCTION-FIRST D-032 / NEXT SCENARIO A8 MY VOICE / PYTEST EVIDENCE full_pytest_all_green.txt`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / AUTOMATED SUITE ALL GREEN / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6+A7 GREEN / TESTS FUNCTION-FIRST D-032 / MANUAL SCENARIOS PARKED AWAITING OWNER`
 
 ## Active Boundary
 
@@ -48,4 +48,4 @@ Do not reopen model selection, MiLMMT tuning, dependency convergence, worker arc
 
 ## Next Step
 
-**Execute scenario A8 (My Voice build → evaluate → approve → bind) through the app on this workspace; it is a manual user-driven workflow, and the smoke's only red assertion (`voice_actor:approved_actor_missing`) must flip green before B-group audio scenarios begin.**
+**No automated work is pending; the suite is fully green. Manual device/human scenarios (A8/A9 My Voice, Groups B/C/D) stay parked until the owner explicitly schedules a session; when initiated, launch the app fresh and begin at Group B1.**
