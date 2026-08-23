@@ -415,6 +415,18 @@ pub fn wait_take_finalized_incoming_utterance(
     }
 }
 
+pub fn try_take_finalized_incoming_utterance(
+    session_id: &str,
+) -> Option<FinalizedMeetingUtterance> {
+    let sync = incoming_sync();
+    let mut guard = sync.state.lock().ok()?;
+    let state = guard.as_mut()?;
+    if state.session_id != session_id || state.lane != LANE_INCOMING {
+        return None;
+    }
+    state.pending.pop_front()
+}
+
 fn ingest_observation(
     state: &mut FinalizedProducerState,
     samples: &[f32],

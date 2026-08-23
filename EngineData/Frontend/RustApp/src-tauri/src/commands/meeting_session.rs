@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 use std::fs;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
@@ -11,8 +11,9 @@ use crate::engine::audio::finalized_utterance::{
     clear_finalized_incoming_utterance_producer, clear_finalized_meeting_sequence,
     clear_finalized_outbound_utterance_producer, evicted_pending_utterance_count,
     overflow_dropped_utterance_count, reset_finalized_incoming_speech_boundary,
-    reset_finalized_meeting_sequence, wait_take_finalized_incoming_utterance,
-    wait_take_finalized_outbound_utterance, FinalizedMeetingUtterance,
+    reset_finalized_meeting_sequence, try_take_finalized_incoming_utterance,
+    wait_take_finalized_incoming_utterance, wait_take_finalized_outbound_utterance,
+    FinalizedMeetingUtterance,
 };
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::audio::live_segment_writer::{
@@ -1095,6 +1096,7 @@ fn begin_self_output_suppression(session_id: &str) -> Option<SelfOutputSuppressi
 
 fn disable_optional_incoming_for_outbound(session_id: &str) -> String {
     clear_finalized_incoming_utterance_producer();
+    clear_deferred_incoming_queue();
     let capture_stop = stop_meeting_sound_capture_runtime();
     update_incoming_status(
         session_id,
@@ -1563,16 +1565,6 @@ fn process_authoritative_finalized_incoming_wav(
     if !incoming_session_is_eligible(session_id) {
         return;
     }
-    if incoming_deferred_for_required_outbound(&asr) {
-        update_incoming_status(
-            session_id,
-            "listening",
-            false,
-            "",
-            "Older optional incoming speech yielded before ASR because required outbound translation took priority. The event was discarded and incoming is listening for fresh Meeting Sound.",
-        );
-        return;
-    }
     let transcript = worker_text(&asr, "transcript_text");
     if !asr.ok || transcript.is_none() {
         let blocker = worker_blocker(&asr, "asr:empty_transcript");
@@ -1592,6 +1584,45 @@ fn process_authoritative_finalized_incoming_wav(
     }
     let transcript = transcript.unwrap_or_default();
 
+    if incoming_deferred_for_required_outbound(&asr) {
+        let held = enqueue_deferred_incoming(DeferredIncomingJob {
+            session_id: session_id.to_string(),
+            event_sequence,
+            utterance_id,
+            stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.clone() },
+            enqueued_unix_ms: unix_ms() as u64,
+        });
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            &format!(
+                "Held {held}/{MAX_DEFERRED_INCOMING} while your outbound translation finishes. This segment will be translated right after; incoming is listening for fresh Meeting Sound."
+            ),
+        );
+        return;
+    }
+
+    let held = translate_and_commit_incoming_transcript(
+        session_id,
+        event_sequence,
+        utterance_id,
+        &transcript,
+        true,
+    );
+    if held {
+        return;
+    }
+}
+
+fn translate_and_commit_incoming_transcript(
+    session_id: &str,
+    event_sequence: u64,
+    utterance_id: u64,
+    transcript: &str,
+    allow_defer: bool,
+) -> bool {
     update_incoming_status(
         session_id,
         "translating",
@@ -1602,7 +1633,7 @@ fn process_authoritative_finalized_incoming_wav(
     let translation = send_helper_worker_task(
         "translate",
         json!({
-            "text": transcript.clone(),
+            "text": transcript,
             "source_language": "en",
             "target_language": "id",
             "max_new_tokens": 96,
@@ -1613,17 +1644,28 @@ fn process_authoritative_finalized_incoming_wav(
         }),
     );
     if !incoming_session_is_eligible(session_id) {
-        return;
+        return false;
     }
     if incoming_deferred_for_required_outbound(&translation) {
-        update_incoming_status(
-            session_id,
-            "listening",
-            false,
-            "",
-            "Older optional incoming speech yielded before translation because required outbound work took priority. The transcript was discarded and incoming is listening for fresh Meeting Sound.",
-        );
-        return;
+        if allow_defer {
+            let held = enqueue_deferred_incoming(DeferredIncomingJob {
+                session_id: session_id.to_string(),
+                event_sequence,
+                utterance_id,
+                stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.to_string() },
+                enqueued_unix_ms: unix_ms() as u64,
+            });
+            update_incoming_status(
+                session_id,
+                "listening",
+                false,
+                "",
+                &format!(
+                    "Held {held}/{MAX_DEFERRED_INCOMING} while your outbound translation finishes. It will run right after."
+                ),
+            );
+        }
+        return true;
     }
     let translated_text = worker_text(&translation, "translated_text");
     if !translation.ok || translated_text.is_none() {
@@ -1635,7 +1677,7 @@ fn process_authoritative_finalized_incoming_wav(
             &blocker,
             "Incoming English -> Indonesian translation failed for the latest event. Outbound Meeting translation remains unaffected.",
         );
-        return;
+        return false;
     }
 
     let translated_text = translated_text.unwrap_or_default();
@@ -1665,6 +1707,41 @@ fn process_authoritative_finalized_incoming_wav(
             "Incoming translation finished but could not be committed to the canonical Meeting conversation store."
         },
     );
+    false
+}
+
+fn drain_due_deferred_incoming(session_id: &str) {
+    for _ in 0..MAX_DEFERRED_INCOMING {
+        let Some(job) = take_due_deferred_incoming(session_id, unix_ms() as u64) else {
+            break;
+        };
+        let DeferredIncomingJob { event_sequence, utterance_id, stage, .. } = job;
+        match stage {
+            DeferredIncomingStage::NeedsTranslation { transcript } => {
+                let held = translate_and_commit_incoming_transcript(
+                    session_id,
+                    event_sequence,
+                    utterance_id,
+                    &transcript,
+                    false,
+                );
+                if held {
+                    // Outbound still has priority; keep the original job at the
+                    // front so ordering is preserved and retry on a later tick.
+                    if let Ok(mut guard) = deferred_incoming_queue().lock() {
+                        guard.push_front(DeferredIncomingJob {
+                            session_id: session_id.to_string(),
+                            event_sequence,
+                            utterance_id,
+                            stage: DeferredIncomingStage::NeedsTranslation { transcript },
+                            enqueued_unix_ms: unix_ms() as u64,
+                        });
+                    }
+                    break;
+                }
+            }
+        }
+    }
 }
 
 fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<(), String> {
@@ -1811,6 +1888,74 @@ fn stop_meeting_outbound_consumer(generation: u64) -> MeetingConsumerCleanupResu
     }
 }
 
+// --- Deferred incoming queue (#4): hold optional incoming work while required
+// outbound has priority, then process it FIFO when outbound is idle. Nothing
+// is lost silently: capacity overflow and age expiry each bump a counter.
+
+const MAX_DEFERRED_INCOMING: usize = 4;
+const MAX_DEFERRED_INCOMING_AGE_MS: u64 = 20_000;
+
+#[derive(Clone)]
+enum DeferredIncomingStage {
+    NeedsTranslation { transcript: String },
+}
+
+struct DeferredIncomingJob {
+    session_id: String,
+    event_sequence: u64,
+    utterance_id: u64,
+    stage: DeferredIncomingStage,
+    enqueued_unix_ms: u64,
+}
+
+static DEFERRED_INCOMING_QUEUE: OnceLock<Mutex<VecDeque<DeferredIncomingJob>>> = OnceLock::new();
+static DEFERRED_DROPPED_OVERFLOW: AtomicU64 = AtomicU64::new(0);
+static DEFERRED_DROPPED_STALE: AtomicU64 = AtomicU64::new(0);
+
+fn deferred_incoming_queue() -> &'static Mutex<VecDeque<DeferredIncomingJob>> {
+    DEFERRED_INCOMING_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
+}
+
+fn enqueue_deferred_incoming(job: DeferredIncomingJob) -> usize {
+    let Ok(mut guard) = deferred_incoming_queue().lock() else {
+        return 0;
+    };
+    guard.push_back(job);
+    while guard.len() > MAX_DEFERRED_INCOMING {
+        let _ = guard.pop_front();
+        DEFERRED_DROPPED_OVERFLOW.fetch_add(1, Ordering::Relaxed);
+    }
+    guard.len()
+}
+
+fn take_due_deferred_incoming(session_id: &str, now_unix_ms: u64) -> Option<DeferredIncomingJob> {
+    let mut guard = deferred_incoming_queue().lock().ok()?;
+    while let Some(front) = guard.front() {
+        if front.session_id != session_id {
+            let _ = guard.pop_front();
+            DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
+            continue;
+        }
+        if now_unix_ms.saturating_sub(front.enqueued_unix_ms) > MAX_DEFERRED_INCOMING_AGE_MS {
+            let _ = guard.pop_front();
+            DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
+            continue;
+        }
+        return guard.pop_front();
+    }
+    None
+}
+
+fn deferred_incoming_held_count() -> usize {
+    deferred_incoming_queue().lock().map(|g| g.len()).unwrap_or(0)
+}
+
+fn clear_deferred_incoming_queue() {
+    if let Ok(mut guard) = deferred_incoming_queue().lock() {
+        guard.clear();
+    }
+}
+
 fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
     let store = incoming_consumer_store();
     let mut guard = store
@@ -1825,7 +1970,21 @@ fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
     let handle = thread::Builder::new()
         .name("translateit-meeting-incoming".to_string())
         .spawn(move || {
-            while let Some(utterance) = wait_take_finalized_incoming_utterance(&thread_session_id) {
+            loop {
+                drain_due_deferred_incoming(&thread_session_id);
+
+                let utterance = match try_take_finalized_incoming_utterance(&thread_session_id) {
+                    Some(utterance) => utterance,
+                    None => {
+                        let Some(utterance) =
+                            wait_take_finalized_incoming_utterance(&thread_session_id)
+                        else {
+                            break;
+                        };
+                        utterance
+                    }
+                };
+
                 if utterance.session_id != thread_session_id
                     || utterance.lane != "incoming"
                     || utterance.generation.is_some()
@@ -1880,6 +2039,7 @@ fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
 
 fn stop_meeting_incoming_consumer(session_id: &str) -> MeetingConsumerCleanupResult {
     clear_finalized_incoming_utterance_producer();
+    clear_deferred_incoming_queue();
     let store = incoming_consumer_store();
     let runtime = match store.lock() {
         Ok(mut guard) => {
@@ -2390,6 +2550,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         clear_prepared_meeting_output_device();
         let incoming_capture_stop = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();
+    clear_deferred_incoming_queue();
         clear_finalized_meeting_sequence();
         clear_all_committed_turns();
         clear_outbound_status();
@@ -2665,5 +2826,70 @@ mod c4_functional_preflight_tests {
         assert!(meeting_required_ai_ready(true, true));
         assert!(!meeting_start_ai_eligible(true, false));
         assert!(!meeting_required_ai_ready(false, true));
+    }
+}
+
+#[cfg(test)]
+mod deferred_incoming_tests {
+    use super::*;
+
+    fn job(session: &str, seq: u64, transcript: &str, enqueued_unix_ms: u64) -> DeferredIncomingJob {
+        DeferredIncomingJob {
+            session_id: session.to_string(),
+            event_sequence: seq,
+            utterance_id: seq,
+            stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.to_string() },
+            enqueued_unix_ms,
+        }
+    }
+
+    #[test]
+    fn deferred_queue_caps_evicts_expired_and_respects_session() {
+        clear_deferred_incoming_queue();
+        assert_eq!(deferred_incoming_held_count(), 0);
+
+        // Session binding: draining under a foreign session yields nothing and
+        // still counts the held job as stale-dropped.
+        enqueue_deferred_incoming(job("sess", 1, "t", 1_000));
+        let stale_before = DEFERRED_DROPPED_STALE.fetch_and(0, Ordering::Relaxed);
+        assert!(take_due_deferred_incoming("other-sess", 2_000).is_none());
+        assert_eq!(
+            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
+            1,
+            "foreign-session job must be treated as stale"
+        );
+
+        // Capacity: six more jobs against a cap of 4 evicts exactly the oldest two.
+        for seq in 2..=7 {
+            enqueue_deferred_incoming(job("sess", seq, "t", 10_000));
+        }
+        assert_eq!(deferred_incoming_held_count(), MAX_DEFERRED_INCOMING);
+        let dropped_overflow =
+            DEFERRED_DROPPED_OVERFLOW.swap(0, Ordering::Relaxed);
+        assert_eq!(dropped_overflow, 2, "oldest two jobs must be evicted");
+
+        // Age expiry: at now=40_000 every remaining job (enqueued at 10_000) is
+        // stale and must be dropped instead of delivered.
+        let stale_before = DEFERRED_DROPPED_STALE.load(Ordering::Relaxed);
+        let mut delivered = 0;
+        while take_due_deferred_incoming("sess", 40_000).is_some() {
+            delivered += 1;
+        }
+        assert_eq!(delivered, 0, "expired jobs are dropped, not delivered");
+        assert_eq!(
+            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
+            MAX_DEFERRED_INCOMING as u64
+        );
+
+        // Fresh jobs inside the age window are delivered FIFO.
+        enqueue_deferred_incoming(job("sess", 7, "a", 50_000));
+        enqueue_deferred_incoming(job("sess", 8, "b", 51_000));
+        let first = take_due_deferred_incoming("sess", 52_000).expect("fresh job due");
+        let second = take_due_deferred_incoming("sess", 52_000).expect("second fresh job due");
+        assert_eq!(first.event_sequence, 7);
+        assert_eq!(second.event_sequence, 8);
+
+        clear_deferred_incoming_queue();
+        assert_eq!(deferred_incoming_held_count(), 0);
     }
 }
