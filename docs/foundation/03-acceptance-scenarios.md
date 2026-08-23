@@ -15,7 +15,7 @@ Removed: root `Run-Local-Test.ps1`, `scripts/run_local_test.ps1`, `scripts/run_t
 
 ## Group A — Core AI runtime (headless)
 
-Run first. Uses `WorkerRuntime/run_realtime_worker_smoke.ps1` (A1–A5 already green on CUDA BF16, 2026-08-23).
+Run first. Uses `WorkerRuntime/run_realtime_worker_smoke.ps1` with `-IncludeOverLengthProbe` for A6 (A1–A5 and A6 green on CUDA BF16, 2026-08-23).
 
 | ID | Claim | Mode | Precondition | Pass criteria |
 |---|---|---|---|---|
@@ -24,12 +24,12 @@ Run first. Uses `WorkerRuntime/run_realtime_worker_smoke.ps1` (A1–A5 already g
 | A3 | ASR turbo preload | auto | RuntimeAssets marker | `asr_preload.ok` on cuda |
 | A4 | Translation ID→EN canonical contract | auto | A2, A3 | ok + `canonical_bidirectional_id_en` + `complete` + `finished_with_eos` |
 | A5 | Translation EN→ID canonical contract | auto | A2, A3 | same, direction `en->id` |
-| A6 | Over-length input rejected, never truncated | auto-planned | A4 | blocker `input_too_long_for_model` on >limit text |
+| A6 | Over-length input rejected before any truncation/compaction | auto | A4 | >2000-char translate returns `ok:false`, blocker `translation:text_too_large`, `max_chars:2000` |
 | A7 | Incomplete generation rejected with named cause | auto-planned | A4 | blocker `output_hit_token_ceiling_without_eos` / `output_ended_without_eos` |
 | A8 | My Voice build→evaluate→approve→bind | manual-app | GPT-SoVITS assets | approved profile exists; readiness reports it |
 | A9 | Actor-token swap fails closed | manual-app | A8 | synthesis refuses on token mismatch |
 
-A6/A7 need a small parameterized extension of the existing smoke script (no second harness).
+A7 will need a forced-ceiling fixture; A8/A9 run through the My Voice app workflow.
 
 ## Group B — Windows audio (physical microphone)
 

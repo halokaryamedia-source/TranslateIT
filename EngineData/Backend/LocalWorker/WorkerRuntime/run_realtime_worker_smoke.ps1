@@ -5,6 +5,7 @@ param(
     [string]$TtsText = "Hello.",
     [ValidateSet("Any", "Cuda", "CpuFallback")]
     [string]$ExpectedDevice = "Any",
+    [switch]$IncludeOverLengthProbe,
     [ValidateRange(10, 600)]
     [int]$CommandTimeoutSeconds = 300
 )
@@ -106,6 +107,7 @@ $Status = $null
 $AsrPreload = $null
 $IdEn = $null
 $EnId = $null
+$OverLength = $null
 $VoicePreflight = $null
 $Voice = $null
 $Asr = $null
@@ -117,6 +119,9 @@ try {
     $AsrPreload = Invoke-WorkerJson @{ command = "asr_preload" }
     $IdEn = Invoke-WorkerJson @{ command = "translate"; text = $IdText; source_language = "id"; target_language = "en" }
     $EnId = Invoke-WorkerJson @{ command = "translate"; text = $EnText; source_language = "en"; target_language = "id" }
+    if ($IncludeOverLengthProbe) {
+        $OverLength = Invoke-WorkerJson @{ command = "translate"; text = ("a" * 3000); source_language = "id"; target_language = "en" }
+    }
     $VoicePreflight = Invoke-WorkerJson @{ command = "voice_actor_preflight" }
     if ($TtsText.Trim().Length -gt 0) {
         $Voice = Invoke-WorkerJson @{ command = "voice_actor_synthesize"; text = $TtsText }
@@ -136,6 +141,13 @@ finally {
 
 $IdEnOk = Translation-Ok $IdEn "id->en"
 $EnIdOk = Translation-Ok $EnId "en->id"
+$OverLengthOk = $true
+if ($IncludeOverLengthProbe) {
+    $OverLengthOk = [bool]$OverLength `
+        -and -not [bool]$OverLength.ok `
+        -and [string]$OverLength.blocker -eq "translation:text_too_large" `
+        -and [int]$OverLength.max_chars -eq 2000
+}
 $VoiceOk = [bool]$VoicePreflight.ok -and (($null -eq $Voice) -or ([bool]$Voice.ok -and $VoiceArtifactValid))
 $AsrOk = [bool]$AsrPreload.ok
 if ($null -ne $Asr) {
@@ -143,18 +155,20 @@ if ($null -ne $Asr) {
 }
 $LoadedDirections = @($PostStatus.loaded.translation_directions)
 $LifecycleOk = $LoadedDirections -contains "id->en" -and $LoadedDirections -contains "en->id"
-$Ok = [bool]$Status.ok -and $IdEnOk -and $EnIdOk -and $VoiceOk -and $AsrOk -and $LifecycleOk
+$Ok = [bool]$Status.ok -and $IdEnOk -and $EnIdOk -and $OverLengthOk -and $VoiceOk -and $AsrOk -and $LifecycleOk
 
 $Result = [ordered]@{
-    schema = "translateit.local_worker_smoke_result.v8.milmmt.redacted.persistent"
+    schema = "translateit.local_worker_smoke_result.v9.milmmt.redacted.persistent"
     created_at = (Get-Date).ToUniversalTime().ToString("o")
     privacy = "conversation_bodies_and_runtime_paths_redacted"
     persistent_worker = $true
     ok = $Ok
     expected_device = $ExpectedDevice
+    over_length_probe = [bool]$IncludeOverLengthProbe
     assertions = [ordered]@{
         translation_id_en = $IdEnOk
         translation_en_id = $EnIdOk
+        over_length_rejected = $OverLengthOk
         voice_actor_artifact = $VoiceOk
         asr = $AsrOk
         persistent_translation_lifecycle = $LifecycleOk
@@ -163,6 +177,7 @@ $Result = [ordered]@{
     asr_preload = Stage-Summary $AsrPreload
     translation_id_en = Stage-Summary $IdEn
     translation_en_id = Stage-Summary $EnId
+    translation_over_length = Stage-Summary $OverLength
     voice_actor_preflight = Stage-Summary $VoicePreflight
     voice_actor_synthesize = Stage-Summary $Voice
     asr = Stage-Summary $Asr
