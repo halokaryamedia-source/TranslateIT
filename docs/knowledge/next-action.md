@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / TARGET-PC ACCEPTANCE IN PROGRESS / FRESH-CLONE + POWERSHELL 5.1 FIXES MERGED / AUDIT CLEANUP WAVE APPLIED UNCOMMITTED ON LOCAL / LOCAL RERUN REQUIRED / HANDOFF READY`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / TARGET-PC ACCEPTANCE IN PROGRESS / FRESH-CLONE + POWERSHELL 5.1 FIXES MERGED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / INSTALLER-FREE WORKER SMOKE GREEN EXCEPT APPROVED-ACTOR-MISSING / LOCAL RERUN REQUIRED / HANDOFF READY`
 
 ## Active Boundary
 
@@ -25,6 +25,7 @@
 4. Fresh-clone attempt 2 failed because Windows PowerShell 5.1 does not support `Set-Content -Encoding utf8NoBOM`.
 5. PR #37 / commit `baac4c3af9ea63b463e0c5c1e1bac206217c402c` added the PowerShell 5.1 staging compatibility boundary while preserving the canonical staging implementation and MiLMMT contract markers. R3 source-contract and canonical MiLMMT validation passed before merge.
 6. **No target-PC success claim yet.** The PowerShell 5.1 fix has not yet completed a full rerun. Setup, installed private runtime, CUDA/BF16, ASR/MiLMMT execution, VB-CABLE, microphone, My Voice, Meeting delivery, uninstall/reinstall, and clean-machine acceptance remain unproven until reached on the Windows PC.
+7. Installer-free pre-check (2026-08-23): after audit-cleanup commits and a 45 GB purge of retired experiment caches/build artifacts, `validate:quick` passed and `run_realtime_worker_smoke.ps1 -ExpectedDevice Cuda` returned green ASR preload plus both MiLMMT directions on CUDA BF16 with canonical contract markers and persistent bidirectional lifecycle. Only red: named condition `voice_actor:approved_actor_missing` (no approved My Voice profile yet). Evidence: `UserData/LogData/RustAppValidation/latest_worker_smoke_result.json`. Development-tree proof only; it does not replace the R3 installed-runtime gate.
 
 ## Current Entry Points
 
