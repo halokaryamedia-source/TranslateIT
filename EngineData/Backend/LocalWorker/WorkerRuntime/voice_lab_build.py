@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import struct
+import sys
 import tempfile
 import wave
 from pathlib import Path
@@ -158,11 +159,11 @@ def main() -> int:
         return 0
     except (BuildError, VoiceLabProviderError) as exc:
         write_status(status_path, "failed", str(exc))
-        print(f"voice_lab_build_failed:{exc}", file=os.sys.stderr)
+        print(f"voice_lab_build_failed:{exc}", file=sys.stderr)
         return 2
     except Exception as exc:
         write_status(status_path, "failed", f"unexpected:{type(exc).__name__}")
-        print(f"voice_lab_build_failed:unexpected:{type(exc).__name__}", file=os.sys.stderr)
+        print(f"voice_lab_build_failed:unexpected:{type(exc).__name__}", file=sys.stderr)
         return 3
 
 

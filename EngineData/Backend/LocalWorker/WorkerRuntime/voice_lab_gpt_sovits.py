@@ -24,7 +24,7 @@ VERSION = "v2ProPlus"
 REFERENCE_MIN_MS = 3_000
 REFERENCE_MAX_MS = 10_000
 REFERENCE_TARGET_MS = 5_000
-SOVITS_EPOCHS = 8
+# Curated quick-build defaults: short books, few candidates, fast iteration.`r`nSOVITS_EPOCHS = 8
 GPT_EPOCHS = 15
 MAX_TRAINING_CANDIDATES = 3
 ACTOR_SCHEMA_VERSION = 1
@@ -123,6 +123,15 @@ def require_regular_file(path: Path, label: str) -> tuple[int, int]:
     return int(stat.st_size), int(stat.st_mtime_ns)
 
 
+def wav_sha256(path: Path) -> str:
+    import hashlib
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def validate_actor_package(actor_dir: Path) -> dict[str, Any]:
     if actor_dir.is_symlink() or not actor_dir.is_dir():
         raise VoiceLabProviderError("approved_actor_missing")
@@ -159,7 +168,13 @@ def validate_actor_package(actor_dir: Path) -> dict[str, Any]:
     duration_ms = wav_duration_ms(reference_wav)
     if duration_ms < REFERENCE_MIN_MS or duration_ms > REFERENCE_MAX_MS or reference_duration != duration_ms:
         raise VoiceLabProviderError("actor_reference_duration_invalid")
-    fingerprint = ((ACTOR_MANIFEST_FILE, manifest_size, manifest_mtime), (ACTOR_GPT_WEIGHT_FILE, *gpt_identity), (ACTOR_SOVITS_WEIGHT_FILE, *sovits_identity), (ACTOR_REFERENCE_WAV_FILE, *reference_identity))
+    fingerprint = (
+        (ACTOR_MANIFEST_FILE, manifest_size, manifest_mtime),
+        (ACTOR_GPT_WEIGHT_FILE, *gpt_identity),
+        (ACTOR_SOVITS_WEIGHT_FILE, *sovits_identity),
+        (ACTOR_REFERENCE_WAV_FILE, *reference_identity),
+        ("reference_wav_sha256", wav_sha256(reference_wav)),
+    )
     return {"actor_dir": actor_dir, "manifest": manifest, "gpt_path": gpt_path, "sovits_path": sovits_path, "reference_wav": reference_wav, "reference_text": reference_text, "reference_duration_ms": duration_ms, "fingerprint": fingerprint}
 
 
@@ -244,7 +259,7 @@ def batch_and_half() -> tuple[int, bool]:
     import torch
     if not torch.cuda.is_available():
         return 1, False
-    memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) + 0.4
+    memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) + 0.4  # headroom fudge inherited from upstream webui sizing; revisit after GPU profiling
     return max(1, int(memory_gb // 2)), True
 
 

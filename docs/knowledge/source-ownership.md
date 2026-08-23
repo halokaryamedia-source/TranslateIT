@@ -13,6 +13,7 @@ Current responsibility → primary owner map for branch `Local`. This file answe
 | Durable decisions/reasons | `docs/knowledge/decision-log.md` |
 | Product/system requirements | `docs/foundation/` |
 | Static governance verification | `tools/verify_repository.py` + `.github/workflows/repository-verify.yml` |
+| Command parity gate (registry <-> bridge) | `EngineData/Frontend/RustApp/scripts/validate_command_parity.mjs` |
 
 ## Product / frontend
 
@@ -40,6 +41,7 @@ Current responsibility → primary owner map for branch `Local`. This file answe
 | Packaged private Python resolution | `src-tauri/src/commands/bridge_paths.rs` |
 | Persistent Python worker bridge | `src-tauri/src/commands/helper_bridge.rs` + `helper_bridge_runtime.rs` |
 | Microphone capture | `src-tauri/src/engine/audio/live_capture.rs` |
+| Deferred incoming queue | `src-tauri/src/commands/meeting_session.rs` (embedded subsystem) |
 | Meeting translated output | `src-tauri/src/engine/audio/meeting_output.rs` |
 | Virtual Meeting microphone | `src-tauri/src/commands/virtual_mic_route.rs` |
 
@@ -53,6 +55,7 @@ Current responsibility → primary owner map for branch `Local`. This file answe
 | Canonical ID ↔ EN MiLMMT runtime | `milmmt_translation_provider.py` |
 | Standalone Text segmentation | `realtime_local_worker_base.py` + `translation_envelope.py` |
 | My Voice model build | `voice_lab_build.py` + `voice_lab_upstream_stage.py` |
+| Built-in voice packs & selection | `RuntimeAssets/Voice/BuiltInVoices` + `select_builtin_voice` (`voice_lab_build.rs`) |
 | Worker dependency graph | `pyproject.toml` + `uv.lock` |
 | Model inventory / immutable identity | `model_manifest.json` |
 | Hugging Face acquisition / revision marker | `prepare_model_assets.py` + `prepare_model_assets_core.py` |

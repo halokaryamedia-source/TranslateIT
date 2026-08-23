@@ -143,11 +143,11 @@
                 {/if}
               </header>
               <div class="grid grid-cols-[26px_minmax(0,1fr)] gap-2">
-                <span class="pt-1 text-[10px] font-semibold text-[var(--ti-text-soft)]">ID</span>
+                <span class="pt-1 text-[11px] font-semibold text-[var(--ti-text-soft)]">ID</span>
                 <p class="m-0 text-[15px] font-medium leading-6" lang="id">{turn.lane === "incoming" ? turn.translated_text : turn.source_text}</p>
               </div>
               <div class="mt-2 grid grid-cols-[26px_minmax(0,1fr)] gap-2">
-                <span class="pt-1 text-[10px] font-semibold text-[var(--ti-text-soft)]">EN</span>
+                <span class="pt-1 text-[11px] font-semibold text-[var(--ti-text-soft)]">EN</span>
                 <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]" lang="en">{turn.lane === "incoming" ? turn.source_text : turn.translated_text}</p>
               </div>
             </article>
