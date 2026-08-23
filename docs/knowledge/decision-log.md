@@ -409,3 +409,14 @@ Owner answered every open ambiguity directly during the post-audit review; recor
 
 **Boundary**
 Foundation documents and UI copy are not yet updated to mirror these locks; the built-in voice packs require a licensed reference-asset source and their own development brief. Until those land, current source remains the behavior truth where it already matches, and the locks govern all NEW work.
+
+## D-035 - Built-in Voice Reference Assets Staged
+
+**Decision**
+Two public-domain reference samples for the future built-in GPT-SoVITS zero-shot voices are staged under EngineData/Backend/RuntimeAssets/Voice/BuiltInVoices/: MaleVoice (LibriSpeech speaker 3752, utterance 3752-4943-0003, 6.3 s) and FemaleVoice (speaker 6313, utterance 6313-66125-0007, 4.9 s), both 32 kHz mono WAV with per-file SHA-256 pins and exact spoken-text provenance recorded in SOURCES.json + REFERENCE_SOURCE.txt. Source corpus: LibriSpeech dev-clean (OpenSLR SLR12, CC-BY-4.0), selected objectively as the most prolific male/female readers (professional audiobook delivery, General American accent).
+
+**Reason**
+Owner approved option B (public-domain source) requiring easy-to-understand neutral-accent voices for the built-in male/female day-one Meeting voices locked in D-034.
+
+**Boundary**
+These are staged reference assets only: worker zero-shot support, Settings voice selection UI, readiness mapping, and staging/payload wiring for the built-in packs are a separate development-brief slice. Loudness (mean -21/-26 dB) may need normalization during that slice's GPU tuning.

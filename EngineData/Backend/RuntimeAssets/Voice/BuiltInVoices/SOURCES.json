@@ -1,0 +1,23 @@
+﻿{
+    "schema":  "translateit.builtin_voice_sources.v1",
+    "voices":  [
+                   {
+                       "voice_id":  "MaleVoice",
+                       "speaker_id":  "3752",
+                       "license":  "CC-BY-4.0",
+                       "source_url":  "https://openslr.trmal.net/resources/12/dev-clean.tar.gz",
+                       "wav_sha256":  "1351eea8182b2f6ef00025b4e68b6a0e5184c059bd7c6d7dacc18988f2dbd200",
+                       "utterance":  "3752-4943-0003",
+                       "reference_text":  "WHAT IS HE MORE THAN ANYBODY ELSE SAID THE WRETCHED MAN TO HIMSELF AS HE HUGGED HIS MISERY CLOSE"
+                   },
+                   {
+                       "voice_id":  "FemaleVoice",
+                       "speaker_id":  "6313",
+                       "license":  "CC-BY-4.0",
+                       "source_url":  "https://openslr.trmal.net/resources/12/dev-clean.tar.gz",
+                       "wav_sha256":  "81b131f23a3f4dd8dbef31082e07a957ea42bf7e7b86522c75b0e23209343423",
+                       "utterance":  "6313-66125-0007",
+                       "reference_text":  "I AM THE ONE TO GO AFTER WALT IF ANYONE HAS TO I\u0027LL GO DOWN MISTER THOMAS"
+                   }
+               ]
+}

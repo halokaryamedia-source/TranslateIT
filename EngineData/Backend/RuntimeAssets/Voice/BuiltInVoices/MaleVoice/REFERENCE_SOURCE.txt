@@ -1,0 +1,9 @@
+voice_id: MaleVoice
+kind: builtin_zero_shot_reference
+speaker_id: 3752
+utterance: 3752-4943-0003
+reference_text: What is he more than anybody else said the wretched man to himself as he hugged his misery close
+source: LibriSpeech dev-clean (OpenSLR SLR12)
+license: CC-BY-4.0 (see LibriSpeech/LICENSE.TXT)
+url: https://openslr.trmal.net/resources/12/dev-clean.tar.gz
+staged_utc: 2026-08-23T17:16:30.2252066Z

@@ -1,0 +1,9 @@
+voice_id: FemaleVoice
+kind: builtin_zero_shot_reference
+speaker_id: 6313
+utterance: 6313-66125-0007
+reference_text: I am the one to go after walt if anyone has to I'll go down mister thomas
+source: LibriSpeech dev-clean (OpenSLR SLR12)
+license: CC-BY-4.0 (see LibriSpeech/LICENSE.TXT)
+url: https://openslr.trmal.net/resources/12/dev-clean.tar.gz
+staged_utc: 2026-08-23T17:16:30.2750758Z
