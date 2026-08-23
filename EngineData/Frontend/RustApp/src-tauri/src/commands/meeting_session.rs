@@ -1973,9 +1973,7 @@ fn take_due_deferred_incoming(session_id: &str, now_unix_ms: u64) -> Option<Defe
     None
 }
 
-fn deferred_incoming_held_count() -> usize {
-    deferred_incoming_queue().lock().map(|g| g.len()).unwrap_or(0)
-}
+
 
 fn clear_deferred_incoming_queue() {
     if let Ok(mut guard) = deferred_incoming_queue().lock() {
@@ -2873,7 +2871,7 @@ mod deferred_incoming_tests {
     #[test]
     fn deferred_queue_caps_evicts_expired_and_respects_session() {
         clear_deferred_incoming_queue();
-        assert_eq!(deferred_incoming_held_count(), 0);
+        assert!(deferred_incoming_queue().lock().unwrap().is_empty());
 
         // Session binding: draining under a foreign session yields nothing and
         // still counts the held job as stale-dropped.
@@ -2890,7 +2888,7 @@ mod deferred_incoming_tests {
         for seq in 2..=7 {
             enqueue_deferred_incoming(job("sess", seq, "t", 10_000));
         }
-        assert_eq!(deferred_incoming_held_count(), MAX_DEFERRED_INCOMING);
+        assert_eq!(deferred_incoming_queue().lock().unwrap().len(), MAX_DEFERRED_INCOMING);
         let dropped_overflow =
             DEFERRED_DROPPED_OVERFLOW.swap(0, Ordering::Relaxed);
         assert_eq!(dropped_overflow, 2, "oldest two jobs must be evicted");
@@ -2917,6 +2915,6 @@ mod deferred_incoming_tests {
         assert_eq!(second.event_sequence, 8);
 
         clear_deferred_incoming_queue();
-        assert_eq!(deferred_incoming_held_count(), 0);
+        assert!(deferred_incoming_queue().lock().unwrap().is_empty());
     }
 }
