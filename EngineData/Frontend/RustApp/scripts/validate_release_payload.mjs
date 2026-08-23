@@ -246,6 +246,25 @@ if (existsSync(manifestPath)) {
 }
 
 requireFile(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"), "GPT-SoVITS revision marker");
+
+const builtinVoiceRoot = join(runtimeAssetsRoot, "Voice", "BuiltInVoices");
+for (const builtin of ["MaleVoice", "FemaleVoice"]) {
+  requireDir(join(builtinVoiceRoot, builtin), `BuiltInVoices/${builtin}`);
+  requireFile(join(builtinVoiceRoot, builtin, "reference.wav"), `BuiltInVoices/${builtin}/reference.wav`);
+  requireFile(join(builtinVoiceRoot, builtin, "REFERENCE_SOURCE.txt"), `BuiltInVoices/${builtin}/REFERENCE_SOURCE.txt`);
+}
+requireFile(join(builtinVoiceRoot, "SOURCES.json"), "BuiltInVoices/SOURCES.json");
+if (existsSync(join(builtinVoiceRoot, "SOURCES.json"))) {
+  const sourcesJsonText = readFileSync(join(builtinVoiceRoot, "SOURCES.json"), "utf8").replace(/^\uFEFF/, "");
+  const sources = JSON.parse(sourcesJsonText);
+  if (sources.schema !== "translateit.builtin_voice_sources.v1") fail("builtin_voice_sources_schema");
+  for (const voice of sources.voices ?? []) {
+    const path = join(builtinVoiceRoot, voice.voice_id, "reference.wav");
+    if (!existsSync(path)) continue;
+    const actual = createHash("sha256").update(readFileSync(path)).digest("hex");
+    if (actual !== String(voice.wav_sha256).toLowerCase()) fail(`builtin_voice_hash_mismatch:${voice.voice_id}`);
+  }
+}
 if (existsSync(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"))) {
   const revision = readFileSync(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"), "utf8").trim();
   if (revision !== expectedRevision) fail("GPT-SoVITS release payload revision does not match the approved V2ProPlus pin.");

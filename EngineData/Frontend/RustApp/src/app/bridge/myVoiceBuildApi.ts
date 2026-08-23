@@ -91,6 +91,14 @@ export const myVoiceBuildApi = {
       : unavailableAction("My Voice could not approve the new voice.");
   },
 
+  async selectBuiltin(voiceId: string, authorizedVoiceConfirmed: boolean): Promise<MyVoiceBuildActionResult> {
+    const action = await runCommand<MyVoiceBuildActionResult>("select_builtin_voice", {
+      voiceId,
+      authorizedVoiceConfirmed,
+    });
+    return action ? normalizeAction(action) : unavailableAction("My Voice could not switch to that built-in voice.");
+  },
+
   async getEvaluationAudio(lineId: number): Promise<ArrayBuffer | null> {
     return runCommand<ArrayBuffer>("get_voice_lab_evaluation_audio", { lineId });
   },

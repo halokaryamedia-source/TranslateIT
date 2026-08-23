@@ -7,6 +7,7 @@
     type GuidedRecordingState,
   } from "../app/bridge/myVoiceApi";
   import MyVoiceBuild from "../components/my-voice/MyVoiceBuild.svelte";
+  import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
 
   let {
     onNotice,
@@ -23,6 +24,26 @@
   let replaying = $state(false);
   let buildRefreshRevision = $state(0);
   let audio: HTMLAudioElement | null = null;
+  let builtinPendingId = $state<string | null>(null);
+
+  async function selectBuiltin(voiceId: "MaleVoice" | "FemaleVoice"): Promise<void> {
+    if (busy) return;
+    const confirmed = builtinPendingId === voiceId;
+    busy = true;
+    try {
+      const result = await myVoiceBuildApi.selectBuiltin(voiceId, confirmed);
+      if (result.state === "approval_required") {
+        builtinPendingId = voiceId;
+        onNotice("Select the same voice again to replace your current Meeting voice.");
+        return;
+      }
+      builtinPendingId = null;
+      if (result.ok) buildRefreshRevision++;
+      onNotice(result.message);
+    } finally {
+      busy = false;
+    }
+  }
   let audioUrl: string | null = null;
 
   const currentLine = $derived(recordingState.lines.find((line) => line.line_id === selectedLineId) ?? null);
@@ -321,5 +342,13 @@
     </aside>
   </div>
 
+  <section class="ti-panel mt-6 p-4">
+    <strong class="text-sm font-semibold">Built-in voices</strong>
+    <p class="mt-1 text-xs leading-5 text-[var(--ti-text-muted)]">Use Meeting right away with a ready English voice. Your own recordings can replace it later.</p>
+    <div class="mt-3 flex flex-wrap gap-3">
+      <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void selectBuiltin("MaleVoice")}>Built-in Male{builtinPendingId === "MaleVoice" ? " — select again to confirm" : ""}</button>
+      <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void selectBuiltin("FemaleVoice")}>Built-in Female{builtinPendingId === "FemaleVoice" ? " — select again to confirm" : ""}</button>
+    </div>
+  </section>
   <MyVoiceBuild {onNotice} refreshRevision={buildRefreshRevision} />
 </section>

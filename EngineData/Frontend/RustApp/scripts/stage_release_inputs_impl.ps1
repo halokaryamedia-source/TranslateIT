@@ -135,6 +135,8 @@ foreach ($model in $manifest.models) {
     }
 }
 Write-Host '[release-stage][sha256] ASR + MiLMMT artifact hashes PASS'
+Write-Host '[release-stage] Stage built-in zero-shot voice references'
+Copy-Tree (Join-Path $RepoRoot 'EngineData\Backend\RuntimeAssets\Voice\BuiltInVoices') (Join-Path $Backend 'RuntimeAssets\Voice\BuiltInVoices')
 
 Write-Host '[release-stage] Stage pinned GPT-SoVITS pretrained Hugging Face assets'
 $env:GPT_ASSET_OUT = Join-Path $Temp 'gpt-assets'
