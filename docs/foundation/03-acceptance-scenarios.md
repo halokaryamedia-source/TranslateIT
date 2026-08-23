@@ -2,6 +2,17 @@
 
 Owner of **what must be verified before a claim is allowed**, and in which order. This file never records run outcomes; results live in `docs/knowledge/next-action.md` continuity plus per-scenario evidence artifacts. Established by D-031 after the all-in-one R3 gate was retired for unclear scenario ownership.
 
+## Automated coverage map (function-first, D-032)
+
+```text
+Lv0 GPU function smoke + worker pytest contracts  -> WorkerRuntime entrypoints
+Lv1 pure decision units (cargo test)              -> session authority, scheduler/deadlines,
+                                                     settings schema/atomic write, VAD gate,
+                                                     utterance overflow/eviction counters
+Lv2 command surface                               -> scripts/validate_command_parity.mjs
+Lv4 device-bound behavior                         -> manual Groups B/C/D below
+```
+
 ## Principles
 
 - One scenario proves one claim. Run one at a time, in criticality order; stop at the first failure and diagnose that owner before continuing.

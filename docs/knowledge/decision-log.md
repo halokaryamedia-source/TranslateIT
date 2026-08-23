@@ -376,3 +376,14 @@ The single mega-gate mixed release building, installation, and roughly twelve in
 
 **Boundary**
 This retires an acceptance harness, not the approved offline release shape: `TranslateIT-Setup.exe` + `TranslateIT-Payload.7z` remain the release representation and Group E still requires them. Existing green results (static validator suite, cargo tests, installer-free worker smoke on CUDA BF16) remain valid evidence for exactly the claims they tested.
+
+## D-032 - Test Suite Rebalanced to Function-First
+
+**Decision**
+Automated coverage is reorganized around product function, per owner direction: (1) keep and extend GPU worker smoke plus pytest contract tests as the Level-0 function proof; (2) add pure-decision Rust units for the audio engine (VAD gate thresholds/hysteresis reasons, utterance overflow and oldest-eviction counters) reaching 53 cargo tests; (3) replace the two prose-marker validators (validate_startup_runtime_readiness.mjs, validate_frontend_build_preflight.mjs, ~830 lines of shape checks that had already rotted once) with a single functional command-parity gate proving registry.rs and the frontend bridge stay 1:1; (4) Meeting orchestration with devices stays a manual Group C scenario instead of forced mock plumbing.
+
+**Reason**
+Owner feedback: tests must describe application functions, stay few but efficient, and avoid overdevelopment. Marker validators answered "does the code still look like this" rather than "does the product behave", produced false confidence, and required repeated repair. Real inference tests and pure decision units answer function questions directly at far lower maintenance cost.
+
+**Boundary**
+This rebalance does not add device automation: microphone capture, VAD on live input, virtual-route delivery, and full Meeting flow remain manual scenarios B/C/D in docs/foundation/03-acceptance-scenarios.md. The gpu-probe pytest environment gap on CUDA hosts remains a separate known issue.
