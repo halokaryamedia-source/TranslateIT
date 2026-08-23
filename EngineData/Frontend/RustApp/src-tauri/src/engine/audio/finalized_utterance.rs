@@ -686,3 +686,72 @@ fn safe_sample(value: f32) -> f32 {
         0.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Both scenarios run inside one test fn because the producer state lives in
+    // process-wide statics; parallel unit tests would race on those mutexes.
+
+    #[test]
+    fn incoming_lane_segmentation_eviction_and_overflow_are_observable() {
+        // Scenario 1: three finalized utterances against the bounded pending
+        // queue. The oldest must be evicted (observable counter) instead of
+        // growing an unbounded realtime backlog.
+        clear_finalized_meeting_sequence();
+        clear_finalized_incoming_utterance_producer();
+        reset_finalized_meeting_sequence("sess-evict");
+        reset_finalized_incoming_utterance_producer("sess-evict", 16_000);
+
+        let evicted_before = evicted_pending_utterance_count();
+        let overflow_before = overflow_dropped_utterance_count();
+
+        let mut speech = Vec::new();
+        for i in 0..(16_000 * 300 / 1000) {
+            speech.push(0.3 * (2.0 * std::f32::consts::PI * 220.0 * i as f32 / 16_000.0).sin());
+        }
+        let silence = vec![0.0f32; 16_000 * 400 / 1000];
+
+        for _ in 0..3 {
+            observe_finalized_incoming_f32_samples(&speech, 16_000, 1);
+            observe_finalized_incoming_f32_samples(&silence, 16_000, 1);
+        }
+
+        assert_eq!(evicted_pending_utterance_count() - evicted_before, 1, "oldest finalized utterance must be evicted once the third one arrives");
+        assert_eq!(overflow_dropped_utterance_count() - overflow_before, 0);
+
+        clear_finalized_incoming_utterance_producer();
+        clear_finalized_meeting_sequence();
+
+        // Scenario 2: continuous speech longer than the 60 s in-progress safety
+        // bound is discarded and reported through the overflow counter rather
+        // than forced into a fake boundary.
+        clear_finalized_meeting_sequence();
+        clear_finalized_incoming_utterance_producer();
+        reset_finalized_meeting_sequence("sess-overflow");
+        reset_finalized_incoming_utterance_producer("sess-overflow", 8_000);
+
+        let evicted_before = evicted_pending_utterance_count();
+        let overflow_before = overflow_dropped_utterance_count();
+
+        let chunk: Vec<f32> = (0..(8_000 * 600 / 1000))
+            .map(|i| 0.3 * (2.0 * std::f32::consts::PI * 220.0 * i as f32 / 8_000.0).sin())
+            .collect();
+        // 101 chunks x 600 ms = 60.6 s of unbroken speech > 60 s ceiling.
+        for _ in 0..101 {
+            observe_finalized_incoming_f32_samples(&chunk, 8_000, 1);
+        }
+        observe_finalized_incoming_f32_samples(&silence_of(8_000, 400), 8_000, 1);
+
+        assert_eq!(overflow_dropped_utterance_count() - overflow_before, 1, "overlong speech must land in the overflow counter");
+        assert_eq!(evicted_pending_utterance_count() - evicted_before, 0);
+
+        clear_finalized_incoming_utterance_producer();
+        clear_finalized_meeting_sequence();
+    }
+
+    fn silence_of(rate: u32, ms: u32) -> Vec<f32> {
+        vec![0.0f32; rate as usize * ms as usize / 1000]
+    }
+}
