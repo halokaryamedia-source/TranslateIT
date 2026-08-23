@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -74,6 +75,19 @@ for (const model of manifest.models ?? []) {
   for (const pattern of model.download_allow_patterns ?? []) {
     if (/[*?[\]]/.test(pattern)) continue;
     requireFile(join(target, ...pattern.split("/")), `${model.model_id}/${pattern}`);
+  }
+
+  const artifactHashes = model.artifact_hashes ?? {};
+  if (Object.keys(artifactHashes).length === 0) {
+    fail(`artifact_hashes_missing:${model.model_id}`);
+  }
+  for (const [relativePath, expectedHash] of Object.entries(artifactHashes)) {
+    const path = join(target, ...relativePath.split("/"));
+    requireFile(path, `${model.model_id}/${relativePath}`);
+    const actual = createHash("sha256").update(readFileSync(path)).digest("hex");
+    if (actual !== String(expectedHash).toLowerCase()) {
+      fail(`artifact_hash_mismatch:${model.model_id}:${relativePath}:${actual}`);
+    }
   }
 }
 

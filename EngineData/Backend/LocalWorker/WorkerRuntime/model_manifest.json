@@ -26,6 +26,15 @@
       "install_method": "huggingface_snapshot_download",
       "license": "mit",
       "notes": "Required full-product-release ASR asset. Meeting runtime readiness is owned by worker status, which may use the validated medium fallback when the primary asset is unavailable. Presence is installation evidence only.",
+      "artifact_hashes": {
+        ".gitattributes": "11ad7efa24975ee4b0c3c3a38ed18737f0658a5f75a0a96787b576a78a023361",
+        "config.json": "b0253ea6c0d3bea6b1e19e91a02acfd3b53f4467362efcb5a3e6b16c9b3a9b7e",
+        "model.bin": "e76620f83d5f5b69efd3d87e3dc180c1bd21df9fbebacfd4335e5e1efcc018da",
+        "preprocessor_config.json": "7ccc62c6f2765af1f3b46c00c9b5894426835a05021c8b9c01eecb6dfb542711",
+        "README.md": "b3068692728faed23580cce5cd569fc47ff76c690c032b2641ffd5554ea64d8f",
+        "tokenizer.json": "297b13372ac43916285644fb9687add3cc62ee2a1adb60da3dc25cc94c1871fd",
+        "vocabulary.json": "c69260f2ab26d659b7c398f9a2b2b48ed0df16c3b47d7326782fd9cba71690c1"
+      },
       "revision": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf"
     },
     {
@@ -74,6 +83,18 @@
       ],
       "license": "gemma",
       "notes": "Canonical resident Indonesian-English translation model. The exact Hugging Face revision is required and acquisition writes .translateit_model_revision after snapshot staging. Runtime acceptance remains separate from installation evidence.",
+      "artifact_hashes": {
+        "README.md": "b947eb325d6069558269bc82df9980e23883d618867c5abb98fb2333fea26810",
+        "added_tokens.json": "50b2f405ba56a26d4913fd772089992252d7f942123cc0a034d96424221ba946",
+        "chat_template.jinja": "61fbedab465ef2a7f1b123fc7e4bc06a995bd09ac381579affeda60f02ebd940",
+        "config.json": "2e9dcab9d9875f7acd33af240f4d0377ee22aa7e2849404dc5f0b36bca9bd027",
+        "generation_config.json": "72e999861fcdc6c43485d04e12c47a78f4c6037db1234452e7226575662b72bb",
+        "model.safetensors": "60d322f9b330b231a41f1d4fec4d6f3f5ed99c9631b4ea546478d1f335cc27c6",
+        "special_tokens_map.json": "2f7b0adf4fb469770bb1490e3e35df87b1dc578246c5e7e6fc76ecf33213a397",
+        "tokenizer.json": "33753cc9825494361904313ed469063a8b3e05f1648c18e4b2936f5aa3c78202",
+        "tokenizer.model": "1299c11d7cf632ef3b4e11937501358ada021bbdf7c47638d13c0ee982f2e79c",
+        "tokenizer_config.json": "76397efdd4e6c5dd3bb7994a8aa05c12484acae42dac33b7cadc1a38a8781643"
+      },
       "revision": "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"
     },
     {

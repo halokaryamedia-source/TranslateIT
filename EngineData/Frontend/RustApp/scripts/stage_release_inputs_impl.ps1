@@ -116,6 +116,26 @@ foreach ($requiredModelFile in @(
     }
 }
 
+Write-Host '[release-stage] Verify pinned model artifact SHA-256 from model_manifest.json'
+$manifest = Get-Content -LiteralPath (Join-Path $Worker 'model_manifest.json') -Raw | ConvertFrom-Json
+foreach ($model in $manifest.models) {
+    if ($model.required -ne $true) { continue }
+    if ($model.source_type -ne 'huggingface') { continue }
+    if (-not $model.artifact_hashes) { throw "artifact_hashes_missing:$($model.model_id)" }
+    $modelRoot = Join-Path $RepoRoot ($model.expected_path -replace '/', '\')
+    foreach ($property in $model.artifact_hashes.PSObject.Properties) {
+        $artifactPath = Join-Path $modelRoot ($property.Name -replace '/', '\')
+        if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
+            throw "artifact file missing: $($model.model_id)/$($property.Name)"
+        }
+        $actual = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLower()
+        if ($actual -ne $property.Value.ToLower()) {
+            throw "artifact sha256 mismatch: $($model.model_id)/$($property.Name)"
+        }
+    }
+}
+Write-Host '[release-stage][sha256] ASR + MiLMMT artifact hashes PASS'
+
 Write-Host '[release-stage] Stage pinned GPT-SoVITS pretrained Hugging Face assets'
 $env:GPT_ASSET_OUT = Join-Path $Temp 'gpt-assets'
 $downloadGptAssets = Join-Path $Temp 'download-gpt-assets.py'
