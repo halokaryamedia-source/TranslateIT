@@ -398,3 +398,14 @@ Owner required final solutions, not deferrals, for pronoun/persona ambiguity (#1
 
 **Boundary**
 Both solutions are dev-tree implemented with unit/contract coverage (cargo 54, pytest 36) plus the recorded latency benchmark. Live-meeting behavior, perceived quality, and end-to-end latency remain manual Group C observations whenever the owner schedules that session.
+
+## D-034 - Product Direction Locks From Owner Review
+
+**Decision**
+Owner locked eight product directions. Built-in voices: ship two ready-to-use GPT-SoVITS voice packs (one male, one female) so Meeting works on day one without My Voice training; My Voice becomes an optional replacement selected by the user. Modes: collapse Realtime/Quality into a single canonical pipeline tuned for best quality at the lowest achievable latency; remove mode vocabulary from the product. Documents: document translation is removed entirely; Text stays manual paste-only. Languages: Indonesian<->English only, no multilingual roadmap. UI language: full English copy everywhere (current mixed Indonesian strings get swept). Usage: personal use, so code signing/auto-update stay irrelevant and Group E distribution shrinks to basic install sanity on owned machines.
+
+**Reason**
+Owner answered every open ambiguity directly during the post-audit review; recording them prevents drift and turns them into testable product law.
+
+**Boundary**
+Foundation documents and UI copy are not yet updated to mirror these locks; the built-in voice packs require a licensed reference-asset source and their own development brief. Until those land, current source remains the behavior truth where it already matches, and the locks govern all NEW work.
