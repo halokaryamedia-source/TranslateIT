@@ -1,7 +1,7 @@
 # TranslateIT — Product Overview
 
 **Status:** Active Policy  
-**Updated:** 2026-08-22
+**Updated:** 2026-08-23
 
 ## Purpose
 
@@ -18,10 +18,12 @@ features: choose the language pair, start translation, speak normally, allow a s
 completeness delay when needed, and stop when finished. TranslateIT does not need to
 copy another product's implementation or supported languages.
 
-A trained custom English voice is an approved required product capability before
-target-Windows validation. The product-facing name is **My Voice**. My Voice exists to
-create one high-fidelity local Voice Actor from the user's own authorized recordings;
-it is not a general audio studio, provider playground, or instant-cloning showcase.
+Two built-in English voices (one male, one female) ship ready-to-use so Meeting
+works on day one without any training step. The product-facing name for the custom
+path stays **My Voice**: an optional high-fidelity upgrade created once from the
+user's own authorized recordings, replacing the built-in selection when approved.
+Neither path turns My Voice into a general audio studio, provider playground, or
+instant-cloning showcase.
 
 ## Core Product
 
@@ -384,3 +386,8 @@ this product works.
 - `docs/knowledge/decision-log.md`
 - `docs/knowledge/next-action.md`
 - `docs/knowledge/source-ownership.md`
+
+
+## Direction Locks (D-033/D-034, 2026-08-23)
+
+Single translation pipeline (best quality at lowest achievable latency; no Realtime/Quality vocabulary). Outbound-only rolling context (last three own-voice pairs); incoming stays context-free. Documents feature removed; Text is paste-only. Indonesian <-> English only. Full English UI. Personal use: no signing/auto-update concerns.

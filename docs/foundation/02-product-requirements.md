@@ -1,8 +1,8 @@
 # TranslateIT — Product Requirements
 
 **Status:** Active Policy  
-**Updated:** 2026-08-22  
-**Scope:** Simplified Windows translation core + required My Voice custom voice
+**Updated:** 2026-08-23  
+**Scope:** Simplified Windows translation core; built-in default voices + optional My Voice upgrade
 
 This document is the durable product-requirement owner for TranslateIT on branch
 `Local`.
@@ -10,9 +10,10 @@ This document is the durable product-requirement owner for TranslateIT on branch
 The current product decision is explicit:
 
 > **A small translator that works reliably is more important than preserving a broad
-> feature set. The required English Meeting voice should be a trained high-fidelity
-> representation of the user's own authorized voice, created once in My Voice and
-> reused without retraining during normal Meeting use.**
+> feature set. Meeting starts with two built-in English voices (male + female) so the
+> product is usable on day one; a trained high-fidelity representation of the user's
+> own authorized voice (My Voice) remains an optional upgrade that replaces the
+> built-in selection once created and approved.**
 
 TranslateIT does not need multiple voice engines, instant-clone modes, provider
 selection, a broadcast-production studio, or cloud voice fallback. Source presence is
@@ -882,3 +883,13 @@ and a new explicit product decision shows the added feature is worth its complex
 - `docs/knowledge/decision-log.md`
 - `docs/knowledge/next-action.md`
 - `docs/knowledge/source-ownership.md`
+
+## Direction Locks (D-033/D-034, 2026-08-23)
+
+- MUST: one canonical translation pipeline (best quality, lowest achievable latency); no Realtime/Quality mode vocabulary.
+- MUST: outbound rolling context limited to the last three own-voice pairs of the live session; incoming stays context-free.
+- MUST NOT: offer document/file translation; Text is paste-only.
+- MUST: Indonesian <-> English only; no multilingual roadmap.
+- MUST: full English UI copy.
+- MUST: treat distribution as personal use (owned machines); signing/auto-update out of scope.
+- MUST: built-in male + female voices selectable without My Voice training; My Voice replaces selection only after explicit approval.

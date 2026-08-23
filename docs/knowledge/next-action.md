@@ -48,4 +48,4 @@ Do not reopen model selection, MiLMMT tuning, dependency convergence, worker arc
 
 ## Next Step
 
-**HOLD - awaiting explicit owner direction.** Automated coverage is complete and green; every test track (A8/A9 My Voice, Groups B/C/D manual sessions, Group E distribution) is postponed by owner decision and must not be initiated or promoted until the owner says so. Owner-ready candidates: resume manual sessions, plan Group E, or decide context/tone policy.
+**Start the built-in voices integration slice through development-brief: worker zero-shot actor support over the staged BuiltInVoices references, voice selection in Settings/My Voice, readiness mapping, and staging/payload wiring; foundation docs already mirror D-033/D-034 locks and the UI is verified full-English.**
