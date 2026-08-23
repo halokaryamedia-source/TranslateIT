@@ -8,15 +8,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::finalized_utterance::{
     clear_finalized_outbound_utterance_producer, observe_finalized_outbound_f32_samples,
-    observe_finalized_outbound_i16_samples, observe_finalized_outbound_u16_samples,
     reset_finalized_outbound_utterance_producer,
 };
-use super::guided_take::{
-    append_guided_f32, append_guided_i16, append_guided_u16,
-};
+use super::guided_take::append_guided_f32;
 use super::live_audio_buffer::{
-    append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
-    clear_live_audio_buffer, reset_live_audio_buffer,
+    append_live_f32_samples, clear_live_audio_buffer, reset_live_audio_buffer,
 };
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
@@ -239,6 +235,36 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     }
 }
 
+fn mono_f32_from_i16(samples: &[i16], source_channels: u16) -> Vec<f32> {
+    let converted = samples
+        .iter()
+        .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
+        .collect::<Vec<_>>();
+    downmix_mono(&converted, source_channels)
+}
+
+fn mono_f32_from_u16(samples: &[u16], source_channels: u16) -> Vec<f32> {
+    let converted = samples
+        .iter()
+        .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
+        .collect::<Vec<_>>();
+    downmix_mono(&converted, source_channels)
+}
+
+fn downmix_mono(samples: &[f32], source_channels: u16) -> Vec<f32> {
+    let channel_count = usize::from(source_channels.max(1));
+    if channel_count == 1 {
+        return samples.to_vec();
+    }
+    samples
+        .chunks(channel_count)
+        .map(|frame| {
+            let sum = frame.iter().map(|sample| sample.clamp(-1.0, 1.0)).sum::<f32>();
+            sum / frame.len().max(1) as f32
+        })
+        .collect()
+}
+
 fn build_stream_for_format(
     device: &cpal::Device,
     config: &cpal::StreamConfig,
@@ -275,9 +301,13 @@ fn build_stream_for_format(
                     config,
                     move |data: &[i16], _| {
                         record_frames(data.len(), channels, &frames);
-                        append_live_i16_samples(data, sample_rate_hz, channels);
-                        append_guided_i16(data, sample_rate_hz, channels);
-                        observe_finalized_outbound_i16_samples(data, sample_rate_hz, channels);
+                        // Convert once on the callback thread and share the mono
+                        // signal with every consumer instead of letting each
+                        // consumer repeat the same conversion.
+                        let mono = mono_f32_from_i16(data, channels);
+                        append_live_f32_samples(&mono, sample_rate_hz, 1);
+                        append_guided_f32(&mono, sample_rate_hz, 1);
+                        observe_finalized_outbound_f32_samples(&mono, sample_rate_hz, 1);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -292,9 +322,10 @@ fn build_stream_for_format(
                     config,
                     move |data: &[u16], _| {
                         record_frames(data.len(), channels, &frames);
-                        append_live_u16_samples(data, sample_rate_hz, channels);
-                        append_guided_u16(data, sample_rate_hz, channels);
-                        observe_finalized_outbound_u16_samples(data, sample_rate_hz, channels);
+                        let mono = mono_f32_from_u16(data, channels);
+                        append_live_f32_samples(&mono, sample_rate_hz, 1);
+                        append_guided_f32(&mono, sample_rate_hz, 1);
+                        observe_finalized_outbound_f32_samples(&mono, sample_rate_hz, 1);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,

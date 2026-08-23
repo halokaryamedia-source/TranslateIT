@@ -83,30 +83,6 @@ pub fn append_live_f32_samples(samples: &[f32], sample_rate_hz: u32, source_chan
     );
 }
 
-pub fn append_live_i16_samples(samples: &[i16], sample_rate_hz: u32, source_channels: u16) {
-    let converted = samples
-        .iter()
-        .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
-        .collect::<Vec<_>>();
-    append_mono_samples(
-        &downmix_f32(&converted, source_channels),
-        sample_rate_hz,
-        source_channels,
-    );
-}
-
-pub fn append_live_u16_samples(samples: &[u16], sample_rate_hz: u32, source_channels: u16) {
-    let converted = samples
-        .iter()
-        .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
-        .collect::<Vec<_>>();
-    append_mono_samples(
-        &downmix_f32(&converted, source_channels),
-        sample_rate_hz,
-        source_channels,
-    );
-}
-
 pub fn live_audio_buffer_status() -> LiveAudioBufferStatusReport {
     let store = LIVE_AUDIO_WINDOW.get_or_init(|| Mutex::new(None));
     match store.lock() {

@@ -229,22 +229,6 @@ pub fn observe_finalized_outbound_f32_samples(
     observe_f32(outbound_sync(), samples, sample_rate_hz, source_channels);
 }
 
-pub fn observe_finalized_outbound_i16_samples(
-    samples: &[i16],
-    sample_rate_hz: u32,
-    source_channels: u16,
-) {
-    observe_i16(outbound_sync(), samples, sample_rate_hz, source_channels);
-}
-
-pub fn observe_finalized_outbound_u16_samples(
-    samples: &[u16],
-    sample_rate_hz: u32,
-    source_channels: u16,
-) {
-    observe_u16(outbound_sync(), samples, sample_rate_hz, source_channels);
-}
-
 pub fn observe_finalized_incoming_f32_samples(
     samples: &[f32],
     sample_rate_hz: u32,
@@ -327,23 +311,6 @@ fn observe_i16(
     let converted = samples
         .iter()
         .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
-        .collect::<Vec<_>>();
-    observe_finalized_mono_samples(
-        sync,
-        &downmix_f32(&converted, source_channels),
-        sample_rate_hz,
-    );
-}
-
-fn observe_u16(
-    sync: &FinalizedProducerSync,
-    samples: &[u16],
-    sample_rate_hz: u32,
-    source_channels: u16,
-) {
-    let converted = samples
-        .iter()
-        .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
     observe_finalized_mono_samples(
         sync,

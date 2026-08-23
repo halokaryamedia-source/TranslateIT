@@ -80,28 +80,6 @@ pub fn append_guided_f32(data: &[f32], rate: u32, channels: u16) {
     );
 }
 
-pub fn append_guided_i16(data: &[i16], rate: u32, channels: u16) {
-    append_mono(
-        rate,
-        channels,
-        data.chunks_exact(usize::from(channels.max(1))).map(|frame| {
-            frame.iter().map(|sample| *sample as f32 / 32_768.0).sum::<f32>()
-                / frame.len().max(1) as f32
-        }),
-    );
-}
-
-pub fn append_guided_u16(data: &[u16], rate: u32, channels: u16) {
-    append_mono(
-        rate,
-        channels,
-        data.chunks_exact(usize::from(channels.max(1))).map(|frame| {
-            frame.iter().map(|sample| (*sample as f32 / 65_535.0) * 2.0 - 1.0).sum::<f32>()
-                / frame.len().max(1) as f32
-        }),
-    );
-}
-
 fn append_mono(rate: u32, channels: u16, samples: impl Iterator<Item = f32>) {
     if rate == 0 || channels == 0 {
         return;
