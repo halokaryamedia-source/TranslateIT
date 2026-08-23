@@ -849,7 +849,7 @@ mod builtin_voice_tests {
     use std::path::Path;
 
     fn tiny_wav(path: &Path) {
-        let data = vec![0u8; 32000];
+        let data = vec![0u8; 320_000];
         let mut b = Vec::new();
         b.extend_from_slice(b"RIFF");
         b.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
