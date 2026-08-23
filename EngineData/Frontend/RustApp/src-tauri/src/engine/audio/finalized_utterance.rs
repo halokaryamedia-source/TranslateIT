@@ -1,10 +1,11 @@
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use super::evidence::AudioEvidenceReport;
 use super::vad::{evaluate_vad_gate, runtime_vad_profile, RuntimeVadProfile};
-use super::{AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
+use super::{duration_ms, AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
 
 // Internal safety bounds only. They are not product speech-boundary policy.
@@ -15,6 +16,20 @@ const MAX_IN_PROGRESS_UTTERANCE_MS: u32 = 60_000;
 const MAX_PENDING_FINALIZED_UTTERANCES: usize = 2;
 const LANE_YOU: &str = "you";
 const LANE_INCOMING: &str = "incoming";
+
+static OVERFLOW_DROPPED_UTTERANCES: AtomicU64 = AtomicU64::new(0);
+static EVICTED_PENDING_UTTERANCES: AtomicU64 = AtomicU64::new(0);
+
+// Silent-loss observability for bounded producer drops. These counters only make
+// already-existing fail-closed discards visible through the outbound status payload;
+// they do not change any drop/keep decision.
+pub fn overflow_dropped_utterance_count() -> u64 {
+    OVERFLOW_DROPPED_UTTERANCES.load(Ordering::Relaxed)
+}
+
+pub fn evicted_pending_utterance_count() -> u64 {
+    EVICTED_PENDING_UTTERANCES.load(Ordering::Relaxed)
+}
 
 fn current_unix_ms() -> u128 {
     SystemTime::now()
@@ -484,6 +499,9 @@ fn ingest_observation(
     }
 
     if speech_duration_ms < state.profile.minimum_speech_duration_ms || state.overflowed {
+        if state.overflowed {
+            OVERFLOW_DROPPED_UTTERANCES.fetch_add(1, Ordering::Relaxed);
+        }
         reset_current_utterance(state);
         return false;
     }
@@ -552,6 +570,7 @@ fn finalize_current_utterance(state: &mut FinalizedProducerState) -> bool {
     // speech. Already-running output is not preempted here.
     while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES {
         let _ = state.pending.pop_front();
+        EVICTED_PENDING_UTTERANCES.fetch_add(1, Ordering::Relaxed);
     }
 
     let enqueued_at = Instant::now();
@@ -658,13 +677,6 @@ fn resample_linear(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f
 
 fn samples_for_duration(sample_rate_hz: u32, duration_ms: u32) -> usize {
     ((sample_rate_hz.max(1) as u64 * duration_ms as u64) / 1_000) as usize
-}
-
-fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
-    if sample_rate_hz == 0 {
-        return 0;
-    }
-    ((sample_count as u64 * 1_000) / sample_rate_hz as u64) as u32
 }
 
 fn safe_sample(value: f32) -> f32 {

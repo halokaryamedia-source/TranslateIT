@@ -2,12 +2,12 @@
   import { ArrowLeft, Check, ChevronRight } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
-  import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
   import {
     runtimeProductFacade,
     type ProductAudioDeviceKind,
     type ProductRuntimeSnapshot,
   } from "../app/bridge/runtimeProductFacade";
+  import { cloneSettings, compact, deviceId } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
   import StatusRow from "../components/ui/StatusRow.svelte";
 
@@ -24,10 +24,6 @@
     onOpenMyVoice: (settings: RuntimeSettings) => void | Promise<void>;
   } = $props();
 
-  function cloneSettings(value: RuntimeSettings): RuntimeSettings {
-    return { ...value, audio: { ...value.audio } };
-  }
-
   function checkpoint(value: RuntimeSettings): SetupStep {
     const step = Math.round(Number(value.meeting_setup_checkpoint || 1));
     return Math.max(1, Math.min(5, step)) as SetupStep;
@@ -40,22 +36,12 @@
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
   let devices = $state<AudioDeviceListReport | null>(null);
   let meetingSoundReady = $state<boolean | null>(null);
-  let myVoiceReady = $state<boolean | null>(null);
+  const myVoiceReady = $derived(snapshot?.readiness.approvedVoiceReady ?? null);
   let step = $state<SetupStep>((() => checkpoint(settings))());
   let busy = $state(false);
   let message = $state("");
   let selectedMicrophone = $state((() => String(settings.audio.input_device_id ?? ""))());
   let selectedMeetingSound = $state((() => String(settings.audio.output_device_id ?? ""))());
-
-  function compact(value: unknown, fallback = "Unavailable"): string {
-    const clean = String(value ?? "").replace(/\s+/g, " ").trim();
-    if (!clean) return fallback;
-    return clean.length > 180 ? `${clean.slice(0, 179).trimEnd()}…` : clean;
-  }
-
-  function deviceId(device: { id?: string; name: string }): string {
-    return String(device.id ?? device.name).trim();
-  }
 
   function devicesFor(kind: ProductAudioDeviceKind) {
     return kind === "microphone" ? devices?.input_devices ?? [] : devices?.output_devices ?? [];
@@ -81,14 +67,6 @@
 
   function currentMeetingMicrophone(): string {
     return compact(routeStatus?.selected_input_device, "Meeting microphone not configured");
-  }
-
-  async function refreshMyVoice(): Promise<void> {
-    try {
-      myVoiceReady = (await myVoiceBuildApi.getStatus()).approved_voice_ready;
-    } catch {
-      myVoiceReady = null;
-    }
   }
 
   async function refreshSnapshot(): Promise<void> {
@@ -137,7 +115,6 @@
   }
 
   async function initialize(): Promise<void> {
-    await refreshMyVoice();
     if (step > 1) {
       await refreshSnapshot();
       step = safeResumeStep(step);
@@ -240,7 +217,6 @@
       await runtimeProductFacade.runProductSetupAction("check-readiness");
     }
     await refreshSnapshot();
-    await refreshMyVoice();
     message = myVoiceReady && snapshot?.readiness.meetingReady ? "Everything needed for Meeting translation is ready." : "Setup still needs attention.";
     busy = false;
   }

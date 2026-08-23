@@ -81,16 +81,6 @@ def translation_input_token_limit(_tokenizer: Any, _model: Any) -> int:
     return STANDALONE_SOURCE_TOKEN_LIMIT
 
 
-def translation_generation_options(
-    _tokenizer: Any, _target_language: str, max_new_tokens: int
-) -> dict[str, Any]:
-    return {
-        "max_new_tokens": max_new_tokens,
-        "do_sample": False,
-        "return_dict_in_generate": True,
-    }
-
-
 def get_translation_runtime(source_language: str, target_language: str) -> dict[str, Any]:
     host = _host()
     pair = host["direction_pair"](source_language, target_language)
@@ -494,7 +484,6 @@ def install(namespace: dict[str, Any]) -> None:
     namespace["translation_model_for_direction"] = translation_model_for_direction
     namespace["translation_model_ready"] = translation_model_ready
     namespace["translation_input_token_limit"] = translation_input_token_limit
-    namespace["translation_generation_options"] = translation_generation_options
     namespace["get_translation_runtime"] = get_translation_runtime
     namespace["handle_translate"] = handle_translate
     namespace["handle_translation_preload"] = handle_translation_preload

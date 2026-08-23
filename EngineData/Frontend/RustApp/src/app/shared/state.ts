@@ -17,6 +17,20 @@ export function defaultSettings(): RuntimeSettings {
   };
 }
 
+export function compact(value: unknown, fallback = "Unknown", maxChars = 180): string {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return fallback;
+  return text.length > maxChars ? `${text.slice(0, maxChars - 1).trimEnd()}…` : text;
+}
+
+export function cloneSettings(value: RuntimeSettings): RuntimeSettings {
+  return { ...value, audio: { ...value.audio } };
+}
+
+export function deviceId(device: { id?: string; name: string }): string {
+  return String(device.id ?? device.name).trim();
+}
+
 function cleanDisplayText(value: string): string {
   return value.replace(UNSAFE_DISPLAY_CHARS, "").replace(/\s+/g, " ").trim();
 }

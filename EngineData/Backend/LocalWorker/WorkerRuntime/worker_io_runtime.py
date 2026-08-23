@@ -65,13 +65,24 @@ def get_asr_runtime(payload: dict[str, Any] | None = None) -> Any:
 def handle_asr_preload(payload: dict[str, Any]) -> dict[str, Any]:
     started = common.now_ms()
     model_id, model_path = choose_asr_model()
-    if not common.import_ready("faster_whisper") or not asr_model_ready(model_path):
+    if not common.import_ready("faster_whisper"):
         return {
             "ok": False,
             "stage": "asr_preload",
             "model_id": model_id,
             "model_path": str(model_path),
-            "blocker": "model:faster_whisper_missing",
+            "blocker": "dependency:faster_whisper_missing",
+            "elapsed_ms": common.now_ms() - started,
+        }
+    # The medium backup is only chosen when its own assets are ready, so reaching
+    # this branch means the chosen primary large-v3-turbo assets are absent.
+    if not asr_model_ready(model_path):
+        return {
+            "ok": False,
+            "stage": "asr_preload",
+            "model_id": model_id,
+            "model_path": str(model_path),
+            "blocker": "model:faster_whisper_large_v3_turbo_missing",
             "elapsed_ms": common.now_ms() - started,
         }
     try:

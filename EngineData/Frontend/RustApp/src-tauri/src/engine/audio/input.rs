@@ -53,16 +53,11 @@ impl InputPreparationStatus {
             );
         };
 
-        let device_rate = config.sample_rate().0;
-        let device_channels = config.channels();
-        if device_rate < TARGET_SAMPLE_RATE_HZ || device_channels < TARGET_CHANNELS {
-            return Self::blocked(
-                backend_id,
-                device_name,
-                "audio_input:pipeline_format_incompatible",
-                "The selected microphone does not satisfy the target 16 kHz mono pipeline requirement.",
-            );
-        }
+        // Device acceptance is functional: the capture path converts/resamples the
+        // native configuration at the segment boundary, so native rate/channels are
+        // reported for honesty but never hard-gate device acceptance here.
+        let native_sample_rate_hz = config.sample_rate().0;
+        let native_channels = config.channels();
 
         Self {
             backend_id,
@@ -74,13 +69,16 @@ impl InputPreparationStatus {
             functional_verified: false,
             callback_frames_observed: 0,
             blocker: String::new(),
-            note: if requested_name.is_some() {
-                "The selected microphone is available with a usable input configuration. This routine status check does not open a capture stream."
-                    .to_string()
-            } else {
-                "The Windows default microphone is available with a usable input configuration. This routine status check does not open a capture stream."
-                    .to_string()
-            },
+            note: format!(
+                "{} available with a usable default input configuration (native {} Hz x {} channel(s)); the pipeline converts/resamples at segment boundary. This routine status check does not open a capture stream.",
+                if requested_name.is_some() {
+                    "The selected microphone is"
+                } else {
+                    "The Windows default microphone is"
+                },
+                native_sample_rate_hz,
+                native_channels
+            ),
         }
     }
 
@@ -138,17 +136,6 @@ pub fn probe_input_device_functionally(requested_name: Option<&str>) -> InputPre
             )
         }
     };
-
-    let sample_rate_hz = supported.sample_rate().0;
-    let channels = supported.channels();
-    if sample_rate_hz < TARGET_SAMPLE_RATE_HZ || channels < TARGET_CHANNELS {
-        return InputPreparationStatus::blocked(
-            backend_id,
-            device_name,
-            "audio_input:functional_probe_pipeline_format_incompatible",
-            "The selected microphone exists, but its default format cannot feed the 16 kHz mono capture pipeline.",
-        );
-    }
 
     let sample_format = supported.sample_format();
     let stream_config = supported.config();

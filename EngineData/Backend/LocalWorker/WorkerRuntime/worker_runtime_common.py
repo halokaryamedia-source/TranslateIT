@@ -238,31 +238,6 @@ def generation_pad_token_ids(tokenizer: Any, model: Any) -> set[int]:
     return ids
 
 
-def translation_generation_completion(sequences: Any, tokenizer: Any, model: Any, max_new_tokens: int) -> dict[str, Any]:
-    try:
-        first = sequences[0]
-        values = first.tolist() if hasattr(first, "tolist") else first
-        ids = [int(value) for value in values]
-    except Exception:
-        ids = []
-    pad_ids = generation_pad_token_ids(tokenizer, model)
-    while ids and ids[-1] in pad_ids:
-        ids.pop()
-    is_encoder_decoder = bool(getattr(getattr(model, "config", None), "is_encoder_decoder", False))
-    count = max(0, len(ids) - 1) if ids and is_encoder_decoder else len(ids) if ids else None
-    eos_ids = generation_eos_token_ids(tokenizer, model)
-    finished = bool(ids and eos_ids and ids[-1] in eos_ids)
-    ceiling = count is not None and count >= max_new_tokens
-    blocker = "" if finished else (
-        "translation:eos_token_unavailable" if not eos_ids else
-        "translation:output_hit_token_ceiling_without_eos" if ceiling else
-        "translation:output_ended_without_eos" if ids else
-        "translation:output_completion_unverifiable"
-    )
-    return {"complete": finished, "blocker": blocker, "finished_with_eos": finished,
-            "generated_tokens": count, "hit_token_ceiling": ceiling if count is not None else None}
-
-
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
     raw = str(value).strip() if value not in (None, "") else str(default_path)
     path = Path(raw)

@@ -3,22 +3,18 @@
   import { onMount } from "svelte";
   import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
   import {
+    parseWorkerCapabilities,
     runtimeProductFacade,
     type ProductAudioDeviceKind,
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "../app/bridge/runtimeProductFacade";
+  import { deviceId } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
   import StatusRow from "../components/ui/StatusRow.svelte";
 
   type SettingsTab = "meeting" | "advanced";
-  type WorkerDiagnostics = {
-    asr: string;
-    translation: string;
-    voice: string;
-    execution: string;
-  };
 
   let {
     snapshot,
@@ -61,58 +57,13 @@
     String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
   );
 
-  function parseWorkerDiagnostics(raw: string | undefined): WorkerDiagnostics {
-    const fallback: WorkerDiagnostics = {
-      asr: "Not checked",
-      translation: "Not checked",
-      voice: "Not checked",
-      execution: "Not verified",
-    };
-    if (!raw?.trim()) return fallback;
-
-    try {
-      const payload = JSON.parse(raw) as Record<string, any>;
-      const loaded = (payload.loaded ?? {}) as Record<string, any>;
-      const gpu = (payload.gpu ?? {}) as Record<string, any>;
-      const asrSelected = String(payload.selected_device ?? gpu.selected_device ?? "not verified");
-      const translationSelected = String(
-        payload.selected_translation_device ?? gpu.selected_translation_device ?? "not verified",
-      );
-      const directions = Array.isArray(loaded.translation_directions)
-        ? loaded.translation_directions.map((value: unknown) => String(value)).filter(Boolean)
-        : [];
-
-      return {
-        asr: loaded.asr === true
-          ? `${String(loaded.asr_model_id ?? "ASR")} · ${String(loaded.asr_device ?? "unknown")} / ${String(loaded.asr_compute_type ?? "unknown")}`
-          : `Not loaded · selected ${asrSelected}`,
-        translation: directions.length > 0
-          ? `${directions.join(", ")} · ${translationSelected}`
-          : `Not loaded · selected ${translationSelected}`,
-        voice: loaded.voice_actor === true
-          ? `Loaded · ${String(loaded.voice_actor_device ?? "unknown")}`
-          : "Not loaded",
-        execution: `ASR ${asrSelected} · Translation ${translationSelected}`,
-      };
-    } catch {
-      return {
-        ...fallback,
-        execution: "Worker status could not be parsed",
-      };
-    }
-  }
-
   function formatTiming(value: number | null | undefined): string {
     if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return "Not measured";
     return `${Math.round(value)} ms`;
   }
 
-  const workerDiagnostics = $derived(parseWorkerDiagnostics(snapshot.workerStatus?.worker_response_json));
+  const workerDiagnostics = $derived(parseWorkerCapabilities(snapshot.workerStatus));
   const outboundTiming = $derived(snapshot.meetingSession?.outbound?.timing ?? null);
-
-  function deviceId(device: { id?: string; name: string }): string {
-    return String(device.id ?? device.name).trim();
-  }
 
   function currentDevice(kind: ProductAudioDeviceKind): string {
     return String(kind === "microphone" ? settings.audio.input_device_id ?? "" : settings.audio.output_device_id ?? "");
@@ -367,18 +318,18 @@
           <div class="mt-4 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
             <div class="ti-state-card">
               <span class="ti-field-label">ASR</span>
-              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.asr}</strong>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.asrDisplay}</strong>
             </div>
             <div class="ti-state-card">
               <span class="ti-field-label">Translation</span>
-              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.translation}</strong>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.translationDisplay}</strong>
             </div>
             <div class="ti-state-card">
               <span class="ti-field-label">My Voice</span>
-              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.voice}</strong>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.voiceDisplay}</strong>
             </div>
           </div>
-          <p class="mb-0 mt-3 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">Selected execution: {workerDiagnostics.execution}. Refresh after Meeting Start to see the loaded runtime state.</p>
+          <p class="mb-0 mt-3 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">Selected execution: {workerDiagnostics.executionDisplay}. Refresh after Meeting Start to see the loaded runtime state.</p>
         </article>
 
         <article class="ti-panel p-5">

@@ -7,6 +7,7 @@ on:
     paths:
       - "EngineData/Frontend/RustApp/src/**"
       - "EngineData/Frontend/RustApp/src-tauri/src/**"
+      - "EngineData/Frontend/RustApp/scripts/**"
       - "EngineData/Frontend/RustApp/package.json"
       - "EngineData/Frontend/RustApp/package-lock.json"
       - "EngineData/Frontend/RustApp/tsconfig.json"
@@ -22,6 +23,7 @@ on:
     paths:
       - "EngineData/Frontend/RustApp/src/**"
       - "EngineData/Frontend/RustApp/src-tauri/src/**"
+      - "EngineData/Frontend/RustApp/scripts/**"
       - "EngineData/Frontend/RustApp/package.json"
       - "EngineData/Frontend/RustApp/package-lock.json"
       - "EngineData/Frontend/RustApp/tsconfig.json"
@@ -57,6 +59,11 @@ jobs:
         run: npm ci
       - name: Check TypeScript and Svelte unused source
         run: npm run typecheck
+      - name: Validate frontend source contracts
+        run: |
+          npm run validate:startup-readiness
+          npm run validate:virtual-route
+          npm run preflight:frontend-build
 
   python-unused:
     name: Python unused-source check

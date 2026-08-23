@@ -385,13 +385,23 @@ def create_tts_runtime(source_root: Path, assets: dict[str, Path], gpt_weight: P
     device = "cuda:0" if cuda_available else "cpu"
     with source_working_directory(source_root):
         install_headless_my_utils(source_root)
+        # The GPT-SoVITS import/config path reads process-global env; scope the writes
+        # so the resident worker environment is not permanently mutated.
+        saved_environment = {key: os.environ.get(key) for key in ("NLTK_DATA", "version")}
         os.environ["NLTK_DATA"] = str(source_root / "nltk_data")
         os.environ["version"] = VERSION
-        from TTS_infer_pack.TTS import TTS, TTS_Config
-        config = TTS_Config({"custom": {"device": device, "is_half": cuda_available, "version": VERSION, "t2s_weights_path": str(gpt_weight), "vits_weights_path": str(sovits_weight), "cnhuhbert_base_path": str(assets["hubert_model"]), "bert_base_path": str(assets["bert_model"])}})
-        config.configs_path = str(source_root / "GPT_SoVITS" / "configs" / "translateit_tts_runtime.yaml")
-        tts = TTS(config)
-        tts.set_ref_audio(str(reference_wav))
+        try:
+            from TTS_infer_pack.TTS import TTS, TTS_Config
+            config = TTS_Config({"custom": {"device": device, "is_half": cuda_available, "version": VERSION, "t2s_weights_path": str(gpt_weight), "vits_weights_path": str(sovits_weight), "cnhuhbert_base_path": str(assets["hubert_model"]), "bert_base_path": str(assets["bert_model"])}})
+            config.configs_path = str(source_root / "GPT_SoVITS" / "configs" / "translateit_tts_runtime.yaml")
+            tts = TTS(config)
+            tts.set_ref_audio(str(reference_wav))
+        finally:
+            for key, value in saved_environment.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
     return {"tts": tts, "device": device, "reference_wav": reference_wav, "reference_cached": True}
 
 

@@ -144,7 +144,7 @@ for (const marker of ['aria-label="Settings sections"', "Meeting audio", "Open D
 }
 
 const firstSetup = readFileSync(join(appRoot, "src", "pages", "FirstSetup.svelte"), "utf8");
-for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose the configured meeting microphone", "selectProductAudioDevice", "Check Again"]) {
+for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Set your meeting microphone", "selectProductAudioDevice", "Check Again"]) {
   if (!firstSetup.includes(marker)) fail(`FirstSetup.svelte missing familiar setup marker: ${marker}`);
 }
 

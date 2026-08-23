@@ -56,7 +56,10 @@ jobs:
             'Run-Local-Test.ps1',
             'EngineData/Frontend/RustApp/scripts/build_release.ps1',
             'EngineData/Frontend/RustApp/scripts/run_target_pc_acceptance.ps1',
-            'EngineData/Frontend/RustApp/scripts/run_local_test.ps1'
+            'EngineData/Frontend/RustApp/scripts/run_local_test.ps1',
+            'EngineData/Frontend/RustApp/scripts/stage_release_inputs.ps1',
+            'EngineData/Frontend/RustApp/scripts/stage_release_inputs_impl.ps1',
+            'EngineData/Frontend/RustApp/src-tauri/windows/r3_payload_installer.ps1'
           )) {
             $tokens = $null
             $errors = $null

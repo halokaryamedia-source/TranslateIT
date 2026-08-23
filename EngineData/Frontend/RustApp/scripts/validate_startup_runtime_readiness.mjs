@@ -9,7 +9,7 @@ const paths = {
   app: resolve(root, "src/App.svelte"),
   meeting: resolve(root, "src/pages/Meeting.svelte"),
   text: resolve(root, "src/pages/Text.svelte"),
-  voiceLab: resolve(root, "src/pages/VoiceLab.svelte"),
+  myVoice: resolve(root, "src/pages/MyVoice.svelte"),
   settings: resolve(root, "src/pages/Settings.svelte"),
   firstSetup: resolve(root, "src/pages/FirstSetup.svelte"),
   meetingActivity: resolve(root, "src/components/meeting/MeetingActivity.svelte"),
@@ -29,11 +29,13 @@ const paths = {
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   audioCommands: resolve(root, "src-tauri/src/commands/audio.rs"),
   audioInput: resolve(root, "src-tauri/src/engine/audio/input.rs"),
-  textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
+  textTranslate: resolve(root, "src-tauri/src/commands/text_translation.rs"),
   finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
+  workerBase: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker_base.py"),
+  milmmtProvider: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/milmmt_translation_provider.py"),
   modelManifest: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json"),
 };
 
@@ -63,7 +65,6 @@ if (entries.length !== 1 || entries[0] !== "/src/main.ts") throw new Error(`Expe
 requireMarkers(source.main, "Svelte entrypoint", ['import { mount } from "svelte"', 'import App from "./App.svelte"', "mount(App, { target })"]);
 
 requireMarkers(source.app, "Svelte application owner", [
-  'type AppRoute = "meeting" | "text" | "voicelab" | "settings"',
   'route = $state<AppRoute>("meeting")',
   "runtimeProductFacade.loadProductRuntimeSnapshot",
   "runtimeProductFacade.runProductMeetingAction",
@@ -76,7 +77,7 @@ requireMarkers(source.app, "Svelte application owner", [
   "<FirstSetup",
   "<Meeting",
   "<Text",
-  "<VoiceLab",
+  "<MyVoice",
   "<Settings",
   "setupBusy={setupActionBusy}",
 ]);
@@ -124,7 +125,7 @@ requireMarkers(source.settings, "Settings surface", [
   "Choose this exact microphone inside your meeting app",
   "refreshDiagnostics",
   'aria-label="Settings sections"',
-  "Check Microphone",
+  "Stop Mic Test",
   "Mic Test",
   "Verify Models",
   "runtimeApi.getCommandErrors()",
@@ -139,11 +140,11 @@ requireMarkers(source.firstSetup, "First Setup surface", [
   "selectProductAudioDevice",
   "getVirtualMicRouteStatus",
   "currentMeetingMicrophone",
-  "Choose the configured meeting microphone",
+  "Set your meeting microphone",
   'role="progressbar"',
   "Check Again",
 ]);
-requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "VoiceLab", "Settings", "Ready to translate", "Indonesian ↔ English"]);
+requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "My Voice", "Settings", "Ready to translate", "Indonesian ↔ English"]);
 requireMarkers(source.statusRow, "shared status row", ["StatusBadge", "detail", "status = \"\"", "{#if status}"]);
 
 for (const [label, body] of [
@@ -440,6 +441,7 @@ forbidMarkers(source.helperBridgeRuntime, "retired helper compatibility transpor
   "pub struct HelperBridgeRequest",
   "pub fn write_worker_request(stdin:",
   "pub fn read_worker_response_with_deadline(",
+  "is_contract_only_response",
 ]);
 requireMarkers(source.helperBridge, "Optional incoming helper failure isolation", [
   "fn recover_incoming_transport_failure_before_permit_release(",
@@ -570,31 +572,64 @@ forbidMarkers(source.finalizedUtterance, "retired newest-drop overload policy", 
 
 requireMarkers(source.settingsRust, "settings schema", ["const CURRENT_SCHEMA_VERSION: u32 = 6;", "pub source_language: String", "pub target_language: String", "pub meeting_setup_state: String", "pub meeting_setup_checkpoint: u8", "pub input_device_id: Option<String>", "pub output_device_id: Option<String>"]);
 requireMarkers(source.frontendState, "frontend settings defaults", ["schema_version: 6", 'source_language: "id"', 'target_language: "en"', 'meeting_setup_state: "new"']);
+requireMarkers(source.frontendTypes, "frontend shared route identity", [
+  'export type AppRoute = "meeting" | "text" | "my-voice" | "settings"',
+  'export const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting"',
+]);
 forbidMarkers(source.frontendTypes, "frontend settings type", ["runtime_profile", "history_enabled", "voice_actor_profile_id"]);
 
 requireMarkers(source.runtimeState, "Meeting lifecycle", ['"starting",', 'snapshot.phase = "live".to_string()', 'snapshot.phase = "stopping".to_string()', "runtime_generation_is_authoritative"]);
 forbidMarkers(source.runtimeState, "Meeting lifecycle", ['phase: "paused"', 'phase: "resuming"', "clear_runtime_handoff_state"]);
 forbidMarkers(source.meetingSession, "Meeting commands", ["pause_meeting_translation", "resume_meeting_translation", "reset_live_pipeline_handoff_status"]);
 
-requireMarkers(source.worker, "direction-based worker", [
-  'TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"',
-  'TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"',
-  "def translation_model_for_direction(",
-  'if pair == "id->en"',
-  'if pair == "en->id"',
-  'tokenizer(text, return_tensors="pt", truncation=False)',
-  "translation_generation_completion",
+requireMarkers(source.worker, "canonical MiLMMT translation worker composition", [
+  "import milmmt_translation_provider",
+  "milmmt_translation_provider.install(globals())",
 ]);
-forbidMarkers(source.worker, "direction-based worker", ["QUALITY_TRANSLATION_MODEL", "NLLB_LANGUAGE_CODES", "translation_model_for_mode"]);
+requireMarkers(source.workerBase, "canonical MiLMMT translation worker host", [
+  "TRANSLATION_MODEL_ROOT = common.TRANSLATION_MODEL_ROOT",
+]);
+requireMarkers(source.milmmtProvider, "canonical MiLMMT bidirectional translation contract", [
+  'MODEL_ID = "milmmt-46-1b-v1.0"',
+  'HF_MODEL_ID = "xiaomi-research/MiLMMT-46-1B-v1.0"',
+  'MODEL_DIRNAME = "xiaomi-research--MiLMMT-46-1B-v1.0"',
+  'MODEL_REVISION = "4fc480b6c58dec29c159dcdf9fde0f6d5c354995"',
+  'REVISION_MARKER = ".translateit_model_revision"',
+  'marker.read_text(encoding="utf-8").strip() == MODEL_REVISION',
+  'namespace["TRANSLATION_MODEL"] = namespace["TRANSLATION_MODEL_ROOT"] / MODEL_DIRNAME',
+  'if pair in {"id->en", "en->id"}:',
+  'f"Translate this from {source_name} to {target_name}:\\n"',
+  "add_special_tokens=False",
+  'return_tensors="pt"',
+  "truncation=False",
+  '"translation:input_too_long_for_model"',
+  "do_sample=False",
+  "values = sequences[0, prompt_tokens:]",
+  '"translation:output_hit_token_ceiling_without_eos"',
+  '"translation:output_ended_without_eos"',
+]);
+for (const [label, body] of [
+  ["worker loader", source.worker],
+  ["worker base", source.workerBase],
+  ["MiLMMT provider", source.milmmtProvider],
+]) {
+  forbidMarkers(body, label, [
+    "marianmt",
+    "QUALITY_TRANSLATION_MODEL",
+    "NLLB_LANGUAGE_CODES",
+    "translation_model_for_mode",
+    "translation_generation_completion",
+    "translation_generation_options",
+  ]);
+}
 
 const manifest = JSON.parse(source.modelManifest);
 const models = Array.isArray(manifest.models) ? manifest.models : [];
-if (!models.some((model) => model.model_id === "marianmt-id-en")) throw new Error("Missing marianmt-id-en inventory entry");
-if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Error("Missing marianmt-en-id inventory entry");
+if (!models.some((model) => model.model_id === "milmmt-46-1b-v1.0")) throw new Error("Missing milmmt-46-1b-v1.0 inventory entry");
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 for (const model of models.filter((entry) => entry.source_type === "huggingface")) {
   if (!/^[0-9a-f]{40}$/.test(String(model.revision ?? ""))) throw new Error(`Hugging Face model ${model.model_id} must pin a full immutable revision`);
 }
 if (models.some((model) => Object.hasOwn(model, "checksum"))) throw new Error("Model inventory must not invent checksum identity without a current packaging requirement");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, generation-bound functional outbound AI readiness before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, native Meeting output preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, generation-bound functional outbound AI readiness before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, native Meeting output preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and canonical MiLMMT worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");

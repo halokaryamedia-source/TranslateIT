@@ -4,15 +4,16 @@ import {
   type MeetingSessionActionResult,
   type MeetingSessionStatus,
 } from "./runtimeApi";
-import { defaultSettings, errorMessage } from "../shared/state";
+import { defaultSettings, compact, errorMessage } from "../shared/state";
+import { APPLICATION_MEETING_OWNER_ID } from "../shared/types";
 import type {
   AudioDeviceListReport,
-  HelperBridgeActionResult,
   HelperBridgeStatus,
   HelperBridgeWorkerResponse,
   InputPreparationStatus,
   RuntimeSettings,
 } from "../shared/types";
+import { myVoiceBuildApi } from "./myVoiceBuildApi";
 
 export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking" | "unavailable";
 
@@ -31,6 +32,7 @@ export type ProductReadiness = {
   voiceReady: boolean;
   meetingRouteReady: boolean;
   meetingReady: boolean;
+  approvedVoiceReady: boolean | null;
   canTranslateText: boolean;
   canRecordVoice: boolean;
   recording: boolean;
@@ -108,10 +110,10 @@ export type ProductAudioDeviceSelectionResult = ProductAudioDeviceProbe & {
   settings: RuntimeSettings;
 };
 
-export type ProductSetupAction = "start-helper" | "check-worker" | "check-readiness" | "verify-models" | "check-microphone";
+export type ProductSetupAction = "check-readiness" | "verify-models";
 export type ProductRecoveryAction = "fix-setup";
 
-type WorkerCapabilitySnapshot = {
+export type WorkerCapabilitySnapshot = {
   responseAvailable: boolean;
   asrReady: boolean;
   translationIdEnReady: boolean;
@@ -119,6 +121,10 @@ type WorkerCapabilitySnapshot = {
   ttsReady: boolean;
   blocker: string;
   note: string;
+  asrDisplay: string;
+  translationDisplay: string;
+  voiceDisplay: string;
+  executionDisplay: string;
 };
 
 type MeetingPreflightSnapshot = {
@@ -136,14 +142,7 @@ type MeetingPreflightSnapshot = {
 
 type TranslationDirection = "id->en" | "en->id" | "unsupported";
 
-const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting";
 const FRONTEND_BRIDGE_UNAVAILABLE = "frontend_bridge_unavailable";
-
-function compact(value: unknown, fallback = "Unknown"): string {
-  const text = String(value ?? "").replace(/\s+/g, " ").trim();
-  if (!text) return fallback;
-  return text.length > 180 ? `${text.slice(0, 179).trimEnd()}…` : text;
-}
 
 function unique(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => compact(value, "")).filter(Boolean)));
@@ -174,7 +173,7 @@ function helperBridgeUnavailable(helper: HelperBridgeStatus | null): boolean {
   return helper?.runtime_claim === FRONTEND_BRIDGE_UNAVAILABLE || helper?.state === "frontend_bridge_error";
 }
 
-function meetingBridgeUnavailable(status: MeetingSessionStatus | null): boolean {
+export function meetingBridgeUnavailable(status: MeetingSessionStatus | null): boolean {
   return status?.runtime_claim === FRONTEND_BRIDGE_UNAVAILABLE || status?.lifecycle === "unavailable";
 }
 
@@ -182,7 +181,7 @@ function inputBridgeUnavailable(status: InputPreparationStatus | null): boolean 
   return status?.blocker === FRONTEND_BRIDGE_UNAVAILABLE;
 }
 
-function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null): WorkerCapabilitySnapshot {
+export function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null): WorkerCapabilitySnapshot {
   if (!workerStatus?.worker_response_json) {
     return {
       responseAvailable: false,
@@ -192,12 +191,25 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       ttsReady: false,
       blocker: "",
       note: "",
+      asrDisplay: "Not checked",
+      translationDisplay: "Not checked",
+      voiceDisplay: "Not checked",
+      executionDisplay: "Not verified",
     };
   }
 
   try {
     const payload = JSON.parse(workerStatus.worker_response_json) as Record<string, any>;
     const readiness = (payload.readiness ?? {}) as Record<string, any>;
+    const loaded = (payload.loaded ?? {}) as Record<string, any>;
+    const gpu = (payload.gpu ?? {}) as Record<string, any>;
+    const asrSelected = String(payload.selected_device ?? gpu.selected_device ?? "not verified");
+    const translationSelected = String(
+      payload.selected_translation_device ?? gpu.selected_translation_device ?? "not verified",
+    );
+    const directions = Array.isArray(loaded.translation_directions)
+      ? loaded.translation_directions.map((value: unknown) => String(value)).filter(Boolean)
+      : [];
     return {
       responseAvailable: payload.stage === "local_realtime_worker_preflight",
       asrReady: readiness.asr === true,
@@ -206,6 +218,16 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       ttsReady: readiness.voice_actor_tts === true,
       blocker: compact(payload.blocker, ""),
       note: compact(payload.note, ""),
+      asrDisplay: loaded.asr === true
+        ? `${String(loaded.asr_model_id ?? "ASR")} · ${String(loaded.asr_device ?? "unknown")} / ${String(loaded.asr_compute_type ?? "unknown")}`
+        : `Not loaded · selected ${asrSelected}`,
+      translationDisplay: directions.length > 0
+        ? `${directions.join(", ")} · ${translationSelected}`
+        : `Not loaded · selected ${translationSelected}`,
+      voiceDisplay: loaded.voice_actor === true
+        ? `Loaded · ${String(loaded.voice_actor_device ?? "unknown")}`
+        : "Not loaded",
+      executionDisplay: `ASR ${asrSelected} · Translation ${translationSelected}`,
     };
   } catch {
     return {
@@ -216,6 +238,10 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       ttsReady: false,
       blocker: "helper_bridge:invalid_worker_status_response",
       note: "Worker capability response could not be parsed.",
+      asrDisplay: "Not checked",
+      translationDisplay: "Not checked",
+      voiceDisplay: "Not checked",
+      executionDisplay: "Worker status could not be parsed",
     };
   }
 }
@@ -361,6 +387,7 @@ export function mapProductReadiness(input: {
   workerStatus?: HelperBridgeWorkerResponse | null;
   inputStatus: InputPreparationStatus | null;
   meetingSession?: MeetingSessionStatus | null;
+  approvedVoiceReady?: boolean | null;
 }): ProductReadiness {
   const helper = input.helper;
   const inputStatus = input.inputStatus;
@@ -395,7 +422,9 @@ export function mapProductReadiness(input: {
 
   const voiceReady = microphoneReady && providerReady;
   const meetingRouteReady = meeting.meetingRouteReady;
-  const meetingReady = meeting.readyForStart || productMeeting.live;
+  const approvedVoiceReady = typeof input.approvedVoiceReady === "boolean" ? input.approvedVoiceReady : null;
+  const approvedVoiceConfirmed = approvedVoiceReady === true;
+  const meetingReady = productMeeting.live || (meeting.readyForStart && approvedVoiceConfirmed);
   const recording = productMeeting.captureActive;
   const canRecordVoice = voiceReady && !recording && !productMeeting.hasSession;
   const blockers = collectBlockers({
@@ -423,28 +452,32 @@ export function mapProductReadiness(input: {
     ? "TranslateIT is unavailable right now. Try the status check again before using translation."
     : productMeeting.live
       ? "Translation is live. Stop the Meeting session when you are finished."
-      : meeting.readyForStart
-        ? "Meeting Translation is ready to start."
-        : productMeeting.canStart
-          ? "Start Translation will run a quick final translation check before going live."
-          : textReady
-          ? "Text translation is available. Meeting setup still needs attention."
-          : textDirection === "unsupported"
-            ? "Choose Indonesian → English or English → Indonesian for Text translation."
-            : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
+        : meeting.readyForStart && !approvedVoiceConfirmed
+          ? "Create My Voice before starting Meeting translation."
+          : meeting.readyForStart
+            ? "Meeting Translation is ready to start."
+            : productMeeting.canStart
+              ? "Start Translation will run a quick final translation check before going live."
+              : textReady
+                ? "Text translation is available. Meeting setup still needs attention."
+                : textDirection === "unsupported"
+                  ? "Choose Indonesian → English or English → Indonesian for Text translation."
+                  : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
   const summary = runtimeUnavailable
     ? "TranslateIT is unavailable right now. Try the status check again."
     : productMeeting.live
       ? "Meeting Translation is live."
-      : meeting.readyForStart
-        ? "Meeting Translation is ready."
-        : productMeeting.canStart
-          ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
-          : textReady
-          ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
-          : hasRuntimeEvidence
-            ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
-            : "Product readiness is still checking.";
+      : meeting.readyForStart && !approvedVoiceConfirmed
+        ? "My Voice isn't ready yet, so Meeting Translation can't start yet."
+        : meeting.readyForStart
+          ? "Meeting Translation is ready."
+          : productMeeting.canStart
+            ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
+            : textReady
+              ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
+              : hasRuntimeEvidence
+                ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
+                : "Product readiness is still checking.";
 
   return {
     level,
@@ -461,6 +494,7 @@ export function mapProductReadiness(input: {
     voiceReady,
     meetingRouteReady,
     meetingReady,
+    approvedVoiceReady,
     canTranslateText,
     canRecordVoice,
     recording,
@@ -540,6 +574,16 @@ async function ensurePostSetupHelperLifecycle(settings: RuntimeSettings): Promis
   return runtimeApi.getHelperBridgeStatus();
 }
 
+async function loadApprovedVoiceReady(): Promise<boolean | null> {
+  try {
+    const build = await myVoiceBuildApi.getStatus();
+    if (build.phase === "unavailable") return null;
+    return build.approved_voice_ready;
+  } catch {
+    return null;
+  }
+}
+
 export async function loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings): Promise<ProductRuntimeSnapshot> {
   const settings = knownSettings ?? await runtimeApi.loadSettings();
   if (!settings) throw new Error("TranslateIT settings are unavailable.");
@@ -548,15 +592,23 @@ export async function loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings
   // remains `new`. The explicit guard above preserves that Python-free First Setup
   // boundary even if this facade is called directly with fresh settings later.
   const helper = await ensurePostSetupHelperLifecycle(settings);
-  const [meetingSession, inputStatus] = await Promise.all([
+  const [meetingSession, inputStatus, approvedVoiceReady] = await Promise.all([
     runtimeApi.getMeetingSessionStatus(),
     runtimeApi.getInputStatus(),
+    loadApprovedVoiceReady(),
   ]);
   const workerStatus = helper.state === "ready"
     ? await runtimeApi.helperBridgeWorkerStatus()
     : null;
   const meeting = mapProductMeetingState(meetingSession);
-  const readiness = mapProductReadiness({ settings, helper, workerStatus, inputStatus, meetingSession });
+  const readiness = mapProductReadiness({
+    settings,
+    helper,
+    workerStatus,
+    inputStatus,
+    meetingSession,
+    approvedVoiceReady,
+  });
   return { settings, readiness, meeting, meetingSession, helper, workerStatus, inputStatus };
 }
 
@@ -669,36 +721,19 @@ export async function runProductTranslation(source: string): Promise<ProductTran
 }
 
 export async function runProductSetupAction(action: ProductSetupAction): Promise<string> {
-  if (action === "start-helper") {
-    const result: HelperBridgeActionResult | null = await runtimeApi.startHelperBridge().catch(() => null);
-    return compact(result?.message ?? result?.state, "Helper start command finished.");
-  }
-  if (action === "check-worker") {
-    const status = await runtimeApi.helperBridgeWorkerStatus().catch(() => null);
-    const capability = parseWorkerCapabilities(status);
-    return capability.responseAvailable
-      ? compact(capability.note || capability.blocker, "Worker capability status checked.")
-      : compact(status?.message ?? status?.state, "Worker status checked.");
-  }
   if (action === "check-readiness") {
     const result = await runtimeApi.verifyRequiredOutboundAiReadiness().catch(() => null);
     return result?.ok
       ? "The final local translation check passed."
       : "The final local translation check still needs attention. Open Diagnostics if this continues.";
   }
-  if (action === "verify-models") {
-    const result = await runtimeApi.verifyModels().catch(() => null);
-    const blockers = Array.isArray(result?.blockers) ? result.blockers.join("; ") : "";
-    return compact(
-      result?.note ?? blockers,
-      result?.ok ? "Full product release asset inventory is complete." : "Release asset inventory inspection finished with blockers.",
-    );
-  }
 
-  const status = await runtimeApi.getInputStatus().catch(() => null);
-  if (!status) return "Microphone status is unavailable. Try the check again.";
-  if (status.ready || status.prepared) return "Microphone is ready.";
-  return "Microphone still needs attention. Choose another microphone or Windows Default.";
+  const result = await runtimeApi.verifyModels().catch(() => null);
+  const blockers = Array.isArray(result?.blockers) ? result.blockers.join("; ") : "";
+  return compact(
+    result?.note ?? blockers,
+    result?.ok ? "Full product release asset inventory is complete." : "Release asset inventory inspection finished with blockers.",
+  );
 }
 
 export async function runProductRecoveryAction(action: ProductRecoveryAction): Promise<string> {

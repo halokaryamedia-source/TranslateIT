@@ -68,6 +68,7 @@ env/
 /EngineData/Backend/LocalWorker/WorkerRuntime/.venv/
 
 # TranslateIT user-owned runtime outputs. Keep only structural README placeholders.
+/.translateit-release-temp/
 /UserData/CacheData/**
 /UserData/LogData/**
 /UserData/SavedProject/**

@@ -9,7 +9,8 @@ use std::time::Instant;
 
 use crate::engine::audio::finalized_utterance::{
     clear_finalized_incoming_utterance_producer, clear_finalized_meeting_sequence,
-    clear_finalized_outbound_utterance_producer, reset_finalized_incoming_speech_boundary,
+    clear_finalized_outbound_utterance_producer, evicted_pending_utterance_count,
+    overflow_dropped_utterance_count, reset_finalized_incoming_speech_boundary,
     reset_finalized_meeting_sequence, wait_take_finalized_incoming_utterance,
     wait_take_finalized_outbound_utterance, FinalizedMeetingUtterance,
 };
@@ -92,6 +93,8 @@ pub struct MeetingOutboundRuntimeStatus {
     pub output_active: bool,
     pub last_stage_ok: bool,
     pub timing: Option<MeetingOutboundTiming>,
+    pub overflow_dropped_utterance_count: u64,
+    pub evicted_pending_utterance_count: u64,
     pub blocker: String,
     pub note: String,
     pub updated_unix_ms: u128,
@@ -248,6 +251,8 @@ fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
         output_active: false,
         last_stage_ok: true,
         timing: None,
+        overflow_dropped_utterance_count: overflow_dropped_utterance_count(),
+        evicted_pending_utterance_count: evicted_pending_utterance_count(),
         blocker: String::new(),
         note: "The finalized-utterance producer and serialized Meeting outbound consumer are source-connected. No output is active until an authoritative Live session produces finalized speech."
             .to_string(),
@@ -390,6 +395,8 @@ fn update_outbound_status(
             output_active,
             last_stage_ok,
             timing,
+            overflow_dropped_utterance_count: overflow_dropped_utterance_count(),
+            evicted_pending_utterance_count: evicted_pending_utterance_count(),
             blocker: blocker.to_string(),
             note: note.to_string(),
             updated_unix_ms: unix_ms(),

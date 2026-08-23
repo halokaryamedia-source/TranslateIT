@@ -11,18 +11,6 @@ pub struct VadGateConfig {
     pub min_speech_ms: u32,
 }
 
-impl Default for VadGateConfig {
-    fn default() -> Self {
-        Self {
-            min_rms: 0.0065,
-            min_peak: 0.024,
-            min_active_frame_ratio: 0.055,
-            max_clipping_ratio: 0.02,
-            min_speech_ms: 100,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeVadProfile {
     pub name: String,

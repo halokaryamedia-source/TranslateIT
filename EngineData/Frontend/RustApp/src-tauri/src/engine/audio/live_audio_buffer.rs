@@ -2,8 +2,8 @@ use serde::Serialize;
 use std::sync::{Mutex, OnceLock};
 
 use super::evidence::AudioEvidenceReport;
-use super::vad::{evaluate_vad_gate, VadGateConfig, VadGateResult};
-use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
+use super::vad::{evaluate_vad_gate, runtime_vad_profile, VadGateResult};
+use super::{duration_ms, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
 const MAX_BUFFER_MS: u32 = 2_000;
 const MIN_VAD_MS: u32 = 160;
@@ -174,7 +174,9 @@ fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport
     let buffered_samples = window.samples_mono.len();
     let buffered_duration_ms = duration_ms(buffered_samples, window.sample_rate_hz);
     let evidence = AudioEvidenceReport::from_samples(&window.samples_mono);
-    let vad_result = evaluate_vad_gate(evidence.clone(), &VadGateConfig::default());
+    // Diagnostics must evaluate with the SAME active gate profile the production
+    // speech pipeline uses, not a second divergent default threshold set.
+    let vad_result = evaluate_vad_gate(evidence.clone(), &runtime_vad_profile().gate);
     let requires_resample_to_target = window.sample_rate_hz != TARGET_SAMPLE_RATE_HZ;
     let source_downmixed_to_mono = window.source_channels != TARGET_CHANNELS;
     let ready_for_vad = buffered_duration_ms >= MIN_VAD_MS && vad_result.accepted;
@@ -260,13 +262,6 @@ fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
 fn max_buffer_samples(sample_rate_hz: u32) -> usize {
     let safe_rate = sample_rate_hz.max(1);
     ((safe_rate as u64 * MAX_BUFFER_MS as u64) / 1_000) as usize
-}
-
-fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
-    if sample_rate_hz == 0 {
-        return 0;
-    }
-    ((sample_count as u64 * 1_000) / sample_rate_hz as u64) as u32
 }
 
 fn inactive_status(blocker: &str, note: &str) -> LiveAudioBufferStatusReport {

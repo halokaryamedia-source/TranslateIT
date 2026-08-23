@@ -98,16 +98,30 @@ impl RuntimeSettings {
 fn write_atomic(path: &Path, body: &str) -> io::Result<()> {
     let temp_path = path.with_extension("json.tmp");
     fs::write(&temp_path, body)?;
+    // Preserve the previous good file before any destructive step so a crash between
+    // removing the destination and completing the retry rename cannot lose settings.
+    let backup_path = path.with_extension("json.bak");
+    if path.exists() {
+        fs::copy(path, &backup_path)?;
+    }
     match fs::rename(&temp_path, path) {
-        Ok(()) => Ok(()),
-        Err(error) => {
-            if path.exists() {
-                fs::remove_file(path)?;
-                fs::rename(&temp_path, path)
-            } else {
+        Ok(()) => {
+            let _ = fs::remove_file(&backup_path);
+            Ok(())
+        }
+        Err(first_error) => {
+            if !path.exists() {
                 let _ = fs::remove_file(&temp_path);
-                Err(error)
+                return Err(first_error);
             }
+            fs::remove_file(path)?;
+            if let Err(retry_error) = fs::rename(&temp_path, path) {
+                let _ = fs::copy(&backup_path, path);
+                let _ = fs::remove_file(&temp_path);
+                return Err(retry_error);
+            }
+            let _ = fs::remove_file(&backup_path);
+            Ok(())
         }
     }
 }

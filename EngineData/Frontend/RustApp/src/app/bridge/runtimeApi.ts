@@ -11,8 +11,6 @@ import type {
   RuntimeSettings,
 } from "../shared/types";
 
-export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
-
 export type AudioDeviceProbeReport = {
   ok: boolean;
   device_kind: string;
@@ -171,7 +169,7 @@ export type MeetingCommittedTurnsSnapshot = {
   runtime_claim: string;
 };
 
-const MAX_COMMAND_ERRORS = 25;
+const MAX_COMMAND_ERRORS = 12;
 
 type NativeInputPreparationStatus = InputPreparationStatus & {
   backend_id?: string;
@@ -393,10 +391,6 @@ async function invokeNullable<T>(command: string, args?: Record<string, unknown>
   return runCommand<T>(command, args);
 }
 
-function publishSettings(settings: RuntimeSettings): void {
-  window.dispatchEvent(new CustomEvent<RuntimeSettings>(RUNTIME_SETTINGS_SAVED_EVENT, { detail: settings }));
-}
-
 async function loadRuntimeSettings(): Promise<RuntimeSettings | null> {
   return invokeNullable<RuntimeSettings>("load_runtime_settings");
 }
@@ -533,19 +527,15 @@ export const runtimeApi = {
   },
 
   async saveSettings(settings: RuntimeSettings): Promise<CommandResult> {
-    const result = await invokeOr<CommandResult>(
+    return invokeOr<CommandResult>(
       "save_runtime_settings",
       { settings },
       commandFallback("Settings could not be saved because the frontend bridge could not call Tauri."),
     );
-    if (result.ok) publishSettings(settings);
-    return result;
   },
 
   async selectAudioDevice(kind: "microphone" | "meeting-sound", deviceId: string | null): Promise<AudioDeviceSelectionCommandResult | null> {
-    const result = await invokeNullable<AudioDeviceSelectionCommandResult>("select_audio_device", { kind, deviceId });
-    if (result?.ok) publishSettings(result.settings);
-    return result;
+    return invokeNullable<AudioDeviceSelectionCommandResult>("select_audio_device", { kind, deviceId });
   },
 
   async translateText(source: string): Promise<TextTranslationCommandResult> {

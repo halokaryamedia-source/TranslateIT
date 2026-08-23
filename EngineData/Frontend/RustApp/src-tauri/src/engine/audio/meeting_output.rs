@@ -325,12 +325,7 @@ fn prepare_output_samples(
 
 fn delivery_deadline_ms(sample_count: usize, channels: u16, sample_rate_hz: u32) -> u64 {
     let frames = sample_count / usize::from(channels.max(1));
-    let duration_ms = if sample_rate_hz == 0 {
-        0
-    } else {
-        ((frames as u128 * 1000) / u128::from(sample_rate_hz)).min(u128::from(u64::MAX)) as u64
-    };
-    duration_ms
+    u64::from(super::duration_ms(frames, sample_rate_hz))
         .saturating_mul(2)
         .saturating_add(2_000)
         .clamp(MIN_DELIVERY_DEADLINE_MS, MAX_DELIVERY_DEADLINE_MS)

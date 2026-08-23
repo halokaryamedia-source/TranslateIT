@@ -20,3 +20,12 @@ pub struct AudioFrame {
     pub channels: u16,
     pub samples: Vec<f32>,
 }
+
+// Single shared sample-count -> milliseconds conversion for the audio engine.
+// Truncation to u32 ms is intentional and identical to the former per-file copies.
+pub(crate) fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
+    if sample_rate_hz == 0 {
+        return 0;
+    }
+    ((sample_count as u64 * 1_000) / sample_rate_hz as u64) as u32
+}

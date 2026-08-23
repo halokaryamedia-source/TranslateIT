@@ -52,7 +52,6 @@ move_inputs_to_device = common.move_inputs_to_device
 input_token_count = common.input_token_count
 generation_eos_token_ids = common.generation_eos_token_ids
 generation_pad_token_ids = common.generation_pad_token_ids
-translation_generation_completion = common.translation_generation_completion
 resolve_worker_path = common.resolve_worker_path
 
 asr_model_ready = io_runtime.asr_model_ready
@@ -86,13 +85,6 @@ def translation_input_token_limit(tokenizer: Any, model: Any) -> int | None:
     return translation_envelope.input_token_limit(
         tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
     )
-
-
-def translation_generation_options(
-    tokenizer: Any, target_language: str, max_new_tokens: int
-) -> dict[str, Any]:
-    del tokenizer, target_language
-    return {"max_new_tokens": max_new_tokens, "return_dict_in_generate": True}
 
 
 def get_translation_runtime(source_language: str, target_language: str) -> dict[str, Any]:

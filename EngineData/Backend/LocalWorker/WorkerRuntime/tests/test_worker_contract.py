@@ -4,9 +4,12 @@ import importlib.util
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
+
+import milmmt_translation_provider
 
 WORKER_PATH = Path(__file__).resolve().parents[1] / "realtime_local_worker.py"
 
@@ -17,6 +20,53 @@ def load_worker_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+class _FakeInferenceMode:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+
+def _install_fake_generate_runtime(worker, sequences) -> dict:
+    captured: dict = {}
+
+    class FakeTokenizer:
+        eos_token_id = 2
+        pad_token_id = 1
+
+        def __call__(self, prompt, **kwargs):
+            del prompt
+            assert kwargs.get("add_special_tokens") is False
+            assert kwargs.get("truncation") is False
+            return {"input_ids": [[5, 6, 7]]}
+
+        def decode(self, ids, *, skip_special_tokens=True):
+            assert skip_special_tokens is True
+            return "halo dunia"
+
+    class FakeModel:
+        eos_token_id = 2
+        pad_token_id = 1
+
+        def generate(self, **kwargs):
+            captured.update(kwargs)
+            return types.SimpleNamespace(sequences=[list(sequence) for sequence in sequences])
+
+    worker.TRANSLATION_RUNTIME["id->en"] = {
+        "tokenizer": FakeTokenizer(),
+        "model": FakeModel(),
+        "device": "cpu",
+        "device_note": "cpu_runtime",
+        "precision": "fp32",
+        "translation_gpu_requested": True,
+        "translation_torch_cuda_available": False,
+        "translation_degraded": True,
+        "translation_fallback_reason": "torch_cuda_unavailable",
+    }
+    return captured
 
 
 def test_translate_routes_to_milmmt_without_legacy_mode_output(monkeypatch) -> None:
@@ -91,15 +141,23 @@ def test_worker_status_reports_milmmt_revision_for_both_directions(monkeypatch) 
         assert status["models"][key]["path"] == str(worker.TRANSLATION_MODEL)
 
 
-def test_milmmt_generation_options_are_deterministic_and_have_no_forced_bos() -> None:
+def test_milmmt_generate_options_are_greedy_deterministic_and_have_no_forced_bos(monkeypatch) -> None:
     worker = load_worker_module()
-    options = worker.translation_generation_options(object(), "id", 64)
-    assert options == {
-        "max_new_tokens": 64,
-        "do_sample": False,
-        "return_dict_in_generate": True,
-    }
-    assert "forced_bos_token_id" not in options
+    fake_torch = types.SimpleNamespace(inference_mode=_FakeInferenceMode)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: True)
+    captured = _install_fake_generate_runtime(worker, [[1, 2, 3, 9, 9, 2]])
+
+    result = worker.handle_translate(
+        {"text": "halo", "source_language": "id", "target_language": "en"}
+    )
+
+    assert result["ok"] is True
+    assert result["translated_text"] == "halo dunia"
+    assert captured["max_new_tokens"] == milmmt_translation_provider.MAX_NEW_TOKENS
+    assert captured["do_sample"] is False
+    assert captured["return_dict_in_generate"] is True
+    assert "forced_bos_token_id" not in captured
 
 
 def test_milmmt_standalone_source_limit_reserves_prompt_headroom() -> None:
@@ -107,30 +165,25 @@ def test_milmmt_standalone_source_limit_reserves_prompt_headroom() -> None:
     assert worker.translation_input_token_limit(object(), object()) == 1792
 
 
-def test_translation_completion_rejects_token_ceiling_without_eos() -> None:
+def test_milmmt_continuation_rejects_token_ceiling_without_eos(monkeypatch) -> None:
     worker = load_worker_module()
+    fake_torch = types.SimpleNamespace(inference_mode=_FakeInferenceMode)
+    monkeypatch.setitem(sys.modules, "torch", fake_torch)
+    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: True)
+    _install_fake_generate_runtime(worker, [[1, 2, 3] + [9] * 70])
 
-    class Tokenizer:
-        eos_token_id = 2
-        pad_token_id = 1
-
-    class Config:
-        is_encoder_decoder = True
-        eos_token_id = 2
-        pad_token_id = 1
-
-    class GenerationConfig:
-        eos_token_id = 2
-        pad_token_id = 1
-
-    class Model:
-        config = Config()
-        generation_config = GenerationConfig()
-
-    result = worker.translation_generation_completion(
-        [[0, 11, 12, 13]], Tokenizer(), Model(), max_new_tokens=3
+    result = worker.handle_translate(
+        {
+            "text": "halo",
+            "source_language": "id",
+            "target_language": "en",
+            "max_new_tokens": 16,
+        }
     )
+
+    assert result["ok"] is False
     assert result["complete"] is False
+    assert result["hit_token_ceiling"] is True
     assert result["blocker"] == "translation:output_hit_token_ceiling_without_eos"
 
 

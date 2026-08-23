@@ -14,6 +14,12 @@ pub const WORKER_CONTROL_RESPONSE_DEADLINE_MS: u128 = 5_000;
 pub const WORKER_STATUS_RESPONSE_DEADLINE_MS: u128 = 30_000;
 pub const WORKER_PRELOAD_RESPONSE_DEADLINE_MS: u128 = 120_000;
 pub const WORKER_INFERENCE_RESPONSE_DEADLINE_MS: u128 = 90_000;
+// Standalone Text translation gets exactly one attempt (transport retry is reserved
+// for MeetingOutbound lanes), so its host deadline must cover one full multi-chunk
+// job: realtime_local_worker_base.handle_standalone_text_translate runs sequential
+// per-chunk helper requests bounded by translation_envelope.MAX_STANDALONE_TRANSLATION_CHUNKS
+// and stops on cooperative deadline expiry between chunks.
+pub const STANDALONE_TRANSLATION_DEADLINE_MS: u128 = 180_000;
 pub const WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS: u128 = 45_000;
 pub const WORKER_FALLBACK_RESPONSE_DEADLINE_MS: u128 = WORKER_STATUS_RESPONSE_DEADLINE_MS;
 
@@ -34,6 +40,16 @@ pub fn worker_response_deadline_ms(task: &str) -> u128 {
         "voice_actor_synthesize" => WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS,
         _ => WORKER_FALLBACK_RESPONSE_DEADLINE_MS,
     }
+}
+
+// Deadline selection that distinguishes standalone translate work from MeetingOutbound
+// lanes using the scheduler priority already resolved for the request. Unknown/default
+// tasks keep the existing per-task class.
+pub fn worker_response_deadline_for_priority(task: &str, priority: HelperTaskPriority) -> u128 {
+    if task == "translate" && priority != HelperTaskPriority::MeetingOutbound {
+        return STANDALONE_TRANSLATION_DEADLINE_MS;
+    }
+    worker_response_deadline_ms(task)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -471,23 +487,6 @@ pub fn worker_text(value: &Value, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
-fn is_contract_only_response(value: &Value) -> bool {
-    let stage = value
-        .get("stage")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    let runtime_claim = value
-        .get("runtime_claim")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    stage == "dev_pipeline_contract_smoke"
-        || stage == "translation_handoff"
-        || stage == "tts_handoff"
-        || runtime_claim.contains("no_model_runtime_claim")
-        || runtime_claim.contains("no_decoder_runtime_claim")
-        || runtime_claim.contains("no_runtime_claim")
-}
-
 pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
     let asr_ready = worker_nested_bool(status, "readiness", "asr");
@@ -521,11 +520,6 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
 
     if stage == "local_realtime_worker_preflight" {
         apply_worker_status(runtime, value);
-    } else if is_contract_only_response(value) {
-        runtime.last_error = worker_text(value, "blocker").filter(|blocker| !blocker.is_empty());
-        runtime.message = worker_text(value, "note")
-            .or_else(|| worker_text(value, "stage"))
-            .unwrap_or_else(|| "Helper contract request completed.".to_string());
     } else {
         let blocker = worker_text(value, "blocker").unwrap_or_default();
         let hard_voice_actor_failure = stage == "voice_actor_synthesize"
@@ -952,6 +946,41 @@ mod deadline_policy_tests {
         assert_eq!(worker_response_deadline_ms("translate"), 90_000);
         assert_eq!(worker_response_deadline_ms("voice_actor_synthesize"), 45_000);
         assert_eq!(worker_response_deadline_ms("unknown"), 30_000);
+    }
+
+    #[test]
+    fn standalone_translation_deadline_applies_only_outside_meeting_outbound_priority() {
+        assert_eq!(STANDALONE_TRANSLATION_DEADLINE_MS, 180_000);
+        assert!(
+            STANDALONE_TRANSLATION_DEADLINE_MS > WORKER_INFERENCE_RESPONSE_DEADLINE_MS,
+            "standalone translate must get a strictly larger single-attempt budget"
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority(
+                "translate",
+                HelperTaskPriority::MeetingOutbound
+            ),
+            WORKER_INFERENCE_RESPONSE_DEADLINE_MS
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority(
+                "translate",
+                HelperTaskPriority::MeetingIncoming
+            ),
+            STANDALONE_TRANSLATION_DEADLINE_MS
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority("translate", HelperTaskPriority::Text),
+            STANDALONE_TRANSLATION_DEADLINE_MS
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority("transcribe", HelperTaskPriority::Text),
+            WORKER_INFERENCE_RESPONSE_DEADLINE_MS
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority("unknown", HelperTaskPriority::Diagnostic),
+            WORKER_FALLBACK_RESPONSE_DEADLINE_MS
+        );
     }
 
     #[test]

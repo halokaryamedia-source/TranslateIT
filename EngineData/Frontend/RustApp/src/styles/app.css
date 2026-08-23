@@ -143,6 +143,10 @@
     background: var(--ti-accent-hover);
   }
 
+  .ti-button:active:not(:disabled) {
+    background: var(--ti-accent);
+  }
+
   .ti-button-secondary {
     border-color: var(--ti-border);
     background: var(--ti-surface-raised);
@@ -154,6 +158,10 @@
     background: var(--ti-surface-hover);
   }
 
+  .ti-button-secondary:active:not(:disabled) {
+    background: var(--ti-surface-soft);
+  }
+
   .ti-button-danger {
     border-color: var(--ti-danger-border);
     background: var(--ti-danger-surface);
@@ -161,7 +169,11 @@
   }
 
   .ti-button-danger:hover:not(:disabled) {
-    background: #361a1f;
+    background: var(--ti-danger-hover);
+  }
+
+  .ti-button-danger:active:not(:disabled) {
+    background: var(--ti-danger-surface);
   }
 
   .ti-field {
@@ -213,7 +225,7 @@
 
   .ti-kicker {
     color: var(--ti-text-muted);
-    font-size: 0.68rem;
+    font-size: 0.6875rem;
     font-weight: 650;
     letter-spacing: 0.09em;
     text-transform: uppercase;

@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / TARGET-PC ACCEPTANCE IN PROGRESS / FRESH-CLONE + POWERSHELL 5.1 FIXES MERGED / LOCAL RERUN REQUIRED / HANDOFF READY`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / TARGET-PC ACCEPTANCE IN PROGRESS / FRESH-CLONE + POWERSHELL 5.1 FIXES MERGED / AUDIT CLEANUP WAVE APPLIED UNCOMMITTED ON LOCAL / LOCAL RERUN REQUIRED / HANDOFF READY`
 
 ## Active Boundary
 
@@ -15,6 +15,7 @@
 - Fresh-clone bootstrap checks build prerequisites, runs locked `npm ci` when needed, stages ignored private runtime/model/audio inputs plus reviewed license material, then delegates to build/install/acceptance. Large release inputs intentionally remain outside Git and first staging may download several GB.
 - `scripts/stage_release_inputs.ps1` is the PowerShell-version compatibility entrypoint; `stage_release_inputs_impl.ps1` is the full staging implementation. Windows PowerShell 5.1 compatibility is limited to the unsupported `utf8NoBOM` encoding token for a temporary generated Python helper.
 - Automated acceptance covers Setup/Payload identity, install/restart state, private runtime/dependencies, VB-CABLE presence, CUDA/BF16, ASR preload, MiLMMT preload, and installed-worker ID→EN + EN→ID. Physical microphone, My Voice listening quality, Meeting-app reception, repeated Meeting lifecycle, uninstall/reinstall, and clean-machine proof remain manual target-PC evidence.
+- Architecture-audit cleanup (uncommitted on `Local`, all static proofs green: `validate:quick`, `cargo check/test` 47/47 with dead-code denies, ruff/compileall, `verify_repository.py`): stale contract validators repaired and wired into CI (`code-health.yml` runs the previously orphaned validators; `release-payload-verify.yml` parses the staging/installer PowerShell), frontend readiness single-sourced through the facade (approved My Voice truth included) with one close-decision ladder, dead compat matcher/orphaned generation helpers removed, standalone Text translate deadline class (180s) separated from MeetingOutbound 90s, ASR blocker taxonomy split, silent-loss counters surfaced, `write_atomic` settings backup/restore hardened, VAD diagnostics aligned to the active profile, input preflight no longer hard-rejects convertible formats. Deferred pending target-PC evidence or a product decision: capture-callback hot-path consolidation (C1), delivery-tail drain semantics, model-byte SHA-256 pinning, post-build Setup hook scan, context/tone absence policy.
 
 ## Observed Target-PC Test Evidence
 

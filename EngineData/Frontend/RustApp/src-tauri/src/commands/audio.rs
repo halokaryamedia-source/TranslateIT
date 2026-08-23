@@ -130,8 +130,18 @@ fn find_output_device(
 
 #[tauri::command]
 pub fn list_audio_devices() -> AudioDeviceListReport {
-    let input_devices = collect_devices(true).unwrap_or_default();
-    let output_devices = collect_devices(false).unwrap_or_default();
+    let collected_input = collect_devices(true);
+    let collected_output = collect_devices(false);
+    let enumeration_error = match (&collected_input, &collected_output) {
+        (Ok(_), Ok(_)) => String::new(),
+        (Err(error), Err(other)) => format!("{error}; {other}"),
+        (Err(error), _) | (_, Err(error)) => error.clone(),
+    }
+    .chars()
+    .take(400)
+    .collect::<String>();
+    let input_devices = collected_input.unwrap_or_default();
+    let output_devices = collected_output.unwrap_or_default();
     let ok = !input_devices.is_empty() || !output_devices.is_empty();
     AudioDeviceListReport {
         ok,
@@ -139,10 +149,14 @@ pub fn list_audio_devices() -> AudioDeviceListReport {
         output_devices,
         blocker: if ok {
             String::new()
-        } else {
+        } else if enumeration_error.is_empty() {
             "audio_devices:not_found".to_string()
+        } else {
+            format!("audio_devices:host_enumeration_failed:{enumeration_error}")
         },
-        note: if ok {
+        note: if !enumeration_error.is_empty() {
+            format!("Native host device enumeration reported an error: {enumeration_error}")
+        } else if ok {
             "Audio devices were discovered from the native host.".to_string()
         } else {
             "No audio input or output devices were discovered from the native host.".to_string()

@@ -1,3 +1,7 @@
+export const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting";
+
+export type AppRoute = "meeting" | "text" | "my-voice" | "settings";
+
 export type CommandResult = {
   ok: boolean;
   state: string;

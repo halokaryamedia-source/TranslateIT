@@ -216,7 +216,7 @@
       <label class="ti-editor-pane grid gap-3 border-r border-[var(--ti-border)]">
         <div class="flex items-center justify-between gap-3">
           <span class="ti-field-label">Enter text</span>
-          <span class="text-[10.5px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
+          <span class="text-[11px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
         </div>
         <textarea
           class="ti-editor"
@@ -247,7 +247,7 @@
     <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
       <div class="min-w-0">
         <p class="m-0 text-[12.5px] text-[var(--ti-text-muted)]" aria-live="polite">{resultMessage}</p>
-        <p class="mb-0 mt-1 text-[10.5px] text-[var(--ti-text-soft)]">Ctrl + Enter to translate</p>
+        <p class="mb-0 mt-1 text-[11px] text-[var(--ti-text-soft)]">Ctrl + Enter to translate</p>
       </div>
       <div class="ti-action-row shrink-0">
         <button type="button" class="ti-button ti-button-secondary min-w-24" disabled={!targetText.trim()} onclick={() => void copyTranslation()}>

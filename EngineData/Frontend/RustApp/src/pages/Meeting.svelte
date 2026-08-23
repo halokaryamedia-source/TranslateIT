@@ -8,7 +8,6 @@
     type VirtualMicRouteContractStatus,
   } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
-  import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
 
@@ -35,10 +34,10 @@
   } = $props();
 
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
-  let myVoiceReady = $state<boolean | null>(null);
 
   const readiness = $derived(snapshot.readiness);
   const meeting = $derived(snapshot.meeting);
+  const myVoiceReady = $derived(readiness.approvedVoiceReady);
   const runtimeUnavailable = $derived(readiness.level === "unavailable" || meeting.label === "Unavailable");
   const checking = $derived(readiness.level === "checking" && !meeting.hasSession);
   const microphone = $derived(
@@ -93,22 +92,13 @@
     }
   }
 
-  async function refreshMyVoiceStatus(): Promise<void> {
-    try {
-      myVoiceReady = (await myVoiceBuildApi.getStatus()).approved_voice_ready;
-    } catch {
-      myVoiceReady = null;
-    }
-  }
-
   async function refreshMeetingSetup(): Promise<void> {
     await onRefresh();
-    await Promise.all([refreshRouteStatus(), refreshMyVoiceStatus()]);
+    await refreshRouteStatus();
   }
 
   onMount(() => {
-    void refreshRouteStatus();
-    void refreshMyVoiceStatus();
+    void refreshMeetingSetup();
   });
 </script>
 

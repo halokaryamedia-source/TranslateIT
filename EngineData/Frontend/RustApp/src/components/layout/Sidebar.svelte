@@ -1,7 +1,6 @@
 <script lang="ts">
   import { AudioLines, Languages, Mic, Settings } from "@lucide/svelte";
-
-  type AppRoute = "meeting" | "text" | "my-voice" | "settings";
+  import type { AppRoute } from "../../app/shared/types";
 
   let {
     active,
@@ -39,10 +38,10 @@
 
 <aside class="flex min-h-screen w-[var(--ti-sidebar-width)] shrink-0 flex-col border-r border-[var(--ti-border)] bg-[var(--ti-sidebar)] px-3 py-4">
   <header class="flex items-center gap-2.5 px-2 py-1">
-    <div class="grid size-9 place-items-center rounded-[10px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-sm font-bold">T</div>
+    <div class="grid size-9 place-items-center rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-sm font-bold">T</div>
     <div class="min-w-0">
       <h1 class="m-0 truncate text-[14px] font-bold tracking-[-0.02em]">TranslateIT</h1>
-      <p class="mt-0.5 truncate text-[10.5px] text-[var(--ti-text-soft)]">Indonesian ↔ English</p>
+      <p class="mt-0.5 truncate text-[11px] text-[var(--ti-text-soft)]">Indonesian ↔ English</p>
     </div>
   </header>
 
@@ -51,7 +50,7 @@
       {@const Icon = item.icon}
       <button
         type="button"
-        class={`group grid min-h-11 grid-cols-[20px_1fr] items-center gap-2.5 rounded-[10px] border px-3 text-left transition-colors ${active === item.route ? "border-[var(--ti-border)] bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "border-transparent text-[var(--ti-text-muted)] hover:bg-[var(--ti-surface-soft)] hover:text-[var(--ti-text)]"}`}
+        class={`group grid min-h-11 grid-cols-[20px_1fr] items-center gap-2.5 rounded-[var(--ti-radius-md)] border px-3 text-left transition-colors ${active === item.route ? "border-[var(--ti-border)] bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "border-transparent text-[var(--ti-text-muted)] hover:bg-[var(--ti-surface-soft)] hover:text-[var(--ti-text)]"}`}
         aria-current={active === item.route ? "page" : undefined}
         title={item.description}
         onclick={() => onNavigate(item.route)}

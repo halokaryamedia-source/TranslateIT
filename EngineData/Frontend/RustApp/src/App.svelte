@@ -6,14 +6,21 @@
   import {
     mapProductMeetingState,
     mapProductReadiness,
+    meetingBridgeUnavailable,
     runtimeProductFacade,
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
   import { myVoiceApi } from "./app/bridge/myVoiceApi";
   import { myVoiceBuildApi } from "./app/bridge/myVoiceBuildApi";
-  import { defaultSettings } from "./app/shared/state";
-  import type { RuntimeSettings } from "./app/shared/types";
+  import { cloneSettings, compact, defaultSettings } from "./app/shared/state";
+  import type {
+    AppRoute,
+    HelperBridgeStatus,
+    HelperBridgeWorkerResponse,
+    InputPreparationStatus,
+    RuntimeSettings,
+  } from "./app/shared/types";
   import Sidebar from "./components/layout/Sidebar.svelte";
   import FirstSetup from "./pages/FirstSetup.svelte";
   import Meeting from "./pages/Meeting.svelte";
@@ -22,19 +29,23 @@
   import Text from "./pages/Text.svelte";
 
   const MEETING_REFRESH_MS = 1200;
-  type AppRoute = "meeting" | "text" | "my-voice" | "settings";
   type CloseDialogAction = "stop" | "retry" | null;
 
   let booting = $state(true);
   let setupRequired = $state(false);
   let setupSettings = $state<RuntimeSettings>(defaultSettings());
-  let snapshot = $state<ProductRuntimeSnapshot | null>(null);
   let route = $state<AppRoute>("meeting");
   let notice = $state("Getting TranslateIT ready...");
   let meetingActionBusy = $state(false);
   let setupActionBusy = $state(false);
   let micTestBusy = $state(false);
   let myVoiceRecording = $state(false);
+  let runtimeLoaded = $state(false);
+  let runtimeSettings = $state<RuntimeSettings>(defaultSettings());
+  let helperStatus = $state<HelperBridgeStatus | null>(null);
+  let workerStatus = $state<HelperBridgeWorkerResponse | null>(null);
+  let inputStatus = $state<InputPreparationStatus | null>(null);
+  let approvedVoiceReady = $state<boolean | null>(null);
   let meetingStatus = $state<MeetingSessionStatus | null>(null);
   let meetingTurns = $state<MeetingCommittedTurnsSnapshot | null>(null);
 
@@ -48,15 +59,25 @@
   let closeCheckInFlight = false;
   let lastTranscriptStatusKey = "";
 
-  function cloneSettings(value: RuntimeSettings): RuntimeSettings {
-    return { ...value, audio: { ...value.audio } };
-  }
-
-  function compactNotice(value: unknown): string {
-    const clean = String(value ?? "").replace(/\s+/g, " ").trim();
-    if (!clean) return "Status unavailable.";
-    return clean.length > 220 ? `${clean.slice(0, 219).trimEnd()}…` : clean;
-  }
+  const snapshot = $derived.by<ProductRuntimeSnapshot | null>(() => {
+    if (!runtimeLoaded) return null;
+    return {
+      settings: runtimeSettings,
+      helper: helperStatus,
+      workerStatus,
+      inputStatus,
+      meetingSession: meetingStatus,
+      meeting: mapProductMeetingState(meetingStatus),
+      readiness: mapProductReadiness({
+        settings: runtimeSettings,
+        helper: helperStatus,
+        workerStatus,
+        inputStatus,
+        meetingSession: meetingStatus,
+        approvedVoiceReady,
+      }),
+    };
+  });
 
   const presence = $derived(
     snapshot?.meeting.live
@@ -76,10 +97,6 @@
     closeDialogAction === "retry" ? "Try Again" : stopAndCloseBusy ? "Stopping..." : "Stop & Close",
   );
 
-  function meetingStatusUnavailable(status: MeetingSessionStatus): boolean {
-    return status.runtime_claim === "frontend_bridge_unavailable" || status.lifecycle === "unavailable";
-  }
-
   function transcriptStatusKey(status: MeetingSessionStatus): string {
     return [
       status.session_id ?? "none",
@@ -90,7 +107,7 @@
   }
 
   function setNotice(message: string): void {
-    notice = compactNotice(message);
+    notice = compact(message, "Status unavailable.", 220);
   }
 
   function navigate(next: AppRoute): void {
@@ -103,20 +120,6 @@
 
   function applyMeetingStatus(status: MeetingSessionStatus, preferredNotice?: string): void {
     meetingStatus = status;
-    if (!snapshot) {
-      if (preferredNotice) setNotice(preferredNotice);
-      return;
-    }
-
-    const meeting = mapProductMeetingState(status);
-    const readiness = mapProductReadiness({
-      settings: snapshot.settings,
-      helper: snapshot.helper,
-      workerStatus: snapshot.workerStatus,
-      inputStatus: snapshot.inputStatus,
-      meetingSession: status,
-    });
-    snapshot = { ...snapshot, meetingSession: status, meeting, readiness };
     if (preferredNotice) setNotice(preferredNotice);
   }
 
@@ -124,11 +127,16 @@
     try {
       const previousSessionId = snapshot?.meeting.sessionId ?? null;
       const next = await runtimeProductFacade.loadProductRuntimeSnapshot(knownSettings);
+      runtimeSettings = cloneSettings(next.settings);
       setupSettings = cloneSettings(next.settings);
+      helperStatus = next.helper;
+      workerStatus = next.workerStatus;
+      inputStatus = next.inputStatus;
+      approvedVoiceReady = next.readiness.approvedVoiceReady;
 
       if (next.settings.meeting_setup_state === "new") {
         setupRequired = true;
-        snapshot = null;
+        runtimeLoaded = false;
         meetingStatus = null;
         meetingTurns = null;
         lastTranscriptStatusKey = "";
@@ -137,7 +145,7 @@
       }
 
       setupRequired = false;
-      snapshot = next;
+      runtimeLoaded = true;
       meetingStatus = next.meetingSession;
       if (!next.meeting.hasSession || previousSessionId !== next.meeting.sessionId) {
         meetingTurns = null;
@@ -151,17 +159,8 @@
 
   async function applySettings(next: RuntimeSettings): Promise<void> {
     const nextSettings = cloneSettings(next);
+    runtimeSettings = nextSettings;
     setupSettings = nextSettings;
-    if (!snapshot) return;
-
-    const readiness = mapProductReadiness({
-      settings: nextSettings,
-      helper: snapshot.helper,
-      workerStatus: snapshot.workerStatus,
-      inputStatus: snapshot.inputStatus,
-      meetingSession: snapshot.meetingSession,
-    });
-    snapshot = { ...snapshot, settings: nextSettings, readiness };
   }
 
   async function finishFirstSetup(next: RuntimeSettings): Promise<void> {
@@ -219,7 +218,7 @@
   async function runSetupAction(action: ProductSetupAction): Promise<void> {
     if (setupActionBusy) return;
     setupActionBusy = true;
-    setNotice(action === "verify-models" ? "Checking translation files..." : action === "check-microphone" ? "Checking microphone..." : "Checking setup...");
+    setNotice(action === "verify-models" ? "Checking translation files..." : "Checking setup...");
     try {
       const message = await runtimeProductFacade.runProductSetupAction(action);
       await refreshSnapshot(message);
@@ -279,7 +278,7 @@
       const status = await runtimeApi.getMeetingSessionStatus();
       applyMeetingStatus(status);
 
-      if (meetingStatusUnavailable(status)) {
+      if (meetingBridgeUnavailable(status)) {
         meetingTurns = null;
         lastTranscriptStatusKey = "";
         setNotice("Meeting translation is temporarily unavailable.");
@@ -311,7 +310,7 @@
 
   function showCloseDialog(title: string, message: string, action: CloseDialogAction): void {
     closeDialogTitle = title;
-    closeDialogMessage = compactNotice(message);
+    closeDialogMessage = compact(message, "Status unavailable.", 220);
     closeDialogAction = action;
     closeDialogOpen = true;
   }
@@ -329,89 +328,99 @@
     await getCurrentWindow().destroy();
   }
 
-  async function myVoiceBlocksClose(): Promise<boolean> {
+  type CloseVerdict =
+    | { kind: "dialog"; title: string; message: string; action: CloseDialogAction }
+    | { kind: "destroy" }
+    | { kind: "stop-and-close" };
+
+  function closeDialog(title: string, message: string, action: CloseDialogAction): CloseVerdict {
+    return { kind: "dialog", title, message, action };
+  }
+
+  async function resolveCloseVerdict(): Promise<CloseVerdict> {
     const myVoice = await myVoiceApi.getState();
     if (myVoice.recording_line_id !== null) {
-      showCloseDialog(
+      return closeDialog(
         "Voice recording is still running",
         "Stop the current My Voice recording before closing TranslateIT so the take can be reviewed safely.",
         null,
       );
-      return true;
     }
     if (myVoice.pending_review) {
-      showCloseDialog(
+      return closeDialog(
         "Review the current voice take",
         "Accept or retry the current My Voice take before closing TranslateIT.",
         null,
       );
-      return true;
     }
 
     const build = await myVoiceBuildApi.getStatus();
     if (build.phase === "unavailable") {
-      showCloseDialog(
+      return closeDialog(
         "Can't check My Voice yet",
         "TranslateIT can't confirm whether My Voice is still being created. Keep the app open and try again.",
         "retry",
       );
-      return true;
     }
     if (build.active) {
-      showCloseDialog(
+      return closeDialog(
         "My Voice is still being created",
         "Stop My Voice creation before closing TranslateIT so the training process can end safely.",
         null,
       );
-      return true;
     }
-    return false;
+
+    const status = await runtimeApi.getMeetingSessionStatus();
+    if (meetingBridgeUnavailable(status)) {
+      return closeDialog(
+        "Can't check the meeting yet",
+        "TranslateIT can't confirm whether Meeting translation is still active. Keep the app open or try the check again.",
+        "retry",
+      );
+    }
+    if (!status.has_session) return { kind: "destroy" };
+
+    const meeting = mapProductMeetingState(status);
+    if (!meeting.applicationOwned) {
+      return closeDialog(
+        "Audio is still in use",
+        "Another TranslateIT action is still using the microphone. Finish that action before closing the app.",
+        null,
+      );
+    }
+    if (meeting.lifecycle === "stopping") {
+      closeAfterExistingStop = true;
+      return closeDialog(
+        "Translation is stopping",
+        "TranslateIT will close after Meeting translation finishes stopping.",
+        null,
+      );
+    }
+
+    return { kind: "stop-and-close" };
+  }
+
+  function applyCloseVerdict(verdict: CloseVerdict): void {
+    if (verdict.kind === "destroy") {
+      void destroyNativeWindow();
+      return;
+    }
+    if (verdict.kind === "stop-and-close") {
+      showCloseDialog(
+        "Translation is still running",
+        "Stop & Close ends Meeting translation safely before closing TranslateIT.",
+        "stop",
+      );
+      return;
+    }
+    showCloseDialog(verdict.title, verdict.message, verdict.action);
   }
 
   async function inspectNativeCloseRequest(): Promise<void> {
     if (closeCheckInFlight || stopAndCloseBusy) return;
     closeCheckInFlight = true;
     try {
-      if (await myVoiceBlocksClose()) return;
-
-      const status = await runtimeApi.getMeetingSessionStatus();
-      if (meetingStatusUnavailable(status)) {
-        showCloseDialog(
-          "Can't check the meeting yet",
-          "TranslateIT can't confirm whether Meeting translation is still active. Keep the app open or try the check again.",
-          "retry",
-        );
-        return;
-      }
-
-      const meeting = mapProductMeetingState(status);
-      if (!status.has_session) {
-        await destroyNativeWindow();
-        return;
-      }
-      if (!meeting.applicationOwned) {
-        showCloseDialog(
-          "Audio is still in use",
-          "Another TranslateIT action is still using the microphone. Finish that action before closing the app.",
-          null,
-        );
-        return;
-      }
-      if (meeting.lifecycle === "stopping") {
-        closeAfterExistingStop = true;
-        showCloseDialog(
-          "Translation is stopping",
-          "TranslateIT will close after Meeting translation finishes stopping.",
-          null,
-        );
-        return;
-      }
-
-      showCloseDialog(
-        "Translation is still running",
-        "Stop & Close ends Meeting translation safely before closing TranslateIT.",
-        "stop",
-      );
+      applyCloseVerdict(await resolveCloseVerdict());
     } finally {
       closeCheckInFlight = false;
     }
@@ -421,26 +430,9 @@
     if (stopAndCloseBusy) return;
     stopAndCloseBusy = true;
     try {
-      if (await myVoiceBlocksClose()) return;
-
-      const status = await runtimeApi.getMeetingSessionStatus();
-      if (meetingStatusUnavailable(status)) {
-        showCloseDialog("Can't check the meeting yet", "TranslateIT still can't confirm the Meeting state. Keep the app open or try again.", "retry");
-        return;
-      }
-
-      const meeting = mapProductMeetingState(status);
-      if (!status.has_session) {
-        await destroyNativeWindow();
-        return;
-      }
-      if (!meeting.applicationOwned) {
-        showCloseDialog("Audio is still in use", "Another TranslateIT action is using the microphone. Finish that action before closing.", null);
-        return;
-      }
-      if (meeting.lifecycle === "stopping") {
-        closeAfterExistingStop = true;
-        showCloseDialog("Translation is stopping", "TranslateIT will close after translation finishes stopping.", null);
+      const verdict = await resolveCloseVerdict();
+      if (verdict.kind !== "stop-and-close") {
+        applyCloseVerdict(verdict);
         return;
       }
 
@@ -451,7 +443,7 @@
       }
 
       const verified = await runtimeApi.getMeetingSessionStatus();
-      if (meetingStatusUnavailable(verified)) {
+      if (meetingBridgeUnavailable(verified)) {
         showCloseDialog("Couldn't confirm Stop", "TranslateIT couldn't confirm that Meeting translation ended, so the app will stay open.", "retry");
         return;
       }

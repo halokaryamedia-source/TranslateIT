@@ -4,7 +4,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 use super::finalized_utterance::FinalizedMeetingUtterance;
-use super::TARGET_SAMPLE_RATE_HZ;
+use super::{duration_ms, TARGET_SAMPLE_RATE_HZ};
 use crate::engine::paths::ProjectPaths;
 
 const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
@@ -288,11 +288,4 @@ fn safe_sample(value: f32) -> f32 {
     } else {
         0.0
     }
-}
-
-fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
-    if sample_rate_hz == 0 {
-        return 0;
-    }
-    ((sample_count as u64 * 1_000) / sample_rate_hz as u64) as u32
 }

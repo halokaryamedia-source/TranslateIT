@@ -20,7 +20,8 @@ use super::bridge_paths::{
 use super::helper_bridge_runtime::{
     acquire_helper_task_permit, action_result, apply_worker_response, apply_worker_status,
     clear_active_request, read_worker_response_direct_with_deadline, runtime, set_blocked,
-    spawn_stderr_logger, status_from_runtime, stop_child, unix_ms, worker_response_deadline_ms,
+    spawn_stderr_logger, status_from_runtime, stop_child, unix_ms,
+    worker_response_deadline_for_priority, worker_response_deadline_ms,
     write_worker_request_with_deadline, HelperBridgeActionResult, HelperBridgeStatus,
     HelperTaskPriority,
 };
@@ -539,7 +540,7 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
         }
     };
     let request_id = permit.request_id().to_string();
-    let response_deadline_ms = worker_response_deadline_ms(task);
+    let response_deadline_ms = worker_response_deadline_for_priority(task, priority);
 
     // An incoming request may have entered the scheduler before outbound claimed the
     // pipeline. Re-check after permit acquisition so queued optional work cannot slip
