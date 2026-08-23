@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / REPO-SIDE CLEANUP CLOSED / WINDOWS R3 HOSTED PAYLOAD PROOF PASSED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / INSTALLER-FREE WORKER SMOKE GREEN EXCEPT APPROVED-ACTOR-MISSING / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6 + A7 GREEN / NEXT SCENARIO A8 MANUAL MY VOICE`
+`MILMMT-46-1B-v1.0 CURRENT / MY VOICE NAMING NORMALIZED / AUDIT CLEANUP COMMITTED / WORKSPACE -45 GB / INSTALLER-FREE WORKER SMOKE GREEN EXCEPT APPROVED-ACTOR-MISSING / R3 MEGA-GATE RETIRED FOR SCENARIO SUITE D-031 / A6 + A7 GREEN / NEXT SCENARIO A8 MANUAL MY VOICE`
 
 ## Active Boundary
 
@@ -25,10 +25,9 @@
 4. Fresh-clone attempt 2 failed because Windows PowerShell 5.1 does not support `Set-Content -Encoding utf8NoBOM`.
 5. PR #37 / commit `baac4c3af9ea63b463e0c5c1e1bac206217c402c` added the PowerShell 5.1 staging compatibility boundary while preserving the canonical staging implementation and MiLMMT contract markers. R3 source-contract and canonical MiLMMT validation passed before merge.
 6. **No target-PC success claim yet.** The PowerShell 5.1 fix has not yet completed a full rerun. Setup, installed private runtime, CUDA/BF16, ASR/MiLMMT execution, VB-CABLE, microphone, My Voice, Meeting delivery, uninstall/reinstall, and clean-machine acceptance remain unproven until reached on the Windows PC.
-7. Installer-free smoke baseline (2026-08-23): `validate:quick` passed; worker smoke on CUDA BF16 green for ASR preload plus both MiLMMT directions with canonical contract markers and persistent lifecycle. Only red: `voice_actor:approved_actor_missing`. Evidence: `UserData/LogData/RustAppValidation/latest_worker_smoke_result.json`.
-8. Scenario A6 (2026-08-23): `-IncludeOverLengthProbe` (smoke schema v9) sent a 3000-char translate; rejected `ok:false`, blocker `translation:text_too_large`, before any compaction (`elapsed_ms=0`).
-9. Scenario A7 (2026-08-23): fixture `test_milmmt_continuation_rejects_token_ceiling_without_eos` passed against `_continuation`, blocker `translation:output_hit_token_ceiling_without_eos`. Evidence: `UserData/LogData/RustAppValidation/a7_incomplete_generation_pytest.txt`. Dev-tree unit proof.
-10. Full automated sweep (2026-08-23): `validate:quick` PASS; `cargo test` 47/47 after full target rebuild; smoke v9 A1–A7 green. Full `pytest tests/` shows 8 failures, all pre-existing at HEAD before the cleanup wave: 7× `test_voice_actor_inference.py` (`voice_actor_provider` attr mismatch vs exec-composed worker module) plus the gpu-probe monkeypatch gap on this CUDA host. Evidence: `UserData/LogData/RustAppValidation/full_pytest_sweep.txt`.
+7. Installer-free smoke baseline (2026-08-23): CUDA BF16 worker smoke green for ASR preload, both MiLMMT directions with canonical markers, and persistent lifecycle. Only red: `voice_actor:approved_actor_missing`. Evidence: `UserData/LogData/RustAppValidation/latest_worker_smoke_result.json`.
+8. Scenarios A6+A7 (2026-08-23): over-length translate rejected `translation:text_too_large` with zero compaction (`-IncludeOverLengthProbe`, smoke schema v9); fixture `test_milmmt_continuation_rejects_token_ceiling_without_eos` passed, blocker `translation:output_hit_token_ceiling_without_eos`. Evidence under `UserData/LogData/RustAppValidation/`.
+9. Full automated sweep + My Voice readiness (2026-08-23): `validate:quick` PASS; `cargo test` 47/47; smoke v9 A1–A7 green. The 7 stale `test_voice_actor_inference.py` cases (test-only debt from the worker module split) were repaired to 8/8 green by retargeting `io_runtime.voice_actor_provider`, `io_runtime.common` cache roots, and `io_runtime.get_voice_actor_runtime`. Production My Voice code audited sound end-to-end: consent-gated start, crash-safe promotion, double token binding, exact-revision assets, all 11 bridge commands UI-consumed. Remaining pytest red: pre-existing gpu-probe monkeypatch gap on this CUDA host. Evidence: `UserData/LogData/RustAppValidation/a8_readiness_pytest_after_fix.txt`.
 
 ## Current Entry Points
 

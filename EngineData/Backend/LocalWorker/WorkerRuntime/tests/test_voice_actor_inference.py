@@ -10,7 +10,9 @@ from test_worker_contract import load_worker_module
 
 
 def load_provider_module():
-    return load_worker_module().voice_actor_provider
+    # The composed worker module re-exports io_runtime; the provider lives on
+    # that runtime module, not on the worker namespace (post-split layout).
+    return load_worker_module().io_runtime.voice_actor_provider
 
 
 def write_reference_wav(path: Path, duration_ms: int = 4_000) -> None:
@@ -60,11 +62,11 @@ def test_worker_reuses_actor_runtime_until_package_identity_changes(monkeypatch)
     worker.clear_voice_actor_runtime()
     current = {"fingerprint": (("actor.json", 1, 1),)}
     loads: list[object] = []
-    monkeypatch.setattr(worker.voice_actor_provider, "validate_actor_package", lambda _path: {"fingerprint": current["fingerprint"]})
+    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "validate_actor_package", lambda _path: {"fingerprint": current["fingerprint"]})
     def load_runtime(_source, _actor):
         loads.append(current["fingerprint"])
         return {"fingerprint": current["fingerprint"], "device": "cpu", "reference_cached": True}
-    monkeypatch.setattr(worker.voice_actor_provider, "load_voice_actor_runtime", load_runtime)
+    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "load_voice_actor_runtime", load_runtime)
     first = worker.get_voice_actor_runtime()
     second = worker.get_voice_actor_runtime()
     assert first is second
@@ -79,16 +81,16 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     worker = load_worker_module()
     cache = tmp_path / "CacheData"
     cache.mkdir()
-    monkeypatch.setattr(worker, "CACHE_ROOT", cache)
-    monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
+    monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
+    monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
     fingerprint = (("actor.json", 1, 1),)
     monkeypatch.setattr(
-        worker.voice_actor_provider,
+        worker.io_runtime.voice_actor_provider,
         "validate_actor_package",
         lambda _root: {"fingerprint": fingerprint},
     )
     monkeypatch.setattr(
-        worker,
+        worker.io_runtime,
         "get_voice_actor_runtime",
         lambda: {
             "device": "cpu",
@@ -99,7 +101,7 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     def synthesize(_runtime, _text, output_path):
         output_path.write_bytes(b"R" * 80)
         return {"sample_rate": 32_000, "device": "cpu", "reference_cached": True}
-    monkeypatch.setattr(worker.voice_actor_provider, "synthesize_voice_actor", synthesize)
+    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "synthesize_voice_actor", synthesize)
     output = cache / "myvoice.wav"
     result = worker.handle_voice_actor_synthesize({"text": "Hello from My Voice.", "output_path": str(output)})
     assert result["ok"] is True
@@ -114,11 +116,11 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
     cache.mkdir()
     output = cache / "stale.wav"
     output.write_bytes(b"old" * 40)
-    monkeypatch.setattr(worker, "CACHE_ROOT", cache)
-    monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
+    monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
+    monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
     def unavailable():
-        raise worker.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
-    monkeypatch.setattr(worker, "get_voice_actor_runtime", unavailable)
+        raise worker.io_runtime.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
+    monkeypatch.setattr(worker.io_runtime, "get_voice_actor_runtime", unavailable)
     result = worker.handle_voice_actor_synthesize({"text": "Hello.", "output_path": str(output)})
     assert result["ok"] is False
     assert result["blocker"] == "voice_actor:approved_actor_missing"
@@ -128,12 +130,12 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
 def test_static_worker_readiness_requires_approved_actor_and_inference_assets(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(
-        worker.voice_actor_provider,
+        worker.io_runtime.voice_actor_provider,
         "validate_actor_package",
         lambda _root: {"fingerprint": (("actor.json", 1, 1),)},
     )
     monkeypatch.setattr(
-        worker.voice_actor_provider,
+        worker.io_runtime.voice_actor_provider,
         "inference_source_assets",
         lambda _root: {"gsv": Path("gsv")},
     )
@@ -146,10 +148,10 @@ def test_meeting_actor_token_rejects_mid_session_actor_change(tmp_path: Path, mo
     worker = load_worker_module()
     cache = tmp_path / "CacheData"
     cache.mkdir()
-    monkeypatch.setattr(worker, "CACHE_ROOT", cache)
-    monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
+    monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
+    monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
     monkeypatch.setattr(
-        worker.voice_actor_provider,
+        worker.io_runtime.voice_actor_provider,
         "validate_actor_package",
         lambda _root: {"fingerprint": (("actor.json", 2, 2),)},
     )
