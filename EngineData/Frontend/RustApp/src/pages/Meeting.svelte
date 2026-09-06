@@ -74,9 +74,9 @@
     runtimeUnavailable
       ? "TranslateIT can't reach the local translator right now. Retry the check."
       : checking || myVoiceReady === null
-        ? "Checking your microphone, My Voice, and meeting output..."
+        ? "Checking your microphone, Meeting voice, and meeting output..."
         : myVoiceReady === false
-          ? "Create My Voice before starting Meeting translation."
+          ? "Choose a built-in Meeting voice or create My Voice before starting."
           : readiness.meetingReady
             ? "Ready to translate. Start when your meeting is open."
             : meeting.canStart
@@ -163,10 +163,10 @@
         <section class="min-w-0 p-5">
           <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
             <AudioLines size={15} strokeWidth={1.8} />
-            <span class="ti-field-label">My Voice</span>
+            <span class="ti-field-label">Meeting voice</span>
           </div>
-          <strong class="mt-2 block text-[13px] font-semibold leading-5">{myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking..." : "Not created"}</strong>
-          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your approved English meeting voice." : "Open My Voice and create your meeting voice before starting."}</p>
+          <strong class="mt-2 block text-[13px] font-semibold leading-5">{myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking..." : "Not selected"}</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your selected English meeting voice." : "Choose Built-in Male/Female or create My Voice before starting."}</p>
           {#if !myVoiceReady}
             <div class="mt-3">
               <StatusBadge label={myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady === null ? "neutral" : "warning"} />
@@ -227,7 +227,7 @@
           {/if}
         {/if}
         {#if myVoiceReady === false && !meeting.live && !meeting.busy}
-          <button type="button" class="ti-button min-w-40" onclick={onOpenMyVoice}>Create My Voice</button>
+          <button type="button" class="ti-button min-w-40" onclick={onOpenMyVoice}>Choose Meeting Voice</button>
         {:else}
           <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled || myVoiceReady === null} onclick={onMeetingAction}>{primaryLabel}</button>
         {/if}
