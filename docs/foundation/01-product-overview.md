@@ -1,263 +1,177 @@
 # TranslateIT — Product Overview
 
 **Status:** Active Policy  
-**Updated:** 2026-08-23
+**Updated:** 2026-09-07
 
 ## Purpose
 
-TranslateIT is a Windows desktop application whose primary purpose is **simple,
-reliable Indonesian <-> English translation for online meetings**.
+TranslateIT is a Windows desktop application for simple, reliable Indonesian ↔ English translation, primarily for online meetings. Translation completion and safe delivery matter more than feature breadth.
 
-The product must prefer a translation that completes successfully over a larger
-feature set, extra modes, stylistic controls, or speculative context behavior.
-Internal ASR, translation, TTS, helper-process, acceleration, and audio-routing
-details stay behind a small product workflow.
+## Core product
 
-The interaction reference is the simplicity of modern meeting speech-translation
-features: choose the language pair, start translation, speak normally, allow a small
-completeness delay when needed, and stop when finished. TranslateIT does not need to
-copy another product's implementation or supported languages.
-
-Two built-in English voices (one male, one female) ship ready-to-use so Meeting
-works on day one without any training step. The product-facing name for the custom
-path stays **My Voice**: an optional high-fidelity upgrade created once from the
-user's own authorized recordings, replacing the built-in selection when approved.
-Neither path turns My Voice into a general audio studio, provider playground, or
-instant-cloning showcase.
-
-## Core Product
-
-### Meeting — Required Outbound
+### Meeting — required outbound
 
 ```text
 Indonesian speech
--> final Indonesian transcript
--> English translation
--> trained English Voice Actor TTS
--> TranslateIT Meeting Microphone
--> meeting application
+→ finalized Indonesian utterance
+→ Indonesian → English translation
+→ selected Meeting voice
+   ├─ Built-in Male/Female by default
+   └─ approved My Voice when selected
+→ TranslateIT Meeting Microphone
+→ meeting application
 ```
 
-This is the **required core path**. If this path is healthy, optional features must not
-prevent it from working.
+Two built-in English voices allow day-one use without training. My Voice is an optional high-fidelity upgrade created from the user's authorized recordings.
 
-The target outbound TTS behavior uses one approved Meeting voice — a built-in pack by default, or the approved trained My Voice after creation. There is no
-normal user-facing provider/model selector and no silent fallback to a different voice
-when the selected/required Voice Actor cannot synthesize safely.
-
-### Meeting — Optional Incoming Assistance
+### Meeting — optional incoming
 
 ```text
-English meeting speech
--> final English transcript
--> Indonesian translated text
--> local user
+English Meeting Sound
+→ finalized English utterance
+→ English → Indonesian translation
+→ local translated text
 ```
 
-Incoming is useful but optional. Incoming capture, suppression, ASR, or translation
-failure must never block otherwise healthy outbound translation.
+Incoming is optional/degradable and must never block otherwise healthy outbound translation.
 
 ### Text
 
 ```text
-Indonesian text <-> English text
+Indonesian text ↔ English text
 ```
 
-Text remains a small standalone utility using the same canonical translation behavior
-as Meeting where practical. Text does not depend on My Voice or Meeting audio
-readiness.
+Text is standalone type/paste translation. It does not depend on Meeting audio or My Voice.
 
 ### My Voice
 
-My Voice has one normal purpose and one normal workflow:
-
 ```text
 authorized user voice
--> guided English recording
--> review / accept / retry takes
--> quality-controlled dataset
--> speaker-specific fine-tuning
--> held-out evaluation + user preview
--> approved Voice Actor
+→ guided English recordings
+→ accept/retry takes
+→ quality-controlled dataset
+→ GPT-SoVITS V2ProPlus training
+→ held-out evaluation
+→ user preview/approval
+→ reusable My Voice actor
 ```
 
-The adopted custom-TTS engine direction is **GPT-SoVITS V2ProPlus**. Training is an
-occasional build operation; daily Meeting use performs inference only. A finished Voice
-Actor is reusable across normal application launches and Meetings without retraining.
+Training is occasional. Daily Meeting use performs inference only.
 
-My Voice quality is prioritized over instant cloning. Training duration, recording
-minutes, epoch count, and speaker-similarity thresholds are implementation/evidence
-details rather than arbitrary product constants. The build should select a useful
-checkpoint from real evidence rather than assuming the last or longest training run is
-best.
-
-## Initial Product Boundary
+## Product locks
 
 ```text
-Platform        -> Windows
-Languages       -> Indonesian + English only
-Meeting control -> Start Translation / Stop Translation
-Outbound        -> ID speech -> EN Voice Actor (built-in or trained)
-Incoming        -> EN speech -> ID text, optional
-Text            -> ID <-> EN
-My Voice        -> guided recording -> trained reusable Voice Actor
-Runtime         -> local-first after required assets are installed
+Platform        → Windows
+Languages       → Indonesian + English only
+Translation     → one canonical pipeline
+Meeting capture → Session Listening
+Meeting voice   → Built-in Male/Female or approved My Voice
+Incoming        → optional EN speech → ID text
+Text            → paste/type ID ↔ EN
+UI language     → English
+Runtime         → local-first after required assets are installed
+Distribution    → personal/owned machines
 ```
 
-My Voice is required to reach the next product-validation boundary, but it must not
-turn Text into a voice-dependent workflow or create a parallel Meeting/runtime owner.
+Removed/deferred from current product:
 
-## Deliberately Removed From Initial Core
-
-The following are not part of the initial product target because they increase
-behavioral, UI, runtime, or proof complexity without being required for successful
-translation and the approved My Voice workflow:
-
-- Pause / Resume;
 - Push to Talk;
-- Stop Voice;
-- Speak Now / Cancel conversational delivery coordination;
-- partial/evolving subtitles or partial translated voice;
-- user-facing `Realtime` / `Quality` translation modes;
-- user-facing `Auto / Formal / Casual` tone modes;
-- conversation-context prompting or previous-turn model context;
-- glossary/terminology memory as a separate subsystem;
-- automatic History / Saved as a general initial release dependency;
-- Audio Studio / broadcast-production workflows;
-- multiple custom-voice engines/providers or user-facing engine selection;
-- zero-shot / quick-clone alternate My Voice modes;
-- import-audio branching in the first My Voice implementation;
+- Pause/Resume;
+- user-facing Realtime/Quality translation modes;
+- Auto/Formal/Casual tone controls;
+- Document/file translation;
+- general History/Saved workspace;
+- Audio Studio/broadcast workflows;
 - additional language pairs;
+- imported-audio/quick-clone My Voice modes;
+- multiple normal custom-voice engines/providers;
+- partial translated subtitles;
 - incoming Indonesian TTS;
-- document translation;
-- silent cloud fallback.
+- automatic cloud fallback;
+- signing/auto-update as current blockers.
 
-Existing source or historical plans for removed/deferred features are not proof that
-those features remain current product scope.
+## Translation context
 
-## Translation Engine Principle
-
-The translation product should expose **one behavior**, not multiple model or quality
-choices.
+Normal translation uses one canonical ID ↔ EN pipeline.
 
 ```text
-current utterance
--> one canonical bidirectional ID <-> EN translation path
--> complete translation or explicit failure
+Meeting outbound
+→ current finalized Indonesian utterance
++ up to last 3 committed own-voice ID→EN pairs from same live session
+
+Meeting incoming
+→ current finalized English utterance only
+
+Text
+→ current text only
 ```
 
-The current utterance is translated independently. Previous Meeting turns, History,
-Saved data, or Text activity are not automatic model context.
+History/Saved data and incoming participant turns never become automatic translation context; incoming remains context-free.
 
-Translation priorities remain small:
+Translation priorities:
 
 ```text
-1. preserve intended meaning
-2. preserve names / numbers / technical facts
-3. produce understandable natural target-language grammar
-4. avoid silently returning incomplete output
+1. intended meaning
+2. names/numbers/dates/units/URLs/versions/technical facts
+3. understandable natural target-language grammar
+4. no silent incomplete output
 ```
 
-A small delay after the user finishes speaking is acceptable when required to obtain a
-complete stable utterance and complete translation. Instant partial output is not a
-product requirement.
+## Voice principle
 
-## Voice Engine Principle
+Built-in voices and My Voice feed one selected-Meeting-voice contract. There is no normal user-facing voice-engine/provider selector and no silent fallback to another voice when the selected path cannot synthesize safely.
 
-My Voice and Meeting expose **one custom-voice behavior**:
+My Voice remains quality-first trained GPT-SoVITS V2ProPlus. Built-in references use controlled packaged reference material and shared approved inference assets without requiring user training.
+
+## Current application architecture
 
 ```text
-My Voice build
--> one trained GPT-SoVITS V2ProPlus Voice Actor
-
-Meeting English text
--> canonical local TTS inference
--> that approved Voice Actor
--> generated speech or explicit failure
+Tauri 2 desktop application
+├─ Svelte 5 + Vite + TypeScript frontend
+├─ Rust desktop/runtime backend
+└─ one canonical Python local worker
 ```
 
-Do not retain Piper, SAPI, OpenVoice, Qwen voice cloning, MeloTTS, RVC postprocessing,
-or another provider as a silent alternate custom-TTS path after the My Voice migration
-is complete. Historical/current fallback source may remain temporarily only while the
-migration is incomplete and must not be mistaken for the final product contract.
+Svelte 5 is current architecture, not a future migration target.
 
-The initial accepted Voice Actor format should follow the engine's native trained
-weights plus one canonical reference recording/text. ONNX, TorchScript, quantization,
-or other export formats are optimization candidates only after native inference
-establishes the quality baseline and a replacement proves no material fidelity loss.
+## Meeting runtime
 
-## Speech Boundary
+Normal lifecycle:
 
-Normal Meeting use is continuous Session Listening after explicit Start.
+```text
+Ready → Starting → Live → Stopping → Ended
+```
 
-Only a finalized speech utterance may enter normal translation/TTS/transcript output.
-Rolling audio and partial ASR may exist internally for implementation purposes but are
-not normal product output.
+Only finalized stable utterances become normal translation/TTS/transcript output. Capture may continue while a previous utterance is translated/spoken when safe; translated TTS output remains serialized.
 
-The application may continue capturing the next utterance while the previous one is
-being translated or spoken, but translated TTS output remains serialized so voices do
-not overlap.
-
-## Incoming Safety
-
-Incoming Meeting Sound remains a separate optional lane from the physical microphone.
-
-TranslateIT's own English TTS must not be presented as incoming speech. However,
-**incoming protection must not block required outbound translation**. If safe incoming
-capture/suppression cannot be maintained, the incoming lane becomes unavailable or is
-temporarily ignored while outbound continues.
-
-No participant identity is invented from mixed device-level audio.
-
-## Runtime Simplicity
-
-One desktop application, one canonical Meeting session owner, one daily local-worker
-inference path, one translation behavior, and one custom-TTS engine remain the target.
-
-My Voice training is a bounded build operation, not a second daily inference engine.
-Training and an active Meeting must not compete for the same AI/GPU runtime. The first
-implementation keeps them mutually exclusive rather than adding background training,
-resource arbitration, automatic pause/resume, or a second worker.
-
-Resource priority remains intentionally simple:
+Priority:
 
 ```text
 Meeting outbound
 > Meeting incoming
 > Text
-> diagnostics / setup work
+> diagnostics/setup
 ```
 
-My Voice training runs only outside an active Meeting and therefore does not become a
-new live scheduler priority.
+My Voice training is mutually exclusive with an active Meeting rather than entering the live scheduler.
 
-Queues are bounded. Old/stale work must be discarded rather than played or displayed
-late as if it were current.
+## Stop / close
 
-CUDA may accelerate the runtime when validated, but the normal UI does not expose
-model, provider, CUDA, VAD, queue, or worker controls. CPU operation remains truthful:
-if it is too slow for practical Meeting use, report that instead of pretending
-equivalent performance.
+`Stop Translation` revokes current output authority before capture/work cleanup. Normal minimize does not stop a healthy Meeting. Window close while active uses the canonical Stop path first.
 
-## Stop And Close
-
-`Stop Translation` is the only normal Meeting termination action.
+## Privacy / storage
 
 ```text
-Stop
--> revoke current Meeting output authority
--> stop microphone / Meeting Sound capture
--> cancel/join pending Meeting work
--> clear transient conversation/audio state
--> session ended
+UserData/CacheData             temporary runtime/build data
+UserData/LogData               minimal/redacted diagnostics
+UserData/SavedProject/VoiceLab approved persistent My Voice actor
 ```
 
-Normal minimize does not stop a healthy Meeting. Closing the application while a
-Meeting is active still requires the existing safe Stop-before-close behavior.
+Raw mic/Meeting Sound/generated Meeting TTS/live transcript bodies are temporary by default. My Voice recordings/build intermediates remain temporary until explicit actor approval. Rebuild must not destroy the previous approved actor before the new one is approved.
 
-## Product Navigation
+## UI direction
 
-Normal top-level navigation target is:
+Normal top-level navigation:
 
 ```text
 Meeting
@@ -266,128 +180,19 @@ My Voice
 Settings
 ```
 
-Meeting remains the default workspace.
+Normal UI exposes product states/actions, not Python/model/CUDA/VAD/queue/checkpoint internals. Technical details belong in Advanced/Diagnostics.
 
-There is no initial top-level History/Saved workspace. Live Meeting transcript is
-transient session state used for current comprehension only. My Voice's approved Voice
-Actor is a distinct explicit user-owned saved artifact, not automatic conversation
-History.
+## Proof standard
 
-Settings remains reduced to:
+Source presence is not runtime proof. Product claims require matching evidence:
 
 ```text
-Meeting
-Advanced
+source/routing → repository/source checks
+compile/build  → actual toolchain/build
+model/GPU      → matching runtime/hardware
+mic/device     → target Windows
+installer      → actual install/runtime
+clean machine  → clean target evidence
 ```
 
-Meeting settings own microphone, Meeting Sound, and managed Meeting Microphone setup.
-Advanced contains developer diagnostics and setup evidence; it is not a normal runtime
-control panel.
-
-## Text Workflow
-
-Text stays conventional:
-
-```text
-Type / paste
--> choose ID <-> EN direction
--> Translate
--> review result
--> Copy
-```
-
-There is no tone selector, mode selector, Meeting-context reuse, or automatic Save in
-the initial core. Very large input is never silently truncated.
-
-## Privacy / Storage
-
-Normal translation does not require persistent conversation storage.
-
-```text
-UserData/CacheData -> temporary runtime/audio artifacts + My Voice build workspace
-UserData/LogData   -> minimal/redacted diagnostics
-UserData/SavedProject/VoiceLab -> legacy on-disk location for the explicitly approved My Voice actor
-```
-
-The `VoiceLab` directory name above is a retained storage-compatibility identifier, not
-the product name. New product/UI terminology must use **My Voice**.
-
-Raw microphone audio, Meeting Sound audio, generated Meeting TTS, and live transcript
-bodies are temporary by default.
-
-My Voice guided recordings and training intermediates remain temporary build data until
-the user explicitly approves the resulting Voice Actor. Rejected/abandoned builds do
-not become persistent saved voices. Rebuilding a Voice Actor must not destroy the
-previous approved actor before the new build is successfully evaluated and approved.
-
-Persistent general History/Saved remains post-core and must not be required for
-translation to work.
-
-## UI Direction
-
-The UI target remains modern, familiar, and low-density.
-
-Meeting Ready should answer only:
-
-```text
-Are the required devices and a Meeting voice (built-in or My Voice) ready?
-What language pair is active?
-Start Translation
-```
-
-Meeting Live should emphasize:
-
-```text
-Translation Live
-chronological finalized transcript
-simple current activity
-Stop Translation
-```
-
-My Voice should emphasize one guided creation workflow rather than exposing training
-internals. Normal users should not choose engine versions, checkpoints, epochs,
-providers, sampling internals, CUDA modes, or model paths.
-
-Do not surface internal translation modes, tone controls, context controls, queue
-controls, model names, provider names, or engineering detail in normal use.
-
-## Proof Standard
-
-A feature is not considered ready because source exists. Product success requires
-matching evidence for the claim.
-
-Before target-Windows validation, My Voice source must at minimum have a coherent
-single-engine build/inference contract, persistent Voice Actor ownership, and Meeting
-readiness wiring without a parallel TTS owner. Actual speaker similarity, training
-quality, GPU performance, and Meeting latency remain runtime claims and therefore need
-real target-capable evidence.
-
-Target Windows acceptance still includes:
-
-- microphone capture;
-- final ASR;
-- ID -> EN translation;
-- EN -> ID translation when incoming is enabled;
-- Voice Actor English TTS (built-in default or approved My Voice);
-- Meeting Microphone delivery;
-- optional incoming Meeting Sound behavior;
-- safe Stop/Close;
-- acceptable latency and stability on the target machine;
-- My Voice training/rebuild quality and daily inference practicality.
-
-Features outside the approved translator + My Voice boundary must not delay proving
-this product works.
-
-## Related
-
-- `AGENTS.md`
-- `CONTEXT.md`
-- `docs/foundation/02-product-requirements.md`
-- `docs/knowledge/decision-log.md`
-- `docs/knowledge/next-action.md`
-- `docs/knowledge/source-ownership.md`
-
-
-## Direction Locks (D-033/D-034, 2026-08-23)
-
-Single translation pipeline (best quality at lowest achievable latency; no Realtime/Quality vocabulary). Outbound-only rolling context (last three own-voice pairs); incoming stays context-free. Documents feature removed; Text is paste-only. Indonesian <-> English only. Full English UI. Personal use: no signing/auto-update concerns.
+See `02-product-requirements.md` and `03-acceptance-scenarios.md`.

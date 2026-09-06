@@ -1,170 +1,97 @@
 # TranslateIT Agent Routing
 
-TranslateIT repository state is authoritative for repository/project truth. Chat history and old evidence are supporting context only.
+Repository state is authoritative. Chat history and old evidence are supporting context only.
 
-## Branch authority
+## Branch and execution authority
 
-- `Local` is the current development authority.
-- `Developing` remains the GitHub default branch and is retained historical/recovery evidence only; never silently fall back to it for current work.
-- `DevelopingData`, old reports, generated proof artifacts, and Git history are not current requirements unless a current owner explicitly revalidates bounded content from them.
-- Do not change the repository default branch, merge/delete `Developing`, or perform another high-impact branch/release mutation unless the user explicitly requests that exact action.
-- Material GitHub execution follows root `GITHUB_RULES.md`.
+- `Local` is the working development authority.
+- `main` is the stable/default repository authority; routine work does not start there.
+- Material GitHub work follows root `GITHUB_RULES.md`.
+- Historical branches/reports are recovery evidence only and are not current task or product authority.
 
-## Choose the smallest sufficient boot
+## Execution Context Gate
 
-### Observe / recover context
+Classify by actual capability:
 
-When the user only asks to `amati`, inspect, understand, audit, study, or recover repository context:
+```text
+CONTEXT: REMOTE_GITHUB
+CONTEXT: LOCAL_CODE
+CONTEXT: TARGET_WINDOWS
+```
+
+```text
+REMOTE_GITHUB = repository + GitHub CI
+LOCAL_CODE = exact checkout + development toolchain/filesystem
+TARGET_WINDOWS = LOCAL_CODE + installed TranslateIT + real Windows GPU/audio/device/meeting environment
+```
+
+Proof ceiling follows actual context. Exhaust the `REMOTE_GITHUB`-valid partition before handing off only genuinely higher-context residue.
+
+## Observe / recover context
+
+For `amati`, inspect, audit, understand or recovery:
 
 ```text
 AGENTS.md
 → GITHUB_RULES.md Core Rules
-→ CONTEXT.md
-→ docs/knowledge/next-action.md
-→ smallest owner needed to explain current state
+→ CONTEXT.md / next-action only if material
+→ smallest owner
 → report
 → STOP
 ```
 
-This is read-only behavior. Do **not** edit, run CI, advance continuation, activate backlog/history, start an experiment, or execute the recorded next step unless the user also asks to continue/change something.
+Read-only means no edit, CI trigger, continuation advance or execution of the recorded next step.
+
+## Work mode after context
+
+### Bounded Maintenance
+
+Use for a concrete bug, stale rule, stale test, CI-routing defect or behavior-preserving cleanup.
+
+```text
+Goal
+Failure Classification / first wrong owner
+Acceptance
+Proof Required
+STOP Condition
+```
+
+### Standard Development
+
+Use when requirement and semantic owner are clear but work exceeds bounded maintenance.
+
+```text
+Goal
+Success Metric
+Forbidden Proxy / Non-Goal
+First Evidence Required / first wrong owner
+In Scope / Out of Scope
+Execution Partition / higher-context residue
+Proof Required
+STOP Condition
+```
+
+### Complex / Ambiguous Development
+
+Use `.agents/skills/development-brief/SKILL.md` for architecture/redesign, unclear or cross-owner requirements, material public contracts, unresolved success criteria, quality/efficiency work, or a change whose safe boundary cannot be expressed by the Standard contract.
 
 ### Plan
 
-Use Plan when the goal is known but method, architecture, ownership, or another high-impact product decision remains materially unresolved.
+Use when a high-impact product/architecture/release decision remains unresolved.
 
 ```text
 recover current authority
-→ inspect smallest relevant owner/evidence
-→ separate goal from suggested method
-→ resolve or present the material decision
+→ inspect smallest relevant evidence
+→ resolve/present the decision
 → NO IMPLEMENTATION
 → STOP
 ```
 
-Plan must not silently become Developing.
+No silent transition from Plan to Development.
 
-### Non-trivial Developing
+## Specialist budget
 
-Before changing approved TranslateIT product/repository behavior:
-
-```text
-AGENTS.md
-→ GITHUB_RULES.md Core Rules
-→ CONTEXT.md
-→ docs/knowledge/next-action.md
-→ .agents/skills/development-brief/SKILL.md
-→ smallest relevant owner/source + direct caller/contract
-→ at most one useful project specialist
-```
-
-`development-brief` is the mandatory front door. After continuity boot, additional reading remains minimum-needed.
-
-### Bounded Maintenance
-
-A concrete bug, stale rule, regression, CI-routing defect, cleanup, or behavior-preserving correction may start from the exact defect/owner when wider stable context cannot change the decision.
-
-```text
-exact defect
-→ first wrong owner
-→ smallest safe correction
-→ targeted proof
-→ STOP
-```
-
-Maintenance does not automatically use `development-brief`. If diagnosis exposes an unresolved product/architecture decision, leave Maintenance and return to Plan.
-
-## Work mode selection
-
-| Intent | Mode |
-|---|---|
-| Understand/recover current truth without editing | Context Recovery |
-| Decide unresolved method/architecture/product boundary | Plan |
-| Create/change approved behavior with grounded owner | Developing |
-| Repair intended existing behavior or stale repository state | Maintenance |
-
-No silent transitions. Adjacent issues enter scope only when required for current acceptance.
-
-## Canonical state owners
-
-One information type has one current owner:
-
-| Information | Canonical owner |
-|---|---|
-| GitHub branch/ref, write/history, CI/API/security, retry and STOP discipline | `GITHUB_RULES.md` |
-| Agent boot, mode, continuity routing, source precedence, skill budget | `AGENTS.md` |
-| Stable product/repository orientation and terminology | `CONTEXT.md` |
-| Active continuation: current status/boundary/blocker/proof/one next step | `docs/knowledge/next-action.md` |
-| Durable decisions and reasons | `docs/knowledge/decision-log.md` |
-| Product/system requirements and policy | `docs/foundation/` |
-| Responsibility → current source owner map | `docs/knowledge/source-ownership.md` |
-| Work-mode routing reference | `docs/knowledge/flow.md` |
-| Specialist inventory/selection | `docs/knowledge/skills/` |
-| Actual behavior | current source + relevant proof |
-
-Do not create parallel status, plan, TODO, completion, review-state, roadmap, or session-memory systems that duplicate these owners.
-
-## Source precedence and conflict resolution
-
-Use the nearest authoritative owner for the claim:
-
-1. current explicit user instruction for task intent/new product decision;
-2. current `docs/foundation/` product/system policy;
-3. current source + relevant proof for actual implementation/runtime behavior;
-4. live target evidence for live/runtime claims;
-5. current runtime/interface contract when still consistent;
-6. `next-action.md` for active continuation;
-7. `source-ownership.md` for navigation/ownership;
-8. `CONTEXT.md` for stable orientation;
-9. `decision-log.md` for durable reasoning/provenance;
-10. `Developing`, `DevelopingData`, old reports, old chats, and Git history as bounded recovery evidence only.
-
-Conflict handling:
-
-```text
-foundation vs source
-→ desired behavior vs implementation gap
-
-current user decision vs foundation
-→ reconcile current policy
-
-next-action vs current source/state
-→ inspect exact owner
-→ identify stale continuity vs stale implementation
-→ reconcile stale owner
-→ continue from actual state
-
-historical evidence vs current owner
-→ current owner wins unless history is explicitly revalidated
-```
-
-Never use documentation as runtime proof, old source as current product policy, or a compatibility/fallback layer merely to avoid reconciliation.
-
-## Requirement discovery and independent judgment
-
-The user owns intended outcome and high-impact product decisions. The agent owns repository discovery, owner discovery, implementation detail, method quality, scope discipline, and evidence quality.
-
-Before asking the user, recover discoverable repository facts from current owners/source. Ask only when an unresolved choice materially changes product behavior, architecture, privacy, compatibility, data ownership, release boundary, or acceptance.
-
-Treat screenshots, samples, old source, branches, reports, and external examples as evidence/fixtures unless current policy explicitly adopts them as generic requirements.
-
-Evaluate a proposed method as:
-
-```text
-FOLLOW
-REFINE
-REDIRECT
-STOP / DECISION REQUIRED
-```
-
-Redirect methods that contradict current policy/evidence, create duplicate ownership/runtime, repeat a disproven direction, depend on unsupported capability, inflate proof, or add disproportionate fallback/compatibility/abstraction.
-
-`No change required` is valid.
-
-## Developing front door and specialist budget
-
-Every non-trivial Developing task uses `.agents/skills/development-brief/SKILL.md`.
-
-Canonical project skills are frozen:
+Canonical project skills are:
 
 ```text
 development-brief
@@ -178,79 +105,115 @@ release-packaging-development
 Budget:
 
 ```text
-Developing
-→ development-brief + zero/one project specialist
-
-Maintenance
-→ zero/one specialist only when diagnosed semantic boundary needs it
-
-Plan / Context Recovery
-→ no project specialist by default
+Bounded Maintenance → zero/one specialist when diagnosis needs it
+Standard Development → zero/one specialist
+Complex Development → development-brief + zero/one specialist
+Plan / Context Recovery → none by default
 ```
 
-Choose by semantic responsibility, not Rust/TypeScript/Python/Tauri/Svelte/CUDA/library names.
+Choose by semantic responsibility, not language/framework/library names.
 
-Framework-specific helpers such as official Svelte documentation/autofixers or current primary-source library documentation are technical tools, not TranslateIT specialists.
-
-## Root-cause and edit gate
-
-Before a non-trivial behavior edit establish:
-
-1. what happens now;
-2. who owns it;
-3. why it is wrong/incomplete;
-4. why the proposed change addresses that cause;
-5. what proof can falsify the fix.
-
-Before creating a persistent owner/file/module, establish why the existing owner cannot represent the responsibility and why the addition is required for current acceptance.
-
-Do not hide unknown causes with blind retry, arbitrary delay, broad catch/fallback, parallel service/runtime, compatibility aliases, duplicate state, or generic frameworks.
-
-If the same correction direction fails twice without materially new evidence, stop that direction and reassess.
-
-## Minimum complete solution
-
-Default to the minimum complete change.
-
-Every material file, dependency, abstraction, config, compatibility layer, fallback, cache, state, workflow, or persistent side effect must trace to the current goal, acceptance criterion, required contract, proved cause, or required proof.
-
-Do not add unrelated cleanup, speculative future architecture, duplicate owners, placeholder success, ceremonial tests, broad hardening, or framework work by default.
-
-Stop editing when acceptance and required proof are satisfied.
-
-## Execution and evidence boundary
-
-The execution channel changes available proof, not the product requirement.
-
-**ChatGPT → GitHub** can establish repository/source/static contracts and GitHub CI results that actually ran. It cannot fabricate local Windows, real GPU/device/audio, native rendered UI, installed-runtime, latency, driver, meeting-app reception, or clean-machine proof.
-
-**Codex / Local / target Windows** may establish local runtime/device/model/audio/package claims only when that environment actually exists and the matching test runs.
-
-Use evidence labels only when material:
+## Semantic routing
 
 ```text
-CURRENT-PROJECT VERIFIED
-OFFICIALLY VERIFIED
+desktop shell/navigation/readiness/settings/bridge
+→ desktop-runtime-development
+
+visual hierarchy/layout/tokens/component states/rendered UI
+→ desktop-ui-design-development
+
+ASR/translation/TTS/model/AI worker/runtime
+→ local-ai-runtime-development
+
+physical mic/capture/VAD/Windows devices/Meeting route
+→ windows-audio-runtime-development
+
+installer/private Python/runtime assets/models/provider delivery
+→ release-packaging-development
+```
+
+If investigation reveals a second independent problem, finish/reframe the current boundary instead of stacking specialists.
+
+## Canonical state owners
+
+| Information | Owner |
+|---|---|
+| GitHub/ref/history/CI/security/transfer/retry/STOP | `GITHUB_RULES.md` |
+| Agent mode/context/routing/skill budget | `AGENTS.md` |
+| Stable product/repository orientation | `CONTEXT.md` |
+| Current product/system law | `docs/foundation/` |
+| Active continuation + one next step | `docs/knowledge/next-action.md` |
+| Current proof interpretation | `docs/knowledge/current-validation.md` |
+| Responsibility → current source owner | `docs/knowledge/source-ownership.md` |
+| Durable decisions/reasons | `docs/knowledge/decisions/` |
+| Operational runbooks | `docs/knowledge/operations/` |
+| Skill inventory/routing | `docs/knowledge/skills/` |
+| Actual behavior | current source + matching proof |
+
+Do not create parallel status, plan, TODO, completion, review-state, roadmap or session-memory systems.
+
+## Source precedence
+
+1. current explicit user instruction for task intent/new decision;
+2. current `docs/foundation/` law;
+3. current source + matching proof for actual implementation behavior;
+4. target evidence for target-only claims;
+5. `next-action.md` for continuation;
+6. `source-ownership.md` for navigation;
+7. `CONTEXT.md` for stable orientation;
+8. `docs/knowledge/decisions/` for durable why/history;
+9. Git history as bounded recovery evidence.
+
+Conflict handling:
+
+```text
+foundation vs source
+→ desired behavior vs implementation gap
+
+current user decision vs foundation
+→ reconcile foundation first
+
+next-action vs source
+→ source wins for implementation state
+→ reconcile stale continuation
+
+historical evidence vs current owner
+→ current owner wins unless history is explicitly revalidated
+```
+
+## Root-cause and minimum-complete gate
+
+Before a material edit establish:
+
+1. what happens now;
+2. first wrong owner;
+3. expected behavior;
+4. why the proposed change addresses that owner;
+5. cheapest proof that can falsify the result.
+
+Every persistent file/module/dependency/config/fallback/cache/workflow/state must trace to the goal, acceptance, required contract, proved cause or required proof.
+
+Do not hide unknown causes with blind retry, arbitrary delay, broad catch/fallback, parallel services, compatibility aliases, duplicate state or generic frameworks.
+
+## Evidence language
+
+Use only evidence labels supported by the execution context:
+
+```text
+SOURCE VERIFIED
+LOCAL CODE VERIFIED
+TARGET WINDOWS VERIFIED
 LOCAL PROOF REQUIRED
+TARGET WINDOWS PROOF REQUIRED
 UNSUPPORTED
 UNKNOWN
 ```
 
-Build success is not runtime success. Hosted Windows proof is not automatically target-PC proof. Historical proof is not current proof unless the claim still matches the tested boundary.
+Build success is not runtime success. Hosted Windows is not automatically target-PC proof. Historical proof is not current proof unless the claim and source identity still match.
 
-## User-facing communication
+## User-facing reporting
 
-For non-trivial Developing, before editing provide a compact brief when useful:
-
-```text
-Tujuan:
-Cara berpikir:
-Hasil yang dituju:
-Tidak diubah:
-Cara memastikan benar:
-```
-
-Final material report:
+For material work:
 
 ```text
 Status: Selesai | Perlu pemeriksaan | Terhenti
@@ -260,8 +223,4 @@ Batasan:
 Next step:
 ```
 
-Use exactly one `Next step`.
-
-Before ending material work, update only canonical owners whose actual state changed. Do not create per-task completion reports or worklogs.
-
-When the requested scope is complete and evidence is honest: STOP.
+Use exactly one `Next step` when work remains. Update only canonical owners whose actual state changed, then STOP.

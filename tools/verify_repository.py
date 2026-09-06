@@ -1,12 +1,3 @@
-#!/usr/bin/env python3
-"""Static governance contract for TranslateIT.
-
-This gate protects repository routing, ownership separation, active-continuation
-shape, GitHub discipline, and skill inventory. It does not prove frontend/Rust/
-Python runtime behavior, Windows devices/audio, model quality, installer success,
-or clean-machine acceptance.
-"""
-
 from __future__ import annotations
 
 import py_compile
@@ -16,254 +7,244 @@ from urllib.parse import unquote
 
 ROOT = Path(__file__).resolve().parents[1]
 
+REQUIRED_PATHS = (
+    "README.md",
+    "AGENTS.md",
+    "GITHUB_RULES.md",
+    "CONTEXT.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    ".editorconfig",
+    ".gitattributes",
+    ".gitignore",
+    ".github/CODEOWNERS",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/workflows/repository-verify.yml",
+    ".github/workflows/code-health.yml",
+    ".github/workflows/milmmt-repo-contract.yml",
+    ".github/workflows/workerruntime-lock.yml",
+    ".github/workflows/release-payload-verify.yml",
+    ".github/workflows/stable-release-verify.yml",
+    "docs/foundation/01-product-overview.md",
+    "docs/foundation/02-product-requirements.md",
+    "docs/foundation/03-acceptance-scenarios.md",
+    "docs/knowledge/README.md",
+    "docs/knowledge/flow.md",
+    "docs/knowledge/next-action.md",
+    "docs/knowledge/current-validation.md",
+    "docs/knowledge/source-ownership.md",
+    "docs/knowledge/decision-log.md",
+    "docs/knowledge/decisions/README.md",
+    "docs/knowledge/decisions/history-legacy.md",
+    "docs/knowledge/operations/README.md",
+    "docs/knowledge/skills/activation-matrix.md",
+    "docs/knowledge/skills/skill-map.md",
+    ".agents/skills/development-brief/SKILL.md",
+    ".agents/skills/desktop-runtime-development/SKILL.md",
+    ".agents/skills/desktop-ui-design-development/SKILL.md",
+    ".agents/skills/local-ai-runtime-development/SKILL.md",
+    ".agents/skills/windows-audio-runtime-development/SKILL.md",
+    ".agents/skills/release-packaging-development/SKILL.md",
+)
+
+ACTIVE_GOVERNANCE = (
+    "README.md",
+    "AGENTS.md",
+    "GITHUB_RULES.md",
+    "CONTEXT.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "docs/foundation/01-product-overview.md",
+    "docs/foundation/02-product-requirements.md",
+    "docs/foundation/03-acceptance-scenarios.md",
+    "docs/knowledge/README.md",
+    "docs/knowledge/flow.md",
+    "docs/knowledge/next-action.md",
+    "docs/knowledge/current-validation.md",
+    "docs/knowledge/source-ownership.md",
+    "docs/knowledge/decision-log.md",
+    "docs/knowledge/decisions/README.md",
+    "docs/knowledge/operations/README.md",
+    "docs/knowledge/skills/activation-matrix.md",
+    "docs/knowledge/skills/skill-map.md",
+)
+
 CANONICAL_SKILLS = {
     "development-brief",
     "desktop-runtime-development",
     "desktop-ui-design-development",
     "local-ai-runtime-development",
-    "release-packaging-development",
     "windows-audio-runtime-development",
+    "release-packaging-development",
 }
 
-REQUIRED_PATHS = [
-    "AGENTS.md",
-    "GITHUB_RULES.md",
-    "CONTEXT.md",
-    "README.md",
-    "docs/knowledge/flow.md",
-    "docs/knowledge/next-action.md",
-    "docs/knowledge/source-ownership.md",
-    "docs/knowledge/decision-log.md",
-    "docs/knowledge/skills/activation-matrix.md",
-    "docs/knowledge/skills/skill-map.md",
-    ".agents/skills/development-brief/SKILL.md",
-    ".github/workflows/repository-verify.yml",
-    "tools/verify_repository.py",
-]
-
-RETIRED_ACTIVE_PATHS = [
-    "docs/knowledge/minimal-nav.md",
-    "docs/knowledge/flows/development-flow.md",
-    "EngineData/Backend/LocalWorker/WorkerRuntime/migrated_python_helper_map.json",
-]
-
-ACTIVE_GOVERNANCE_FILES = [
-    "AGENTS.md",
-    "GITHUB_RULES.md",
-    "CONTEXT.md",
-    "README.md",
-    "docs/knowledge/flow.md",
-    "docs/knowledge/next-action.md",
-    "docs/knowledge/source-ownership.md",
-    ".agents/skills/development-brief/SKILL.md",
-    "docs/knowledge/skills/activation-matrix.md",
-    "docs/knowledge/skills/skill-map.md",
-]
-
-SIZE_LIMITS = {
-    "AGENTS.md": 12_000,
-    "GITHUB_RULES.md": 20_000,
-    "CONTEXT.md": 12_000,
-    "README.md": 8_000,
-    "docs/knowledge/next-action.md": 7_000,
-    "docs/knowledge/source-ownership.md": 12_000,
-    # decision-log.md is durable historical reasoning, not compact active state.
-    "docs/knowledge/decision-log.md": 40_000,
-    ".agents/skills/development-brief/SKILL.md": 8_000,
-}
-
-LINK_RE = re.compile(r"(?<!!)\[[^\]]+\]\(([^)]+)\)")
+LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
+ACTION_RE = re.compile(r"(?m)^\s*uses:\s+([^@\s]+)@([^\s#]+)(?:\s+#\s*(.+))?$")
+SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def fail(errors: list[str], message: str) -> None:
     errors.append(message)
 
 
-def read(rel: str) -> str:
+def text(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
 def check_required_paths(errors: list[str]) -> None:
     for rel in REQUIRED_PATHS:
         if not (ROOT / rel).is_file():
-            fail(errors, f"missing required governance owner: {rel}")
-
-
-def check_retired_paths(errors: list[str]) -> None:
-    for rel in RETIRED_ACTIVE_PATHS:
-        if (ROOT / rel).exists():
-            fail(errors, f"retired duplicate/migration owner must stay absent: {rel}")
+            fail(errors, f"missing required path: {rel}")
+    if (ROOT / "DevelopingData").exists():
+        fail(errors, "DevelopingData must not remain in the active working tree; use Git history for recovery")
 
 
 def check_skill_inventory(errors: list[str]) -> None:
-    skill_root = ROOT / ".agents" / "skills"
-    if not skill_root.is_dir():
-        fail(errors, "missing canonical .agents/skills root")
+    root = ROOT / ".agents" / "skills"
+    if not root.is_dir():
+        fail(errors, "missing .agents/skills")
         return
-
-    actual = {
-        path.name
-        for path in skill_root.iterdir()
-        if path.is_dir() and not path.name.startswith(".")
-    }
+    actual = {p.name for p in root.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
     if actual != CANONICAL_SKILLS:
-        fail(
-            errors,
-            "canonical TranslateIT skill set drift: "
-            f"expected {sorted(CANONICAL_SKILLS)}, got {sorted(actual)}",
-        )
-
-    for skill in sorted(CANONICAL_SKILLS):
-        if not (skill_root / skill / "SKILL.md").is_file():
-            fail(errors, f"missing SKILL.md for canonical skill: {skill}")
-
-    for path in ROOT.glob("**/.agents/skills"):
-        if path.resolve() != skill_root.resolve():
-            fail(errors, f"unexpected nested repository skill root: {path.relative_to(ROOT)}")
+        fail(errors, f"canonical skill inventory mismatch: expected={sorted(CANONICAL_SKILLS)} actual={sorted(actual)}")
 
 
 def check_size_budgets(errors: list[str]) -> None:
-    for rel, limit in SIZE_LIMITS.items():
+    budgets = {
+        "AGENTS.md": 14_000,
+        "GITHUB_RULES.md": 26_000,
+        "CONTEXT.md": 9_000,
+        "docs/knowledge/next-action.md": 3_000,
+        "docs/knowledge/current-validation.md": 7_000,
+        "docs/knowledge/source-ownership.md": 9_000,
+    }
+    for rel, maximum in budgets.items():
         path = ROOT / rel
-        if path.is_file():
-            size = len(path.read_text(encoding="utf-8"))
-            if size >= limit:
-                fail(errors, f"{rel} is too large for its owned responsibility: {size} >= {limit}")
+        if path.is_file() and path.stat().st_size > maximum:
+            fail(errors, f"{rel} exceeds compactness budget: {path.stat().st_size} > {maximum}")
 
 
-def check_github_rules(errors: list[str]) -> None:
-    path = ROOT / "GITHUB_RULES.md"
-    if not path.is_file():
-        return
-    text = read("GITHUB_RULES.md")
-
+def check_branch_authority(errors: list[str]) -> None:
+    for rel in ("README.md", "AGENTS.md", "GITHUB_RULES.md", "CONTEXT.md", "CONTRIBUTING.md"):
+        if not (ROOT / rel).is_file():
+            continue
+        value = text(rel)
+        if "`Local`" not in value or "`main`" not in value:
+            fail(errors, f"{rel} must state Local/main authority")
+        for stale in (
+            "Developing remains the GitHub default branch",
+            "GitHub default/recovery branch: Developing",
+            "retain Developing as a PR base",
+        ):
+            if stale in value:
+                fail(errors, f"{rel} contains stale branch authority: {stale}")
+    rules = text("GITHUB_RULES.md") if (ROOT / "GITHUB_RULES.md").is_file() else ""
     for marker in (
-        "PIN",
-        "READ MINIMUM",
-        "DIAGNOSE",
-        "TOOL FIT",
-        "WRITE ONCE",
-        "VERIFY MINIMUM",
-        "STOP",
-        "# Conditional GitHub Surfaces",
-        "## API failures, pagination, rate limits, and ambiguous mutations",
-        "## Special files, Git LFS, binaries, submodules, and generated artifacts",
-        "## Pull requests, branch protection, rulesets, reviews, and merge queues",
-        "## GitHub Actions and hosted proof",
-        "## Sensitive data, releases, and deployment environments",
-        "Same-cause retry budget",
-        "Do not create temporary/one-use workflows",
-        "Static source/CI evidence proves only what it exercises",
+        "EXHAUST REMOTE_GITHUB PARTITION",
+        "Execution context / proof ceiling",
+        "GitHub-first execution partition",
+        "TOOL + TRANSFER GATE",
+        "Failure / retry matrix",
+        "Interrupted delivery",
+        "TARGET_WINDOWS",
     ):
-        if marker not in text:
-            fail(errors, f"GITHUB_RULES.md missing required contract marker: {marker}")
-
-    for code in ("401", "403", "404", "409", "422", "429", "5xx"):
-        if code not in text:
-            fail(errors, f"GITHUB_RULES.md missing API failure class: {code}")
-
-    if "`Local` is the current development authority" not in text:
-        fail(errors, "GITHUB_RULES.md must pin Local as current development authority")
-    if "`Developing` remains the GitHub default branch" not in text:
-        fail(errors, "GITHUB_RULES.md must preserve Developing as GitHub default branch")
-    if "retained historical/recovery evidence" not in text:
-        fail(errors, "GITHUB_RULES.md must classify Developing as historical/recovery evidence")
+        if marker not in rules:
+            fail(errors, f"GITHUB_RULES.md missing modern operating marker: {marker}")
 
 
 def check_agents(errors: list[str]) -> None:
-    path = ROOT / "AGENTS.md"
-    if not path.is_file():
-        return
-    text = read("AGENTS.md")
+    value = text("AGENTS.md")
     for marker in (
-        "### Observe / recover context",
-        "### Plan",
-        "### Non-trivial Developing",
-        "### Bounded Maintenance",
-        "GITHUB_RULES.md Core Rules",
-        "→ STOP",
-        "development-brief",
-        "at most one",
-        "`Local` is the current development authority",
-        "`Developing` remains the GitHub default branch",
+        "Execution Context Gate",
+        "Bounded Maintenance",
+        "Standard Development",
+        "Complex / Ambiguous Development",
+        "Forbidden Proxy / Non-Goal",
+        "current-validation.md",
+        "TARGET_WINDOWS",
     ):
-        if marker not in text:
+        if marker not in value:
             fail(errors, f"AGENTS.md missing routing marker: {marker}")
-    if "Do **not** edit, run CI" not in text:
-        fail(errors, "AGENTS.md must keep observe/recover requests read-only")
-
-
-def check_active_owner_branch_language(errors: list[str]) -> None:
-    for rel in ACTIVE_GOVERNANCE_FILES:
-        path = ROOT / rel
-        if not path.is_file():
-            continue
-        text = path.read_text(encoding="utf-8")
-        if "V1-Advance" in text:
-            fail(errors, f"active governance owner still references deleted V1-Advance branch: {rel}")
-        if "`New`" in text or re.search(r"(?m)^New\s+→", text):
-            fail(errors, f"active governance owner still references renamed New branch: {rel}")
 
 
 def check_next_action(errors: list[str]) -> None:
-    path = ROOT / "docs" / "knowledge" / "next-action.md"
-    if not path.is_file():
-        return
-    text = path.read_text(encoding="utf-8")
-    if text.count("## Next Step") != 1:
-        fail(errors, "next-action.md must contain exactly one '## Next Step'")
+    value = text("docs/knowledge/next-action.md")
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
-        if heading not in text:
-            fail(errors, f"next-action.md missing required heading: {heading}")
-    if "Local" not in text or "Developing" not in text:
-        fail(errors, "next-action.md must preserve current Local/Developing branch authority")
-    if "R3" not in text or "packaging" not in text.lower():
-        fail(errors, "next-action.md must preserve the active R3 packaging decision boundary")
+        if value.count(heading) != 1:
+            fail(errors, f"next-action.md must contain exactly one {heading}")
+    stale = ("V1-Advance", "Developing` remains", "Start built-in voices integration")
+    for marker in stale:
+        if marker in value:
+            fail(errors, f"next-action.md contains stale continuation marker: {marker}")
 
 
-def check_ownership_shape(errors: list[str]) -> None:
-    path = ROOT / "docs" / "knowledge" / "source-ownership.md"
-    if not path.is_file():
-        return
-    text = path.read_text(encoding="utf-8")
-    if "Current status" in text or "| Current status |" in text:
-        fail(errors, "source-ownership.md must not carry active milestone/status fields")
+def check_current_validation(errors: list[str]) -> None:
+    value = text("docs/knowledge/current-validation.md")
+    for marker in ("## Current Source Proof", "## Verification surfaces", "## Proof Boundaries", "## Target Windows"):
+        if marker not in value:
+            fail(errors, f"current-validation.md missing section: {marker}")
+    if "one SHA does not prove another SHA" not in value:
+        fail(errors, "current-validation.md must preserve exact-SHA evidence discipline")
+
+
+def check_foundation(errors: list[str]) -> None:
+    overview = text("docs/foundation/01-product-overview.md")
+    requirements = text("docs/foundation/02-product-requirements.md")
+    acceptance = text("docs/foundation/03-acceptance-scenarios.md")
+
     for marker in (
-        "GITHUB_RULES.md",
-        "AGENTS.md",
-        "next-action.md",
-        "decision-log.md",
-        "tools/verify_repository.py",
+        "Built-in Male/Female",
+        "last 3 committed own-voice",
+        "incoming remains context-free",
+        "Svelte 5",
     ):
-        if marker not in text:
-            fail(errors, f"source-ownership.md missing governance owner marker: {marker}")
+        if marker not in overview:
+            fail(errors, f"product overview missing current marker: {marker}")
 
+    for stale in (
+        "PR-045 — No automatic conversation context initially",
+        "-> trained English Voice Actor TTS",
+        "including the trained Voice Actor TTS stage",
+        "trained Voice Actor before Meeting",
+    ):
+        if stale in requirements:
+            fail(errors, f"product requirements retain superseded contract: {stale}")
 
-def check_readme(errors: list[str]) -> None:
-    path = ROOT / "README.md"
-    if not path.is_file():
-        return
-    text = path.read_text(encoding="utf-8")
     for marker in (
-        "branch `Local`",
-        "Meeting",
-        "Text",
-        "My Voice",
-        "Settings",
-        "GITHUB_RULES.md",
-        "R3",
-        "packaging-boundary decision",
+        "PR-045 — Context asymmetry",
+        "selected Meeting voice (Built-in or approved My Voice)",
+        "PR-119 — Selected Meeting voice",
+        "CC-BY-4.0",
     ):
-        if marker not in text:
-            fail(errors, f"README.md missing current orientation marker: {marker}")
-    for retired in (
-        "Push to Talk remains",
-        "### Secondary — Document Translation",
-        "### Advanced — Audio Studio",
-        "Translation modes | `Realtime` and `Quality`",
-    ):
-        if retired in text:
-            fail(errors, f"README.md still presents retired product direction: {retired}")
+        if marker not in requirements:
+            fail(errors, f"product requirements missing current contract: {marker}")
+
+    if "does **not** store run outcomes" not in acceptance:
+        fail(errors, "acceptance scenarios must be outcome-free policy")
+    if "a selected built-in or approved My Voice" not in acceptance:
+        fail(errors, "acceptance scenarios must allow built-in day-one Meeting readiness")
+    for stale in ("green on CUDA", "A1–A5 and A6 green", "without approved My Voice"):
+        if stale in acceptance:
+            fail(errors, f"acceptance scenarios contain stale outcome/contract: {stale}")
+
+
+def check_skill_freshness(errors: list[str]) -> None:
+    files = {
+        "desktop-runtime": text(".agents/skills/desktop-runtime-development/SKILL.md"),
+        "desktop-ui": text(".agents/skills/desktop-ui-design-development/SKILL.md"),
+        "local-ai": text(".agents/skills/local-ai-runtime-development/SKILL.md"),
+        "windows-audio": text(".agents/skills/windows-audio-runtime-development/SKILL.md"),
+    }
+    stale_markers = {
+        "desktop-runtime": ("Until migration actually starts", "current vanilla TypeScript source remains"),
+        "desktop-ui": ("Until the Svelte migration is actually implemented",),
+        "local-ai": ("`Realtime` and `Quality` are the canonical modes", "mode, tone"),
+        "windows-audio": ("Push-to-Talk capture mechanics", "Session Listening and Push-to-Talk"),
+    }
+    for owner, markers in stale_markers.items():
+        for marker in markers:
+            if marker in files[owner]:
+                fail(errors, f"{owner} skill retains stale semantic contract: {marker}")
 
 
 def normalize_link_target(source: Path, raw: str) -> Path | None:
@@ -271,22 +252,16 @@ def normalize_link_target(source: Path, raw: str) -> Path | None:
     if not target:
         return None
     lower = target.lower()
-    if (
-        target.startswith("#")
-        or "://" in target
-        or lower.startswith(("mailto:", "tel:", "data:", "skills:", "sandbox:"))
-    ):
+    if target.startswith("#") or "://" in target or lower.startswith(("mailto:", "tel:", "data:", "skills:", "sandbox:")):
         return None
     target = unquote(target.split("#", 1)[0].split("?", 1)[0]).strip()
     if not target:
         return None
-    if target.startswith("/"):
-        return ROOT / target.lstrip("/")
-    return source.parent / target
+    return ROOT / target.lstrip("/") if target.startswith("/") else source.parent / target
 
 
 def check_governance_links(errors: list[str]) -> None:
-    for rel in ACTIVE_GOVERNANCE_FILES:
+    for rel in ACTIVE_GOVERNANCE:
         path = ROOT / rel
         if not path.is_file():
             continue
@@ -296,35 +271,55 @@ def check_governance_links(errors: list[str]) -> None:
                 fail(errors, f"broken relative governance link in {rel}: {raw}")
 
 
-def check_workflow(errors: list[str]) -> None:
-    workflows = ROOT / ".github" / "workflows"
-    if not workflows.is_dir():
+def check_workflow_supply_chain(errors: list[str]) -> None:
+    root = ROOT / ".github" / "workflows"
+    if not root.is_dir():
         fail(errors, "missing .github/workflows")
         return
-    temp = sorted(path.name for path in workflows.glob("temp-*"))
+    temp = sorted(p.name for p in root.glob("temp-*"))
     if temp:
-        fail(errors, f"temporary one-use workflows are not allowed: {temp}")
+        fail(errors, f"temporary workflows are forbidden: {temp}")
 
-    path = workflows / "repository-verify.yml"
-    if not path.is_file():
-        return
-    text = path.read_text(encoding="utf-8")
-    for marker in (
-        "branches:\n      - Local",
-        "cancel-in-progress: true",
-        "contents: read",
-        '"GITHUB_RULES.md"',
-        '"docs/knowledge/**"',
-        '"tools/verify_repository.py"',
-        "python tools/verify_repository.py",
-    ):
-        if marker not in text:
-            fail(errors, f"repository-verify.yml missing required marker: {marker}")
-    if "      - Developing" not in text:
-        fail(errors, "repository-verify.yml must retain Developing as a PR base verification target")
-    for forbidden in ("contents: write", "pull-requests: write", "git push", "continue-on-error"):
-        if forbidden in text:
-            fail(errors, f"repository-verify.yml contains forbidden verification behavior: {forbidden}")
+    for path in sorted(root.glob("*.yml")):
+        value = path.read_text(encoding="utf-8")
+        refs = ACTION_RE.findall(value)
+        for action, revision, note in refs:
+            if action.startswith("./"):
+                continue
+            if not SHA40_RE.fullmatch(revision):
+                fail(errors, f"{path.name} uses mutable action ref: {action}@{revision}")
+            if not note.strip().startswith("v"):
+                fail(errors, f"{path.name} action pin missing version comment: {action}@{revision}")
+        if "actions/checkout@" in value and "persist-credentials: false" not in value:
+            fail(errors, f"{path.name} checkout must disable persisted credentials")
+        if "timeout-minutes:" not in value:
+            fail(errors, f"{path.name} must have bounded job timeout")
+        for forbidden in ("contents: write", "pull-requests: write", "git push", "pull_request_target"):
+            if forbidden in value:
+                fail(errors, f"{path.name} contains forbidden verification behavior: {forbidden}")
+
+
+def check_workflow_routing(errors: list[str]) -> None:
+    repository = text(".github/workflows/repository-verify.yml")
+    stable = text(".github/workflows/stable-release-verify.yml")
+    if "- Developing" in repository:
+        fail(errors, "Repository Verify must not target nonexistent Developing branch")
+    for marker in ("- Local", "- main", "python tools/verify_repository.py"):
+        if marker not in repository:
+            fail(errors, f"Repository Verify missing marker: {marker}")
+    for marker in ("name: Stable Release Gate", "branches:\n      - main", "github.head_ref", '"Local"', "python tools/verify_repository.py", "npm run build:frontend", "cargo check --locked"):
+        if marker not in stable:
+            fail(errors, f"Stable Release Gate missing marker: {marker}")
+
+
+def check_decision_boundary(errors: list[str]) -> None:
+    current = text("docs/knowledge/decisions/README.md")
+    legacy = text("docs/knowledge/decision-log.md")
+    for marker in ("Local working authority", "main stable/default authority", "D-035", "CC-BY-4.0"):
+        if marker not in current:
+            fail(errors, f"current decision register missing marker: {marker}")
+    if "historical evidence" not in legacy:
+        fail(errors, "decision-log compatibility pointer must mark legacy content historical")
 
 
 def check_python_syntax(errors: list[str]) -> None:
@@ -340,17 +335,18 @@ def check_python_syntax(errors: list[str]) -> None:
 def main() -> int:
     errors: list[str] = []
     check_required_paths(errors)
-    check_retired_paths(errors)
     check_skill_inventory(errors)
     check_size_budgets(errors)
-    check_github_rules(errors)
+    check_branch_authority(errors)
     check_agents(errors)
-    check_active_owner_branch_language(errors)
     check_next_action(errors)
-    check_ownership_shape(errors)
-    check_readme(errors)
+    check_current_validation(errors)
+    check_foundation(errors)
+    check_skill_freshness(errors)
     check_governance_links(errors)
-    check_workflow(errors)
+    check_workflow_supply_chain(errors)
+    check_workflow_routing(errors)
+    check_decision_boundary(errors)
     check_python_syntax(errors)
 
     if errors:
@@ -360,14 +356,13 @@ def main() -> int:
         return 1
 
     print("REPOSITORY VERIFY PASSED")
-    print(f"- canonical skills: {', '.join(sorted(CANONICAL_SKILLS))}")
     print("- working authority: Local")
-    print("- GitHub default/recovery branch: Developing")
-    print("- GitHub Core Rules: present")
-    print("- active continuation: compact / one Next Step")
-    print("- source ownership: responsibility-only")
-    print("- retired migration-map guard: active")
-    print("- repository verification workflow: read-only")
+    print("- stable/default authority: main")
+    print("- execution contexts: REMOTE_GITHUB | LOCAL_CODE | TARGET_WINDOWS")
+    print(f"- canonical skills: {', '.join(sorted(CANONICAL_SKILLS))}")
+    print("- continuation/proof ownership: separated")
+    print("- historical DevelopingData: absent from active tree")
+    print("- workflow supply chain: immutable/read-only/bounded")
     return 0
 
 

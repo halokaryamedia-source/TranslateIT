@@ -3,20 +3,24 @@ name: MiLMMT Repository Contract
 on:
   workflow_dispatch:
   push:
+    branches:
+      - Local
+      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
-      - "CONTEXT.md"
-      - "docs/knowledge/next-action.md"
+      - "docs/foundation/**"
       - ".github/workflows/milmmt-repo-contract.yml"
   pull_request:
+    branches:
+      - Local
+      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
       - "tools/translation_quality/validate_canonical_milmmt_repo.py"
-      - "CONTEXT.md"
-      - "docs/knowledge/next-action.md"
+      - "docs/foundation/**"
       - ".github/workflows/milmmt-repo-contract.yml"
 
 permissions:
@@ -25,13 +29,15 @@ permissions:
 jobs:
   contract:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12.10"
-      - name: Validate canonical MiLMMT repository contract
-        run: python tools/translation_quality/validate_canonical_milmmt_repo.py
+      - run: python tools/translation_quality/validate_canonical_milmmt_repo.py
       - name: Compile canonical Python owners
         run: >-
           python -m py_compile

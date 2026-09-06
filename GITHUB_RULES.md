@@ -1,40 +1,95 @@
 # GitHub Rules — TranslateIT
 
-Canonical operating rules for AI/ChatGPT working with GitHub in this repository.
+Canonical GitHub operating rules for AI/ChatGPT in this repository. Root and nearest `AGENTS.md` files may narrow domain behavior, but they must not weaken safety, integrity, proof, efficiency, history, security, GitHub-first execution, transfer, or STOP boundaries.
 
-Root `AGENTS.md` and repository-local owners may narrow domain behavior, but they must not weaken safety, integrity, proof, history, security, or STOP boundaries here.
+`Local` is the working repository authority. `main` is the stable/default repository authority and changes only through an explicit stable promotion or another exact user-authorized stable mutation.
 
-For normal repository work apply **Core Rules 1–7**. Read a **Conditional GitHub Surface** only when the current task actually touches it.
+## Core flow
+
+Apply Core Rules 1–7 in order.
 
 ```text
 PIN
+→ EXECUTION CONTEXT
+→ EXHAUST REMOTE_GITHUB PARTITION
 → READ MINIMUM
 → DIAGNOSE
-→ TOOL FIT
+→ TOOL + TRANSFER GATE
 → WRITE ONCE
-→ VERIFY MINIMUM
+→ VERIFY + FAILURE POLICY
 → STOP
 ```
 
 # Core Rules
 
-## 1. PIN — establish exact current authority
+## 1. PIN — establish exact authority
 
-Before a material GitHub change, know the repository, intended ref, current HEAD, requested scope, and whether the target is writable.
+Before a material change, know repository, intended ref, current HEAD when relevant, scope, and writability.
 
-- `Local` is the current development authority.
-- `Developing` remains the GitHub default branch and is retained historical/recovery evidence; it is not a silent fallback write target.
-- Never silently use the repository default branch when the task targets `Local`.
-- Every supported write explicitly targets the intended ref.
-- Direct branch/file fetch is current-state authority. Search is discovery only.
-- Re-check HEAD only when concurrent movement is plausible or before a write that could overwrite newer work.
-- Replacement/deletion uses the current blob/content SHA from the exact target branch. On stale state, refetch once and rebuild the intended final state; never substitute another identifier type.
-- Protected, production, release, archived, or read-only refs are not write targets unless repository policy or explicit user instruction authorizes that exact mutation.
-- Current source plus relevant proof outranks stale continuation prose. If `next-action.md` materially conflicts with current source/state, reconcile the stale owner before continuing.
+- **`Local` is working authority. Never silently fall back to `main` or another ref.**
+- **`main` is stable/default authority. Routine development never starts there.**
+- Direct branch/file fetch is current-state authority; search is discovery only.
+- Every write explicitly targets the intended ref.
+- Replacement/deletion uses current content/blob authority from the exact target ref.
+- Re-check HEAD immediately before a ref move when concurrency is plausible.
+- Current source plus relevant proof outranks stale continuation prose.
+- If `next-action.md` disagrees with current source, reconcile the stale state owner before continuing.
+- Protected/release/archive refs and high-impact repository settings are not ordinary write targets.
 
-## 2. READ MINIMUM — read only what can change the decision
+### Execution context / proof ceiling
 
-Default budget after any mandatory continuity boot:
+Classify by actual capability:
+
+```text
+REMOTE_GITHUB = repository/GitHub + CI evidence; no claim of local Windows runtime
+LOCAL_CODE    = exact checkout + development toolchain/filesystem execution
+TARGET_WINDOWS = LOCAL_CODE + installed TranslateIT + real Windows GPU/audio/device/meeting environment
+```
+
+A label is intent, not proof. Use the highest context actually available.
+
+- `REMOTE_GITHUB` may implement source/static/CI-verifiable work.
+- `LOCAL_CODE` additionally owns local generators, toolchain execution, filesystem-sensitive builds and tests.
+- `TARGET_WINDOWS` is required for physical microphone, real GPU practicality, VB-CABLE/device behavior, installed-runtime, meeting-app delivery, end-to-end latency, speaker-quality and clean-machine claims.
+- Hosted Windows CI proves only what that hosted runner executed. It is not automatically `TARGET_WINDOWS`.
+
+### GitHub-first execution partition
+
+`REMOTE_GITHUB` is the default repository-development workbench when it can safely complete the source portion. Do not transfer a whole task because one residue requires a higher context.
+
+```text
+GitHub-verifiable
+→ exact-source diagnosis/design
+→ implementation not requiring unavailable generated/native output
+→ regression/static/integration contracts
+→ CI routing + security/provenance
+→ deterministic harness/evidence preparation
+
+higher-context residue
+→ canonical generated output requiring a capable worktree
+→ dependency/toolchain mutation unavailable here
+→ installed Windows/GPU/audio/device/meeting proof
+```
+
+Rules:
+
+- Exhaust the GitHub-verifiable partition first.
+- Prebuild deterministic local/target test procedures when this reduces later interactive work.
+- Hand off only the minimum residue with exact inputs, acceptance and `do not redo` guidance.
+- Never claim a prepared harness or CI artifact performed the higher-context action itself.
+- If a canonical edit cannot be complete without unavailable generated output, do not move `Local` with an incomplete canonical state.
+
+### Source acceptance
+
+Normal development uses the smallest owning verifier. A stable `Local → main` promotion uses `Stable Release Gate`, which validates the GitHub pull-request merge candidate.
+
+When combining separate source checks manually, require completed success on the same exact SHA. Do not combine different SHAs or ancestor results and call the result current proof.
+
+Record repository/ref, SHA, run/job and conclusion when evidence identity materially matters. Missing checks remain missing; do not create proof-only commits or temporary workflows merely to trigger them.
+
+## 2. READ MINIMUM — only what can change the decision
+
+After required continuity boot, default to:
 
 ```text
 owner/source files   1–3
@@ -42,289 +97,279 @@ history reads        0
 broad scans          0
 ```
 
+- Prefer direct fetch for known paths.
 - Open more only for a concrete unresolved question.
-- Do not read Git history, old reports, `DevelopingData`, generated output, adjacent owners, or the entire dependency tree merely to feel safer.
-- `Developing` and `DevelopingData` are recovery evidence only unless a current owner requires a bounded historical comparison.
-- Truncated, paginated, partial, or capped output is incomplete evidence, not proof of absence.
-- Continue pagination or narrow a query only when unseen data can materially change the decision.
-- A missing result may mean missing, stale ref, inaccessible, or unindexed. Verify exact repository/ref/access once before concluding absence; do not guess alternate paths or branches.
-- The mandatory non-trivial Developing boot in `AGENTS.md` / `development-brief` exists to prevent cross-session drift. After that boot, additional reading remains minimum-needed.
+- Read Git history only when rationale/regression origin can change the decision.
+- Historical reports, deleted branches and old chats are not active authority.
+- Truncated/paginated/partial output is incomplete evidence, not absence.
+- Verify exact repo/ref/access once before concluding a target is missing.
 
 ## 3. DIAGNOSE — fix the first wrong owner
 
-Before writing, establish actual vs expected behavior and identify the first owner that is wrong.
+Establish actual vs expected before writing.
 
 ```text
-requirement / product policy wrong
-→ foundation / semantic policy owner
+requirement / policy / meaning wrong
+→ foundation or semantic owner
 
-requirement correct + implementation wrong
-→ implementation owner
+implementation wrong
+→ implementation owner — IMPLEMENTATION REGRESSION
 
-implementation correct + regression assertion stale
-→ test owner
+implementation correct + assertion stale
+→ test owner — STALE TEST
 
 implementation/test correct + CI routing wrong
-→ workflow / repository policy
+→ workflow/repository policy — ROUTING FAILURE
 
-derived/generated artifact wrong
-→ upstream canonical source / generator
+runtime/toolchain unavailable
+→ environment/capability owner — ENVIRONMENT FAILURE
 
-historical failure not reproduced now
-→ not active work
+requested evidence missing
+→ proof owner — PROOF FAILURE
+
+derived artifact wrong
+→ upstream canonical source/generator
 ```
 
 - Do not widen Maintenance into redesign.
-- Do not perform unrelated cleanup, refactors, compatibility work, documentation synchronization, dependency upgrades, or framework creation unless they block the requested result.
-- CI failure is evidence to diagnose, not permission to change the easiest file.
-- Historical failures, TODOs, audits, closed proof phases, and old branches are not active work unless reproduced or explicitly promoted by current user intent.
+- Do not perform unrelated cleanup, dependency upgrades, compatibility work, framework creation or documentation synchronization unless required by the same outcome.
+- CI failure is evidence, not permission to edit the easiest file.
+- Old TODOs/audits/experiments are inactive unless reproduced or explicitly reactivated.
 - `No change required` is valid.
-- Do not add routers, profiles, generic evaluators, registries, compatibility layers, telemetry, alternate runtimes/providers, or persistent state without proved current need.
+- Do not add routers, provider registries, generic evaluators, alternate runtimes, fallback stacks, persistent state or recovery frameworks without current evidence.
 
-## 4. TOOL FIT — use repository semantics that match the operation
+## 4. TOOL + TRANSFER GATE — choose the method that fits
+
+Choose the simplest method that completes the largest valid partition inside the current proof ceiling.
 
 ```text
-current branch / exact file state
-→ direct GitHub fetch
+REMOTE_GITHUB
+→ exact state: direct GitHub fetch
+→ one bounded UTF-8 edit: Contents API
+→ coherent multi-file UTF-8 change: atomic Git delivery
+→ CI diagnosis: run → failing job/step → relevant log
 
-one small bounded UTF-8 file
-+ one logical delivery
-+ complete current file
-→ GitHub Contents API
+LOCAL_CODE
+→ canonical generator / dependency lock / filesystem-heavy mutation
+→ local build/test requiring the real toolchain
 
-coherent multi-file logical delivery
-/ commit atomicity matters
-/ large file
-/ precise patch
-/ coordinated refactor
-/ binary / Git LFS
-→ local/Codex git workspace or another known-safe atomic Git capability
+TARGET_WINDOWS
+→ installed app / GPU / audio / device / meeting / clean-machine claim
 
-CI diagnosis
-→ run → failing job/step → exact relevant log
-
-Windows runtime / model / audio / device / installed-app claim
-→ actual matching capability
+required completion exceeds context
+→ finish current valid partition → minimum-residue handoff
 ```
 
-Do not use per-file Contents API when it would turn one logical delivery into several commits.
+### Atomic Git delivery
 
-When an atomic multi-file delivery is genuinely required and low-level Git capability is available:
-
-```text
-pinned HEAD + base tree
-→ create required blobs
-→ create one tree from the base tree
-→ create one commit with pinned HEAD as parent
-→ fast-forward `Local` once
-```
-
-Hard stops:
-
-- Never full-replace a file from partial context.
-- Never split `update_file` into chunks; it replaces the whole file.
-- Keep blob/content SHA, commit SHA, tree SHA, tag/ref, workflow-run ID, artifact ID, and job ID distinct.
-- Low-level blob/tree/commit/ref operations are not the default editor; reserve them for genuine atomic-delivery semantics.
-- Never use force-push, history rewrite, destructive reset, or ref manipulation as a workaround for stale state, CI failure, connector limits, commit spam, or messy history.
-- Permission, policy, or capability denial ends that operation unless new evidence changes the condition.
-- Do not change repository structure merely to make a connector easier to use.
-- If the current channel cannot perform a change safely or preserve required history quality, use or report the suitable channel instead of forcing completion.
-
-## 5. WRITE ONCE — deliver meaningful repository state
-
-Prepare the intended logical result before the first repository commit.
-
-- One intentional write per file is the default, but **WRITE ONCE does not mean COMMIT EVERY WRITE**.
-- Same-file and overlapping mutations are serial, never parallel.
-- Reuse successful mutation responses and returned identifiers as current state; do not immediately refetch for reassurance unless concurrency or proof requires it.
-- For coordinated multi-file work, establish the complete intended patch before the first commit. If HEAD moves materially, refetch affected state and reassess.
-- Keep one canonical owner per durable rule/state where practical; avoid duplicate contracts and synchronization cascades.
-- Update README/status/continuity/proof metadata only when its owned milestone, blocker, capability boundary, test entrypoint, or next meaningful objective actually changes.
-- Preserve lockfiles, runtime/version files, dependency constraints, pins, and action references unless their drift is the actual first wrong owner or the user explicitly requests change.
-- New files, workflows, abstractions, fixtures, reports, branches, PRs, issues, comments, labels, releases, and other persistent side effects default to zero unless current scope proves a need.
-- Generated artifacts follow their source/generator. Do not patch generated output to hide an upstream defect.
-
-### Commit discipline — history must remain meaningful
-
-A commit is a **categorized logical delivery**, not a save, checkpoint, reasoning step, tool call, CI trigger, or proof marker.
-
-Default delivery:
+For a coherent multi-file GitHub change:
 
 ```text
-prepare complete logical change
-→ cheapest relevant pre-commit proof available
-→ review intended diff/state
-→ one categorized logical commit
-→ push/ref update once
-→ only relevant CI
+pin exact Local HEAD + base tree
+→ fetch required exact owners
+→ finish final contents before mutation
+→ create blobs/tree while Local stays unchanged
+→ re-check Local HEAD once
+→ create one categorized logical commit
+→ move task branch or Local exactly once as planned
+→ relevant final verification
 → STOP
 ```
 
-Commit gate:
+Requirements:
+
+- Complete intended file set is known before the final ref movement.
+- Full-file replacement requires complete current content when preserving it.
+- One logical change produces one reviewable commit on the working authority after merge/squash.
+- Low-level Git is not an iterative scratch editor.
+- Never split `update_file`; it replaces the whole file.
+- Keep blob/content SHA, commit SHA, tree SHA, ref, workflow-run ID, artifact ID and job ID distinct.
+- Never force-push, rewrite shared history or destructively reset to work around stale state, CI failure, connector limits or messy history.
+- Connector limitations must not change repository/product architecture.
+
+### Transfer prohibitions
+
+Never create placeholders, transfer-only manifests, temporary loaders, artificial fragments, scratch architecture, one-use workflows, alternate repository layouts or generated wrappers solely to bypass a tool limitation.
+
+### Execution Handoff
+
+Use only for genuine remaining work above the current context:
 
 ```text
-one coherent outcome?
-primary category clear?
-intended file set complete?
-message explains repository outcome?
-reviewable/revertable as one unit?
-
-any NO
-→ DO NOT COMMIT YET
+FROM_CONTEXT
+TO_CONTEXT
+repository
+branch/ref
+pinned HEAD
+completed here
+residue only
+why higher capability is intrinsic
+first command/action
+acceptance
+do not redo
 ```
 
-Default message:
+## 5. WRITE ONCE — deliver one meaningful logical state
+
+Before repository movement:
+
+```text
+repo/ref/current state pinned
+scope + owners final
+complete final contents ready
+no scratch/temporary paths
+selected method carries whole current-context delivery
+expected proof known
+
+any NO
+→ DO NOT WRITE
+```
+
+- One intentional write per file and one logical commit per task are defaults.
+- Same-file/overlapping mutations are serial.
+- Keep one canonical owner per durable rule/state.
+- Update README/status/continuation/proof only when the state it owns changes.
+- Preserve lockfiles, toolchain constraints and trusted pins unless they are the actual owner being changed.
+- New files/workflows/branches/PRs/issues/comments/releases default to zero unless scope proves a need.
+- Generated artifacts follow source/generator; do not patch generated output to hide an upstream defect.
+
+### Commit discipline
+
+A commit is a categorized logical delivery, not a save/checkpoint/CI trigger/proof marker.
+
+```text
+prepare complete logical change
+→ cheapest relevant proof
+→ review intended state
+→ one categorized logical commit
+→ one ref/push update
+→ relevant CI
+→ STOP or hand off named residue
+```
+
+Message format:
 
 ```text
 <type>(<optional-scope>): <concise logical outcome>
 ```
 
-Categories:
+Use `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `release`, or bounded `chore`. Split only for genuinely independent outcomes, never by file, layer, tool call or discovery order.
 
-```text
-feat:      new user/repository capability
-fix:       wrong behavior or regression
-docs:      documentation/policy-only change
-refactor:  internal restructuring without intended behavior change
-test:      regression-contract-only change
-ci:        CI/workflow routing or execution
-build:     build/dependency/toolchain
-release:   explicit release/publish state
-chore:     bounded maintenance only when no clearer type fits
-```
+### Branch delivery
 
-- A `fix:` may include tests and supporting docs when they prove/document the same fix.
-- Split commits only for genuinely independent logical deliveries that can be reviewed, reverted, and landed separately.
-- Do not split by file, directory, frontend/backend layer, tool call, work order, or discovery order.
-- More than one commit for one requested task needs a concrete logical boundary.
-- Avoid vague history such as `update`, `changes`, `fix again`, `sync`, `final`, `try`, `rerun`, `proof`, or `misc`.
-- Do not create checkpoint commits by default.
-- Never rewrite published/shared history merely for aesthetics without explicit authority.
-- When one logical change touches multiple files and the active tool would create commit spam, use a known-safe atomic channel or report the required channel.
+- Small bounded work may land as one direct logical commit on `Local` when repository policy and active tooling permit.
+- Non-trivial/high-impact changes should use a bounded task branch and PR to `Local`; when merged, prefer squash so one logical outcome becomes one `Local` commit.
+- `main` receives only explicit `Local → main` stable promotions and uses a normal merge commit so the stable boundary is visible.
+- Do not merge `main`-only stable marker commits back into `Local` merely for ancestry cosmetics.
 
-## 6. VERIFY MINIMUM — validation follows the claim
-
-Validation is evidence, not ceremony.
+## 6. VERIFY + FAILURE POLICY — prove only what matters
 
 - Run the cheapest check that can falsify the changed claim.
 - Targeted checks are default during iteration.
-- Use a broad/full suite only when the changed executable/public contract can actually be affected and the final gate is materially useful.
-- Repository/routing/governance changes use `Repository Verify`; they do not automatically justify frontend, Rust, Python-model, installer, or Windows-device verification.
-- When CI is relevant, prefer the relevant gate on the final logical state; intermediate runs are not final proof.
-- Only a completed successful run is PASS. Queued, running, pending, cancelled, skipped, neutral, or superseded runs are not PASS.
-- Superseded runs need not be waited on when a newer relevant run replaces them.
-- Do not rerun unchanged checks or chase unrelated verifiers to green.
-- On CI failure, inspect the exact failing job/step and only relevant error before editing.
-- Do not weaken or bypass a valid test/workflow merely to get green; change it only when evidence shows the verifier itself is the first wrong owner.
-- Same-cause retry budget: **maximum 2 attempts**, and a second attempt requires materially new evidence.
-- Permission/capability denial retry budget: **0** unless new evidence changes the condition.
-- Regression tests protect material, realistically recurring invariants—not every typo, cosmetic wording change, or temporary state.
-- Do not use exact natural-language prose as a test contract unless the exact string itself is machine-required.
-- Static source/CI evidence proves only what it exercises. It does not prove model quality, speaker fidelity, GPU practicality, physical audio delivery, rendered native UI, installed-runtime behavior, latency, or clean-machine operation unless those actually ran.
+- Repository/governance changes use `Repository Verify`.
+- Frontend/Rust/Python/runtime/release checks run only when their owned surface changed or at the stable gate.
+- Only completed successful verification is PASS. Queued/running/cancelled/skipped/neutral/superseded is not PASS.
+- On failure, inspect the exact failing job/step and relevant error before editing.
+- Do not weaken/bypass a valid verifier for green status.
+- Regression tests protect material recurring invariants, not cosmetic prose.
+- Static source/CI does not prove model quality, speaker fidelity, physical audio, target GPU practicality, installed-runtime, meeting-app reception, latency or clean-machine behavior unless those actually ran.
 
-## 7. STOP — completion is a valid terminal state
+### Failure / retry matrix
 
-When the requested outcome, acceptance criteria, and minimum relevant proof are satisfied, stop.
+| Failure | Action |
+|---|---|
+| Known capability mismatch / unsupported transfer | STOP that method; 0 retries; finish other valid partitions and hand off residue |
+| Permission/safety denial | STOP; 0 retries unless condition changes |
+| Capability genuinely uncertain | at most 1 bounded probe |
+| 422 malformed request but valid method | correct once |
+| 404 missing/inaccessible | verify exact repo/ref/target once |
+| 409 stale/conflict | refetch once and rebuild from current state |
+| 429 rate limit | respect server guidance |
+| 5xx/timeout/unknown mutation | inspect target before retry |
+| Same-cause valid-method failure with new evidence | maximum 2 attempts |
 
-Do not automatically:
+Changing tools/encodings/branches/representations does not reset retry ceilings.
 
-- audit another layer;
-- synchronize unrelated docs;
-- run another verifier;
-- create proof-of-proof;
-- fix adjacent non-blocking issues;
-- create branches/PRs/issues/comments merely for ceremony;
-- reopen historical TODOs/audits;
-- start the recorded next milestone;
-- continue because more tooling is available.
+### Interrupted delivery
 
-## Default efficiency budget
+If current-task writes already occurred before a block, perform at most one bounded recovery pass: identify current-task artifacts, remove only accidental artifacts when safe, preserve legitimate changes, disclose remaining state, then STOP or hand off. Never rewrite shared history to hide interrupted delivery.
 
-```text
-owner/source reads        1–3 after required continuity boot
-history reads             0 by default
-broad scans               0
-new files                 0 unless required
-new workflows             0 unless required
-new abstractions          0
-intentional writes/file   1
-logical commits/task      1 by default
-uncategorized commits     0
-intermediate commits      0
-CI-trigger commits        0
-proof-only commits        0
-push/ref updates/task     1 by default
-relevant CI               0–1 per affected proof surface
-same-cause retry          <= 2
-capability-denial retry   0
-adjacent cleanup          0
-high-impact mutations     0 unless explicitly authorized
-```
+## 7. STOP — completion is terminal
 
-Exceed a budget only when concrete current evidence requires it.
+Stop when the requested current-context outcome and relevant proof are satisfied, or when an unavoidable residue has been explicitly handed off.
 
-# Conditional GitHub Surfaces
+Do not automatically audit another layer, synchronize unrelated docs, run another verifier, create proof-of-proof, fix adjacent issues, create GitHub objects for ceremony, resume deferred work, or continue because more tooling exists.
 
-Apply only when the current task touches that surface.
-
-## API failures, pagination, rate limits, and ambiguous mutations
+## Efficiency budget
 
 ```text
-401        authentication problem
-403        permission / policy / rate-limit investigation
-404        missing OR inaccessible / stale target
-409        conflict / stale state → refetch relevant state
-422        invalid request / policy failure → fix request before retry
-429        rate limited → respect server retry/reset guidance
-5xx/timeout mutation outcome may be unknown → inspect current state before retry
+owner/source reads            1–3 after boot
+history reads                 0 by default
+broad scans                   0
+uncertain-capability probe    <= 1
+same-cause retry              <= 2
+capability-denial retry       0
+handoff scope                 minimum residue
+intentional writes/file       1
+logical commits/task          1 by default
+Local ref updates/task        1 by default
+relevant CI                   0–1 per proof surface
+placeholder/transfer hacks    0
+adjacent cleanup              0
+high-impact mutations         0 unless explicitly authorized
 ```
 
-- Do not create request storms or parallel mutation bursts.
-- Respect retry/rate-limit signals instead of repeatedly probing.
-- If a mutating request has an unknown outcome, refetch target state first. Retry only after confirming the intended mutation is absent.
+# TranslateIT repository boundaries
 
-## Special files, Git LFS, binaries, submodules, and generated artifacts
+```text
+branch/history/security   → GITHUB_RULES.md
+agent routing/modes       → AGENTS.md
+stable orientation        → CONTEXT.md
+product/system law        → docs/foundation/
+continuation              → docs/knowledge/next-action.md
+current proof meaning     → docs/knowledge/current-validation.md
+implementation ownership  → docs/knowledge/source-ownership.md
+durable decisions         → docs/knowledge/decisions/
+operational runbooks      → docs/knowledge/operations/
+specialist routing        → docs/knowledge/skills/
+actual behavior           → current source + matching proof
+historical evidence       → Git history only unless explicitly revalidated
+```
 
-Before treating repository content as UTF-8 text, distinguish regular files from symlinks, submodules, Git LFS pointers, generated artifacts, binaries, and files outside practical tool limits.
+`next-action.md` stores only resume-critical state and one next step. `current-validation.md` owns proof interpretation. Historical status/report trees are not current navigation surfaces.
 
-- Never hand-edit an LFS pointer as the large-file content.
-- Do not rewrite a symlink, submodule, or binary through plain-text replacement unless that representation is explicitly intended.
-- Generated/derived artifacts follow their canonical source; fix source and regenerate unless repository policy defines the artifact as authored source.
+# Conditional GitHub surfaces
 
-## Pull requests, branch protection, rulesets, reviews, and merge queues
+## API failures and ambiguous mutations
 
-When a task involves a PR or merge decision:
+Interpret 401 as authentication, 403 as permission/policy/rate-limit, 404 as missing/inaccessible/stale, 409 as stale/conflict, 422 as invalid request/policy, 429 as rate limiting, and 5xx/timeout as potentially unknown mutation outcome. After an unknown mutation result, inspect current target state before retry.
 
-- Refresh current PR head SHA, base, mergeability, required reviews/CODEOWNERS state, checks, and deployment/environment gates before a high-impact action.
-- A new commit can stale prior approvals/check assumptions; do not act from an old snapshot.
-- Required human review, CODEOWNERS, repository protection/rules, signed-commit requirements, linear-history requirements, merge queues, and deployment gates are authority rather than errors to work around.
-- Branch/tag deletion, PR merge/close, release publication/deletion, environment bypass, repository settings/permission/rules changes, and history-altering actions require explicit authority and an exact current target.
-- Perform only the requested high-impact mutation; do not add unrelated repository-object changes as cleanup or ceremony.
+## Special files / generated artifacts / binaries
+
+Distinguish regular UTF-8 files from symlinks, submodules, Git LFS pointers, generated artifacts and binaries. Never hand-edit an LFS pointer as content. Generated output follows its canonical source/generator.
+
+## Pull requests / protection / rulesets
+
+Before merge/close/high-impact PR action, refresh head SHA, base, mergeability, relevant checks/reviews and protection state. Required human review, CODEOWNERS, rulesets, merge queues and deployment gates are authority, not obstacles to bypass.
+
+Branch/tag deletion, PR merge/close, release publication/deletion, repository settings/rules changes and history-altering operations require explicit authority and exact current targets.
 
 ## GitHub Actions and hosted proof
 
-GitHub Actions is verification/deployment infrastructure, not a background development engine.
+- Workflows are verification/deployment/artifact infrastructure, not a source editor or remote shell.
+- Automatic triggers should cover only paths/events their checks can falsify.
+- Verification workflows are read-only by default and never commit/push back.
+- Use least-privilege permissions.
+- Pin third-party Actions to immutable 40-character commit SHAs and annotate the intended release in comments.
+- `actions/checkout` uses `persist-credentials: false` for read-only verification.
+- Jobs have bounded timeouts.
+- Dependency installation uses canonical lockfiles/frozen modes where available.
+- Treat event-derived strings/paths/names as untrusted input before privileged shell use.
+- Do not use `pull_request_target` for untrusted contribution execution unless a future explicit security design proves it necessary.
+- Do not create temporary one-use workflows.
 
-- Automatic workflows run only on intended branches/events/paths their checks can falsify.
-- Documentation/routing/planning/status changes do not justify full executable product verification unless a check explicitly owns them.
-- Correctly skipped irrelevant workflows are not missing proof; do not manufacture unrelated changes to trigger them.
-- A required but skipped check is CI/ruleset routing, not permission to change unrelated code.
-- Prefer fail-fast when downstream checks are meaningless after an upstream failure.
-- Cancel superseded runs when older results are no longer useful.
-- Verification workflows are read-only by default and do not commit/push back to `Local`.
-- Publishing/release bundling is explicit release work.
-- Do not create temporary/one-use workflows because the active channel lacks another capability.
-- Do not rerun an unchanged failed workflow merely to seek green.
-- Use least-privilege workflow permissions and preserve declared action/runtime versions unless version drift is the actual issue.
-- Treat event-derived names/text/inputs as untrusted data and validate them before privileged script use.
+## Sensitive data / release / deployment
 
-A new hosted proof workflow is justified only when the proof surface is repeatable and repository-owned. Prefer a retained reusable workflow over `temp-*` workflow churn.
+Never commit or echo secrets, credentials, private keys, auth headers, personal voice recordings, private conversation bodies or unredacted user paths into public source/workflows/issues/PRs/comments/logs. Report sensitive findings by location/type without repeating protected values.
 
-Hosted Windows proof may establish only what the hosted runner actually executes, for example compilation, source contracts, bounded model execution available on that runner, deterministic payload staging, or installer-format behavior. It does **not** become proof of the user's physical microphone, real GPU practicality, Zoom/Meet/Teams reception, installed driver behavior on a target PC, or clean-machine acceptance.
-
-## Sensitive data, releases, and deployment environments
-
-- Never commit, paste, echo, or move secrets such as API keys, access tokens, passwords, private keys, authorization headers, or `.env` credentials into source, workflows, issues, PRs, comments, logs, or documentation.
-- If protected data is discovered, report only the affected location/type without repeating the value and treat exposure as a security issue.
-- Redaction in logs is not permission to print protected values intentionally.
-- Environment/release/deployment approval gates are authoritative constraints, not ordinary CI failures. Do not bypass required reviewers/protection for convenience.
+Release/deployment approval gates are authoritative. Publishing tags/releases remains a separate explicit user action; a stable `main` promotion does not automatically create a versioned release.

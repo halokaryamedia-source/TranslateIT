@@ -1,88 +1,76 @@
 # TranslateIT — Acceptance Scenarios
 
-Owner of **what must be verified before a claim is allowed**, and in which order. This file never records run outcomes; results live in `docs/knowledge/next-action.md` continuity plus per-scenario evidence artifacts. Established by D-031 after the all-in-one R3 gate was retired for unclear scenario ownership.
-
-## Automated coverage map (function-first, D-032)
-
-```text
-Lv0 GPU function smoke + worker pytest contracts  -> WorkerRuntime entrypoints
-Lv1 pure decision units (cargo test)              -> session authority, scheduler/deadlines,
-                                                     settings schema/atomic write, VAD gate,
-                                                     utterance overflow/eviction counters
-Lv2 command surface                               -> scripts/validate_command_parity.mjs
-Lv4 device-bound behavior                         -> manual Groups B/C/D below
-```
+This file owns **what must be verified before a claim is allowed** and the order/proof context. It does **not** store run outcomes. Current proof interpretation belongs in `docs/knowledge/current-validation.md`; private/local artifacts remain outside tracked source.
 
 ## Principles
 
-- One scenario proves one claim. Run one at a time, in criticality order; stop at the first failure and diagnose that owner before continuing.
-- Every result carries an honest label: `dev-tree proof`, `installed-runtime proof`, or `target-PC observation`. A dev-tree pass never substitutes for an installed or clean-machine claim.
-- Automated scenarios write one redacted JSON artifact under `UserData/LogData/RustAppValidation/`. Build-bound scenarios write under ignored `src-tauri/target/`. Missing evidence must not be fabricated.
-- Nothing the retired mega-gate covered may vanish silently: every covered claim exists here or is explicitly deferred below.
+- One scenario proves one claim.
+- Run the smallest relevant scenario(s); stable promotion may deliberately run a broader source gate.
+- Stop at the first failure and diagnose the first wrong owner.
+- Label proof by actual context: `REMOTE_GITHUB`, `LOCAL_CODE`, `TARGET_WINDOWS`.
+- Source/CI proof never substitutes for physical device, real GPU, installed-runtime or clean-machine claims.
+- Do not add marker/mock tests merely to claim runtime success.
 
-## Retirement record
+## Group A — Local AI runtime
 
-Removed: root `Run-Local-Test.ps1`, `scripts/run_local_test.ps1`, `scripts/run_target_pc_acceptance.ps1` (D-031). One opaque run mixed release building, installation, and ~12 unrelated claims, so failures had unclear ownership and expensive feedback. `build_release.ps1` remains the controlled release entry and is used directly by deferred Group E. Staging (`stage_release_inputs*.ps1`) remains owned by CI and Group E.
-
-## Group A — Core AI runtime (headless)
-
-Run first. Uses `WorkerRuntime/run_realtime_worker_smoke.ps1` with `-IncludeOverLengthProbe` for A6 (A1–A5 and A6 green on CUDA BF16, 2026-08-23).
-
-| ID | Claim | Mode | Precondition | Pass criteria |
-|---|---|---|---|---|
-| A1 | Worker starts; pinned dependencies resolve | auto | staged `.venv`, markers | `status.ok`; blockers empty |
-| A2 | CUDA BF16 execution truth | auto | NVIDIA GPU | `device=cuda`, `precision=bf16` on translate |
-| A3 | ASR turbo preload | auto | RuntimeAssets marker | `asr_preload.ok` on cuda |
-| A4 | Translation ID→EN canonical contract | auto | A2, A3 | ok + `canonical_bidirectional_id_en` + `complete` + `finished_with_eos` |
-| A5 | Translation EN→ID canonical contract | auto | A2, A3 | same, direction `en->id` |
-| A6 | Over-length input rejected before any truncation/compaction | auto | A4 | >2000-char translate returns `ok:false`, blocker `translation:text_too_large`, `max_chars:2000` |
-| A7 | Incomplete generation rejected with named cause | auto | A4 | real `_continuation` fixture `test_milmmt_continuation_rejects_token_ceiling_without_eos` asserts blocker `translation:output_hit_token_ceiling_without_eos`; the ended-without-EOS branch lives in the same validator |
-| A8 | My Voice build→evaluate→approve→bind | manual-app | GPT-SoVITS assets | approved profile exists; readiness reports it |
-| A9 | Actor-token swap fails closed | manual-app | A8 | synthesis refuses on token mismatch |
-
-A8/A9 run through the My Voice app workflow; their inference-contract tests are green 8/8 (2026-08-23).
-
-## Group B — Windows audio (physical microphone)
-
-> Manual groups A8/A9 and B/C/D run **strictly on owner initiative**, after the automated levels are green. They are never the default next step and must not be pushed onto the owner.
-
-| ID | Claim | Mode | Pass criteria |
+| ID | Claim | Minimum context | Pass criteria |
 |---|---|---|---|
-| B1 | Mic discovery + functional probe | auto+device | `callback_frames_observed > 0` |
-| B2 | Session Listening finalizes segments continuously | manual-device | natural pauses produce finalized segments until Stop; while you speak, incoming shows `Held n/4` instead of vanishing |
-| B3 | VAD edge losses are observable | manual-device | >60 s speech drop and eviction increment visible counters |
-| B4 | Device change locked during session | manual-device | selection blocked with clear message while active |
-| B5 | Virtual route truth is labeled | auto+device | matched pair reported with explicit non-delivery-proof labeling |
+| A1 | Worker contract starts/resolves | LOCAL_CODE or capable CI | canonical worker contract succeeds; blockers empty |
+| A2 | CUDA execution truth | TARGET_WINDOWS or matching GPU context | actual selected device/precision reported from executed inference |
+| A3 | ASR preload/inference | matching runtime | canonical ASR loads and processes a valid finalized input |
+| A4 | Translation ID→EN | matching runtime | complete canonical result or explicit bounded failure; no silent truncation |
+| A5 | Translation EN→ID | matching runtime | complete canonical result or explicit bounded failure |
+| A6 | Over-length safety | source/runtime test | rejected before silent truncation |
+| A7 | Incomplete generation safety | source/runtime test | known incomplete output rejected with explicit cause |
+| A8 | Built-in Meeting voice | TARGET_WINDOWS when audio quality/runtime is claimed | selected Built-in Male/Female synthesizes through canonical Meeting voice path |
+| A9 | My Voice build→evaluate→approve→reuse | TARGET_WINDOWS | authorized workflow completes; approved actor survives restart/reuse |
 
-## Group C — Meeting end-to-end (dev-mode app)
+## Group B — Windows audio
 
-Requires green A-group and the relevant B scenarios.
-
-| ID | Claim | Mode | Pass criteria |
+| ID | Claim | Minimum context | Pass criteria |
 |---|---|---|---|
-| C0 | Day-one start via built-in voice (no My Voice training) | manual-app | select Built-in Male/Female on My Voice page; Meeting Start becomes ready |
-| C1 | Start→ASR→translate→TTS→delivery with stage timing | manual-device | Live reached; outbound stage timings recorded |
-| C2 | Incoming lane isolation | manual-device | EN sound→ID text works; incoming failure does not break outbound |
-| C3 | Stop lifecycle cleanliness | manual-device | full rollback; helper recovery when needed; no dangling handles |
-| C4 | Close-window guard ladders | manual-app | each branch (voice block/unavailable/foreign/stopping) behaves as designed |
-| C5 | Repeated start/stop ×3 stability | manual-device | third cycle stable; counters sane |
+| B1 | Physical microphone discovery/probe | TARGET_WINDOWS | selected/default intent is truthful and real capture frames are observed |
+| B2 | Session Listening finalization | TARGET_WINDOWS | natural speech produces finalized utterances continuously until Stop |
+| B3 | VAD/drop observability | TARGET_WINDOWS | bounded drop/overflow conditions remain observable rather than silent |
+| B4 | Device mutation during session | TARGET_WINDOWS | conflicting selection/setup mutation is rejected/deferred while owned |
+| B5 | Meeting route truth | TARGET_WINDOWS | matched route is detected/configured; discovery is not mislabeled as meeting delivery proof |
+
+## Group C — Meeting end-to-end
+
+Requires relevant A/B capability first.
+
+| ID | Claim | Minimum context | Pass criteria |
+|---|---|---|---|
+| C0 | Day-one start with built-in voice | TARGET_WINDOWS | choose Built-in Male/Female; required readiness can reach Start without My Voice training |
+| C1 | Outbound end-to-end | TARGET_WINDOWS | Start→capture→ASR→ID→EN→selected voice→Meeting Microphone; stage timing recorded when latency is claimed |
+| C2 | Outbound rolling context | TARGET_WINDOWS or matching runtime fixture | only last three committed own-voice pairs affect outbound; current utterance remains primary input |
+| C3 | Incoming context isolation | TARGET_WINDOWS or matching runtime fixture | incoming EN→ID remains context-free and incoming failure does not break outbound |
+| C4 | Stop lifecycle | TARGET_WINDOWS | output authority revoked, work/capture cleaned, no dangling handles/stale output |
+| C5 | Repeated session stability | TARGET_WINDOWS | repeated start/stop remains stable and bounded |
 
 ## Group D — Desktop product surfaces
 
-| ID | Claim | Mode | Pass criteria |
+| ID | Claim | Minimum context | Pass criteria |
 |---|---|---|---|
-| D1 | FirstSetup checkpoints persist | manual-app | state survives relaunch (settings v6) |
-| D2 | Settings sanitize + atomic write | auto | existing cargo tests; manual save during C |
-| D3 | Readiness truth gates Start | manual-app | without approved My Voice, Start disabled with Setup Needed vocabulary |
-| D4 | Diagnostics redaction | manual-app | error ring shows no absolute user paths |
+| D1 | First Setup persistence | LOCAL_CODE/TARGET_WINDOWS as claim requires | setup checkpoints/preferences survive relaunch correctly |
+| D2 | Settings sanitize/atomic write | source/local | invalid state is sanitized; writes remain atomic |
+| D3 | Readiness truth | source + TARGET_WINDOWS for live claim | Meeting Start depends on required route/runtime plus **a selected built-in or approved My Voice**, not My Voice training specifically |
+| D4 | Diagnostics privacy | source/local | no private conversation/raw audio/unredacted user path is exposed by default |
+| D5 | Rendered UI hierarchy | rendered local/target | current state/action remains legible at supported window sizes; source alone is not visual PASS |
 
-## Group E — R3 distribution (deferred, opt-in)
+## Group E — Distribution
 
-Run only when distribution readiness is decided. Each is its own scenario, not a combined gate.
+Run when distribution/install claims are in scope.
 
-| ID | Claim | Mode | Pass criteria |
+| ID | Claim | Minimum context | Pass criteria |
 |---|---|---|---|
-| E1 | Version/hash-bound Setup+Payload pair builds | auto-build | clean tracked tree; evidence records commit + both SHA-256 |
-| E2 | Fresh install on target PC | manual-UAC | installed manifest written; app launches from installed root |
-| E3 | Installed-worker fixtures | auto-installed | ID↔EN through installed private runtime |
-| E4 | Uninstall preserves user data + driver | manual | payload roots removed; SavedProject and VB-CABLE remain |
+| E1 | Release source contract | REMOTE_GITHUB/LOCAL_CODE | controlled Setup/payload inputs, pins, notices and package config validate |
+| E2 | Setup + payload build | LOCAL_CODE/capable CI | artifact pair builds and records exact source/artifact identity |
+| E3 | Installed runtime | TARGET_WINDOWS | installed private runtime/assets resolve and canonical worker functions |
+| E4 | Audio-provider install behavior | TARGET_WINDOWS | provider consent/restart/setup behavior matches policy |
+| E5 | Uninstall/reinstall data policy | TARGET_WINDOWS | app runtime is repaired/replaced as intended while user-owned persistent data is preserved |
+| E6 | Clean-machine acceptance | TARGET_WINDOWS clean target | fresh install launches and required product path works without developer setup |
+
+## Stable source promotion
+
+`Stable Release Gate` is a repository/source promotion gate. Even when fully green, it does not by itself turn Groups B/C/E target-only claims into PASS.
