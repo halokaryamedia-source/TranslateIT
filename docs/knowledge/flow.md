@@ -1,92 +1,106 @@
-# TranslateIT Work Routing
+# TranslateIT Work Flow
 
-Root `AGENTS.md` is the canonical work-mode/boot owner. `GITHUB_RULES.md` is the canonical GitHub execution owner. This file is only a compact routing reference.
+## Canonical flow
 
 ```text
 User request
-    |
-    v
-Pin TranslateIT / intended ref
-    |
-    v
-Select real mode
-    |
-    +--> Context Recovery
-    |      AGENTS → GitHub Core → CONTEXT → next-action
-    |      → smallest owner → report → STOP / NO EDIT
-    |
-    +--> Plan
-    |      recover authority → resolve material method/ownership decision
-    |      → NO IMPLEMENTATION → STOP
-    |
-    +--> Developing
-    |      continuity boot
-    |      → development-brief
-    |      → zero/one project specialist
-    |      → smallest current owner
-    |
-    +--> Maintenance
-           exact defect
-           → first wrong owner
-           → zero/one specialist only if useful
-    |
-    v
-Root-cause / edit gate
-    |
-    v
-Minimum complete change
-(or No change required)
-    |
-    v
-Minimum proof that can falsify the claim
-    |
-    v
-Acceptance POV
-    |
-    +--> proof sufficient       → Selesai
-    +--> target proof missing   → Perlu pemeriksaan
-    +--> material blocker       → Terhenti
-    |
-    v
-Update only canonical state owners that actually changed
-    |
-    v
-Exactly one Next step
-    |
-    v
-STOP
+→ PIN repository/ref
+→ classify EXECUTION CONTEXT
+→ choose Context Recovery | Plan | Maintenance | Standard | Complex
+→ read minimum current authority
+→ identify first wrong owner
+→ define acceptance + proof ceiling
+→ finish current-context partition
+→ TOOL + TRANSFER GATE
+→ minimum complete change
+→ cheapest falsifiable proof
+→ update only changed canonical state owners
+→ exactly one next step when work remains
+→ STOP
 ```
 
-## Key routing rules
-
-- `amati` / inspect / understand is read-only unless the user also asks to continue/change something.
-- Plan never silently becomes Developing.
-- Non-trivial Developing always uses `development-brief`.
-- Maintenance starts from a reproduced/concrete defect and fixes the first wrong owner.
-- Do not route by Rust, Python, Svelte, Tauri, CUDA, or file type; route by semantic responsibility.
-- Do not stack TranslateIT project specialists.
-- If `next-action.md` disagrees with current source/state, verify the current owner and reconcile the stale record before continuing.
-- Historical TODOs, audits, deleted branches, `DevelopingData`, and old proof runs are not active work by themselves.
-- Hosted CI proves only what it executes; it does not automatically prove target Windows/device/audio/clean-machine behavior.
-- Stop when the current requested acceptance boundary is satisfied.
-
-## Canonical specialist routes
+## Execution contexts
 
 ```text
-desktop shell / navigation / state / readiness / settings integration
-→ desktop-runtime-development
+REMOTE_GITHUB
+→ source/static/CI-verifiable work
 
-visual hierarchy / layout / tokens / rendered UI acceptance
-→ desktop-ui-design-development
+LOCAL_CODE
+→ exact checkout + development toolchain/filesystem
 
-ASR / translation / TTS / model / AI worker runtime
-→ local-ai-runtime-development
-
-physical mic / capture / segmentation / Windows devices / Meeting route
-→ windows-audio-runtime-development
-
-installer / private runtime / models / provider distribution / clean-machine
-→ release-packaging-development
+TARGET_WINDOWS
+→ installed TranslateIT + real GPU/audio/device/meeting environment
 ```
 
-Use `docs/knowledge/skills/activation-matrix.md` only when specialist selection is genuinely ambiguous.
+Never transfer an entire task because one residue requires a higher context. Finish independent GitHub-valid source/test/harness/provenance work first and hand off only the intrinsic residue.
+
+## Modes
+
+### Context Recovery
+
+Read-only. Current authority only. Never execute a historical next step merely because it exists.
+
+### Plan
+
+Resolve a material product/architecture/release choice. No implementation.
+
+### Bounded Maintenance
+
+```text
+Goal
+Failure Classification / first wrong owner
+Acceptance
+Proof Required
+STOP Condition
+```
+
+### Standard Development
+
+```text
+Goal
+Success Metric
+Forbidden Proxy / Non-Goal
+First Evidence Required / first wrong owner
+In Scope / Out of Scope
+Execution Partition / higher-context residue
+Proof Required
+STOP Condition
+```
+
+### Complex / Ambiguous Development
+
+Use `.agents/skills/development-brief/SKILL.md`, then at most one semantic specialist.
+
+## First-wrong-owner examples
+
+```text
+product rule wrong
+→ docs/foundation
+
+source violates correct rule
+→ source owner
+
+source correct, test stale
+→ test owner
+
+source/test correct, workflow wrong
+→ CI owner
+
+claim needs real mic/GPU/installer evidence
+→ TARGET_WINDOWS proof owner
+```
+
+## Proof rule
+
+One scenario proves one claim. Source/static proof is never upgraded to target-Windows proof. Run only the proof that can falsify the changed claim; stable promotion is the deliberate broader source gate.
+
+## State routing
+
+```text
+what is active?       → next-action.md
+what is proven?       → current-validation.md
+who owns it?          → source-ownership.md
+what must it do?      → docs/foundation/
+why was it chosen?    → decisions/
+what does it do now?  → source + matching proof
+```

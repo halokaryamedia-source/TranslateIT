@@ -219,6 +219,47 @@ function fixedVoiceAttribution() {
   ].join("\n")).join("\n\n");
 }
 
+function builtInVoiceAttribution(backendRoot) {
+  const sourcePath = requireFile(
+    join(backendRoot, "RuntimeAssets", "Voice", "BuiltInVoices", "SOURCES.json"),
+    "Voice/BuiltInVoices/SOURCES.json",
+  );
+  const payload = JSON.parse(readFileSync(sourcePath, "utf8").replace(/^\uFEFF/, ""));
+  if (payload.schema !== "translateit.builtin_voice_sources.v1") {
+    throw new Error("invalid_builtin_voice_sources_schema");
+  }
+  const voices = Array.isArray(payload.voices) ? payload.voices : [];
+  if (voices.length !== 2) throw new Error("builtin_voice_sources_count");
+
+  return voices.map((voice) => {
+    const required = [
+      "voice_id",
+      "speaker_id",
+      "utterance",
+      "source_url",
+      "wav_sha256",
+      "license",
+      "reference_text",
+    ];
+    for (const key of required) {
+      if (!String(voice?.[key] ?? "").trim()) throw new Error(`builtin_voice_source_missing:${key}`);
+    }
+    if (voice.license !== "CC-BY-4.0") {
+      throw new Error(`builtin_voice_license_mismatch:${voice.voice_id}:${voice.license}`);
+    }
+    return [
+      `Component: TranslateIT built-in voice ${voice.voice_id}`,
+      "Source corpus: LibriSpeech dev-clean (OpenSLR SLR12)",
+      `Speaker: ${voice.speaker_id}`,
+      `Utterance: ${voice.utterance}`,
+      `Source: ${voice.source_url}`,
+      `Reference WAV SHA-256: ${voice.wav_sha256}`,
+      `Declared license: ${voice.license}`,
+      `Reference text: ${voice.reference_text}`,
+    ].join("\n");
+  }).join("\n\n");
+}
+
 export function thirdPartyNoticeOutputPath(backendRoot = defaultBackendRoot) {
   return join(backendRoot, "RuntimeAssets", "ThirdPartyNotices", "THIRD_PARTY_NOTICES.txt");
 }
@@ -274,6 +315,7 @@ export function buildThirdPartyNoticeBundle({ backendRoot = defaultBackendRoot }
     "===== PYTHON RUNTIME DISTRIBUTION INDEX =====\n\n" + packageIndex + "\n",
     "===== PYTHON RUNTIME LICENSE / NOTICE MATERIAL =====\n\n" + packageMaterials.join(""),
     "===== CONTROLLED MODEL / VOICE INVENTORY =====\n\n" + renderModelInventory(backendRoot, manifest) + "\n\n" + fixedVoiceAttribution() + "\n",
+    "===== BUILT-IN VOICE ATTRIBUTION =====\n\n" + builtInVoiceAttribution(backendRoot) + "\n",
     "===== CMUDICT ATTRIBUTION =====\n\nComponent: Carnegie Mellon Pronouncing Dictionary (CMUdict)\nSource: Carnegie Mellon University / nltk_data cmudict package\nUse status recorded by upstream: research and commercial use are unrestricted; acknowledgement of Carnegie Mellon origin is requested when the dictionary is used or redistributed.\n",
     renderMaterial("GPT-SOVITS SOURCE LICENSE", gptLicense),
     renderMaterial("FFMPEG LICENSE", ffmpegLicense),

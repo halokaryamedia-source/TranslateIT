@@ -4,30 +4,45 @@ on:
   push:
     branches:
       - Local
+      - main
     paths:
+      - ".editorconfig"
+      - ".gitattributes"
+      - ".gitignore"
       - "AGENTS.md"
       - "GITHUB_RULES.md"
       - "CONTEXT.md"
       - "README.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - ".github/CODEOWNERS"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
       - ".agents/skills/**"
       - "docs/foundation/**"
       - "docs/knowledge/**"
       - "tools/verify_repository.py"
-      - ".github/workflows/repository-verify.yml"
+      - ".github/workflows/**"
   pull_request:
     branches:
       - Local
-      - Developing
+      - main
     paths:
+      - ".editorconfig"
+      - ".gitattributes"
+      - ".gitignore"
       - "AGENTS.md"
       - "GITHUB_RULES.md"
       - "CONTEXT.md"
       - "README.md"
+      - "CONTRIBUTING.md"
+      - "SECURITY.md"
+      - ".github/CODEOWNERS"
+      - ".github/PULL_REQUEST_TEMPLATE.md"
       - ".agents/skills/**"
       - "docs/foundation/**"
       - "docs/knowledge/**"
       - "tools/verify_repository.py"
-      - ".github/workflows/repository-verify.yml"
+      - ".github/workflows/**"
   workflow_dispatch:
 
 concurrency:
@@ -41,15 +56,15 @@ jobs:
   verify:
     name: Static repository contract
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
-          python-version: "3.11"
-
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12.10"
       - name: Verify repository governance
         run: python tools/verify_repository.py
