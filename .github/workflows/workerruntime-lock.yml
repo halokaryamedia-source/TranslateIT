@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
@@ -13,7 +12,6 @@ on:
   pull_request:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
       - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"

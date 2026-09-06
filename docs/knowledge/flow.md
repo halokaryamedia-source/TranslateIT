@@ -4,7 +4,7 @@
 
 ```text
 User request
-→ PIN repository/ref
+→ PIN repository + Local HEAD
 → classify EXECUTION CONTEXT
 → choose Context Recovery | Plan | Maintenance | Standard | Complex
 → read minimum current authority
@@ -14,10 +14,15 @@ User request
 → TOOL + TRANSFER GATE
 → minimum complete change
 → cheapest falsifiable proof
+→ one logical Local delivery
 → update only changed canonical state owners
 → exactly one next step when work remains
 → STOP
 ```
+
+## Local-only repository model
+
+`Local` is the sole active repository authority. Current source, governance, CI, continuation, and release-source validation remain on `Local`. Other branches are not part of the normal work flow.
 
 ## Execution contexts
 
@@ -26,7 +31,7 @@ REMOTE_GITHUB
 → source/static/CI-verifiable work
 
 LOCAL_CODE
-→ exact checkout + development toolchain/filesystem
+→ exact Local checkout + development toolchain/filesystem
 
 TARGET_WINDOWS
 → installed TranslateIT + real GPU/audio/device/meeting environment
@@ -92,7 +97,7 @@ claim needs real mic/GPU/installer evidence
 
 ## Proof rule
 
-One scenario proves one claim. Source/static proof is never upgraded to target-Windows proof. Run only the proof that can falsify the changed claim; stable promotion is the deliberate broader source gate.
+One scenario proves one claim. Source/static proof is never upgraded to target-Windows proof. Run only the proof that can falsify the changed claim. Broader source confidence means the relevant checks must succeed on the same exact `Local` SHA.
 
 ## State routing
 
@@ -102,5 +107,5 @@ what is proven?       → current-validation.md
 who owns it?          → source-ownership.md
 what must it do?      → docs/foundation/
 why was it chosen?    → decisions/
-what does it do now?  → source + matching proof
+what does it do now?  → current Local source + matching proof
 ```

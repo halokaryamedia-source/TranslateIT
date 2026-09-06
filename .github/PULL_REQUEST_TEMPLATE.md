@@ -4,8 +4,11 @@ Describe the one repository/product outcome this PR delivers.
 
 ## Boundary
 
-- [ ] Task branch → `Local` development PR
-- [ ] `Local` → `main` stable promotion
+- [ ] Exceptional PR explicitly authorized
+- [ ] Target branch is `Local`
+- [ ] PR does not create a second source authority
+
+Routine development is Local-only and does not require a PR.
 
 ## Owners changed
 
@@ -18,7 +21,7 @@ State adjacent areas deliberately left out of scope.
 ## Verification
 
 - [ ] Cheapest owning check(s) run
-- [ ] Current relevant HEAD/check result inspected
+- [ ] Current relevant `Local` HEAD/check result inspected
 - [ ] No proof is claimed above the execution-context ceiling
 
 Evidence / commands / runs:
@@ -31,15 +34,7 @@ Evidence / commands / runs:
 
 - [ ] One logical outcome
 - [ ] No temporary workflow/transfer/scratch architecture
-- [ ] No secrets, personal voice/conversation data or private logs
+- [ ] No secrets, personal voice/conversation data, or private logs
 - [ ] Generated artifacts follow canonical source/generator
 - [ ] Continuation/proof owners updated only if their state changed
-
-## Stable promotion only
-
-For `Local → main`:
-
-- [ ] Source branch is `Local`
-- [ ] `Stable Release Gate` passes on the merge candidate
-- [ ] Merge method is normal merge commit
-- [ ] No version tag/GitHub Release is implied unless separately authorized
+- [ ] No branch-promotion behavior introduced

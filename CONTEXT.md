@@ -2,12 +2,13 @@
 
 ## Repository authority
 
+**Local-only repository model**
+
 ```text
-Local = active working/development authority
-main  = stable/default repository authority
+Local = sole active working/development/governance/CI/proof authority
 ```
 
-Routine development is performed from `Local` or a bounded task branch based on `Local`. Stable promotion is `Local → main` only. Historical branches/reports are recovery evidence, not current authority.
+Routine repository work is performed on `Local` only. Other branches are outside the current development lifecycle and are not fallback source, proof, continuation, or promotion targets unless the user explicitly changes this policy.
 
 ## Product
 
@@ -103,16 +104,16 @@ TranslateIT-Setup.exe
 TranslateIT-Payload.7z
 ```
 
-Normal users do not install Python, run pip, download core models manually, or operate GPT-SoVITS tooling.
+Release-source validation runs from current `Local`. Normal users do not install Python, run pip, download core models manually, or operate GPT-SoVITS tooling.
 
 ## Proof boundary
 
 ```text
 REMOTE_GITHUB
-→ source/static/CI contracts only
+→ source/static/CI contracts on Local
 
 LOCAL_CODE
-→ exact checkout/toolchain/build/generator/filesystem proof
+→ exact Local checkout/toolchain/build/generator/filesystem proof
 
 TARGET_WINDOWS
 → installed app + real GPU/audio/devices/VB-CABLE/meeting/latency/clean-machine proof

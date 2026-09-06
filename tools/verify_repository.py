@@ -24,7 +24,6 @@ REQUIRED_PATHS = (
     ".github/workflows/milmmt-repo-contract.yml",
     ".github/workflows/workerruntime-lock.yml",
     ".github/workflows/release-payload-verify.yml",
-    ".github/workflows/stable-release-verify.yml",
     "docs/foundation/01-product-overview.md",
     "docs/foundation/02-product-requirements.md",
     "docs/foundation/03-acceptance-scenarios.md",
@@ -81,6 +80,7 @@ CANONICAL_SKILLS = {
 LINK_RE = re.compile(r"\[[^\]]+\]\(([^)]+)\)")
 ACTION_RE = re.compile(r"(?m)^\s*uses:\s+([^@\s]+)@([^\s#]+)(?:\s+#\s*(.+))?$")
 SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
+MAIN_BRANCH_LINE_RE = re.compile(r"(?m)^\s*-\s+main\s*$")
 
 
 def fail(errors: list[str], message: str) -> None:
@@ -97,6 +97,8 @@ def check_required_paths(errors: list[str]) -> None:
             fail(errors, f"missing required path: {rel}")
     if (ROOT / "DevelopingData").exists():
         fail(errors, "DevelopingData must not remain in the active working tree; use Git history for recovery")
+    if (ROOT / ".github/workflows/stable-release-verify.yml").exists():
+        fail(errors, "stable-release-verify.yml is forbidden under the Local-only repository model")
 
 
 def check_skill_inventory(errors: list[str]) -> None:
@@ -126,19 +128,22 @@ def check_size_budgets(errors: list[str]) -> None:
 
 def check_branch_authority(errors: list[str]) -> None:
     for rel in ("README.md", "AGENTS.md", "GITHUB_RULES.md", "CONTEXT.md", "CONTRIBUTING.md"):
-        if not (ROOT / rel).is_file():
-            continue
         value = text(rel)
-        if "Local" not in value or "main" not in value:
-            fail(errors, f"{rel} must state Local/main authority")
+        if "Local-only" not in value:
+            fail(errors, f"{rel} must state the Local-only repository model")
         for stale in (
+            "stable/default repository authority",
+            "Local → main",
+            "Local -> main",
+            "main stable/default authority",
+            "Stable Release Gate",
             "Developing remains the GitHub default branch",
             "GitHub default/recovery branch: Developing",
             "retain Developing as a PR base",
         ):
             if stale in value:
-                fail(errors, f"{rel} contains stale branch authority: {stale}")
-    rules = text("GITHUB_RULES.md") if (ROOT / "GITHUB_RULES.md").is_file() else ""
+                fail(errors, f"{rel} contains stale branch lifecycle language: {stale}")
+    rules = text("GITHUB_RULES.md")
     for marker in (
         "EXHAUST REMOTE_GITHUB PARTITION",
         "Execution context / proof ceiling",
@@ -147,6 +152,7 @@ def check_branch_authority(errors: list[str]) -> None:
         "Failure / retry matrix",
         "Interrupted delivery",
         "TARGET_WINDOWS",
+        "`Local` is the sole active repository authority",
     ):
         if marker not in rules:
             fail(errors, f"GITHUB_RULES.md missing modern operating marker: {marker}")
@@ -162,6 +168,7 @@ def check_agents(errors: list[str]) -> None:
         "Forbidden Proxy / Non-Goal",
         "current-validation.md",
         "TARGET_WINDOWS",
+        "Local-only",
     ):
         if marker not in value:
             fail(errors, f"AGENTS.md missing routing marker: {marker}")
@@ -172,7 +179,14 @@ def check_next_action(errors: list[str]) -> None:
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
         if value.count(heading) != 1:
             fail(errors, f"next-action.md must contain exactly one {heading}")
-    for marker in ("V1-Advance", "Developing` remains", "Start built-in voices integration"):
+    for marker in (
+        "V1-Advance",
+        "Developing` remains",
+        "Start built-in voices integration",
+        "stable/default authority",
+        "Stable Release Gate",
+        "Local → main",
+    ):
         if marker in value:
             fail(errors, f"next-action.md contains stale continuation marker: {marker}")
 
@@ -184,6 +198,8 @@ def check_current_validation(errors: list[str]) -> None:
             fail(errors, f"current-validation.md missing section: {marker}")
     if "one SHA does not prove another SHA" not in value:
         fail(errors, "current-validation.md must preserve exact-SHA evidence discipline")
+    if "Local-only" not in value:
+        fail(errors, "current-validation.md must state Local-only source authority")
 
 
 def check_foundation(errors: list[str]) -> None:
@@ -288,30 +304,22 @@ def check_workflow_supply_chain(errors: list[str]) -> None:
 
 
 def check_workflow_routing(errors: list[str]) -> None:
+    root = ROOT / ".github" / "workflows"
     repository = text(".github/workflows/repository-verify.yml")
-    stable = text(".github/workflows/stable-release-verify.yml")
-    if "- Developing" in repository:
-        fail(errors, "Repository Verify must not target nonexistent Developing branch")
-    for marker in ("- Local", "- main", "python tools/verify_repository.py"):
-        if marker not in repository:
-            fail(errors, f"Repository Verify missing marker: {marker}")
-    for marker in (
-        "name: Stable Release Gate",
-        "branches:\n      - main",
-        "github.head_ref",
-        '"Local"',
-        "python tools/verify_repository.py",
-        "npm run build:frontend",
-        "cargo check --locked",
-    ):
-        if marker not in stable:
-            fail(errors, f"Stable Release Gate missing marker: {marker}")
+    if "- Local" not in repository or "python tools/verify_repository.py" not in repository:
+        fail(errors, "Repository Verify must target Local and run tools/verify_repository.py")
+    for path in sorted(root.glob("*.yml")):
+        value = path.read_text(encoding="utf-8")
+        if MAIN_BRANCH_LINE_RE.search(value):
+            fail(errors, f"{path.name} must not target main under the Local-only model")
+    if (root / "stable-release-verify.yml").exists():
+        fail(errors, "Stable Release Gate workflow must not exist under the Local-only model")
 
 
 def check_decision_boundary(errors: list[str]) -> None:
     current = text("docs/knowledge/decisions/README.md")
     legacy = text("docs/knowledge/decision-log.md")
-    for marker in ("Local working authority", "main stable/default authority", "D-035", "CC-BY-4.0"):
+    for marker in ("D-001 — Local-only repository authority", "D-035", "CC-BY-4.0"):
         if marker not in current:
             fail(errors, f"current decision register missing marker: {marker}")
     if "historical evidence" not in legacy:
@@ -350,12 +358,12 @@ def main() -> int:
             print(f"- {error}")
         return 1
     print("REPOSITORY VERIFY PASSED")
-    print("- working authority: Local")
-    print("- stable/default authority: main")
+    print("- repository authority: Local only")
     print("- execution contexts: REMOTE_GITHUB | LOCAL_CODE | TARGET_WINDOWS")
     print(f"- canonical skills: {', '.join(sorted(CANONICAL_SKILLS))}")
     print("- continuation/proof ownership: separated")
     print("- historical DevelopingData: absent from active tree")
+    print("- workflow routing: Local only")
     print("- workflow supply chain: immutable/read-only/bounded")
     return 0
 

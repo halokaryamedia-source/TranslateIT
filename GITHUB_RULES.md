@@ -1,8 +1,8 @@
 # GitHub Rules — TranslateIT
 
-Canonical GitHub operating rules for AI/ChatGPT in this repository. Root and nearest `AGENTS.md` files may narrow domain behavior, but they must not weaken safety, integrity, proof, efficiency, history, security, GitHub-first execution, transfer, or STOP boundaries.
+Canonical repository operating rules for AI/ChatGPT. Root and nearest `AGENTS.md` files may narrow domain behavior, but they must not weaken safety, integrity, proof, efficiency, security, GitHub-first execution, transfer, or STOP boundaries.
 
-`Local` is the working repository authority. `main` is the stable/default repository authority and changes only through an explicit stable promotion or another exact user-authorized stable mutation.
+**Local-only repository model:** `Local` is the sole active repository authority. Development, governance, CI, proof, continuation, and release-source validation are performed against `Local`. `main` is outside the current development lifecycle: do not use it as a fallback source, working branch, PR base, promotion target, CI target, or proof source unless the user explicitly changes this policy.
 
 ## Core flow
 
@@ -22,45 +22,44 @@ PIN
 
 # Core Rules
 
-## 1. PIN — establish exact authority
+## 1. PIN — establish exact Local authority
 
-Before a material change, know repository, intended ref, current HEAD when relevant, scope, and writability.
+Before material work, know repository, exact `Local` HEAD, scope, writability, and proof ceiling.
 
-- **`Local` is working authority. Never silently fall back to `main` or another ref.**
-- **`main` is stable/default authority. Routine development never starts there.**
-- Direct branch/file fetch is current-state authority; search is discovery only.
-- Every write explicitly targets the intended ref.
-- Replacement/deletion uses current content/blob authority from the exact target ref.
-- Re-check HEAD immediately before a ref move when concurrency is plausible.
-- Current source plus relevant proof outranks stale continuation prose.
+- **`Local` is the sole active repository authority.**
+- Never silently fall back to another branch or ref.
+- Direct `Local` branch/file fetch is current-state authority; search is discovery only.
+- Every repository write explicitly targets `Local` unless the user explicitly authorizes a different ref for that exact action.
+- Re-check `Local` HEAD immediately before an atomic ref move when concurrency is plausible.
+- Current source plus matching proof outranks stale continuation prose.
 - If `next-action.md` disagrees with current source, reconcile the stale state owner before continuing.
-- Protected/release/archive refs and high-impact repository settings are not ordinary write targets.
+- Historical branches, deleted branches, old chats, and old reports are recovery evidence only.
 
 ### Execution context / proof ceiling
 
 Classify by actual capability:
 
 ```text
-REMOTE_GITHUB = repository/GitHub + CI evidence; no claim of local Windows runtime
-LOCAL_CODE    = exact checkout + development toolchain/filesystem execution
+REMOTE_GITHUB  = repository/GitHub + CI evidence
+LOCAL_CODE     = exact checkout + development toolchain/filesystem execution
 TARGET_WINDOWS = LOCAL_CODE + installed TranslateIT + real Windows GPU/audio/device/meeting environment
 ```
 
-A label is intent, not proof. Use the highest context actually available.
+A label is intent, not proof.
 
 - `REMOTE_GITHUB` may implement source/static/CI-verifiable work.
-- `LOCAL_CODE` additionally owns local generators, toolchain execution, filesystem-sensitive builds and tests.
-- `TARGET_WINDOWS` is required for physical microphone, real GPU practicality, VB-CABLE/device behavior, installed-runtime, meeting-app delivery, end-to-end latency, speaker-quality and clean-machine claims.
-- Hosted Windows CI proves only what that hosted runner executed. It is not automatically `TARGET_WINDOWS`.
+- `LOCAL_CODE` additionally owns local generators, dependency/toolchain execution, filesystem-sensitive builds and tests.
+- `TARGET_WINDOWS` is required for physical microphone, actual GPU practicality, VB-CABLE/device behavior, installed-runtime, meeting-app delivery, end-to-end latency, speaker-quality, and clean-machine claims.
+- Hosted Windows CI proves only what that runner executed; it is not automatically `TARGET_WINDOWS`.
 
 ### GitHub-first execution partition
 
-`REMOTE_GITHUB` is the default repository-development workbench when it can safely complete the source portion. Do not transfer a whole task because one residue requires a higher context.
+`REMOTE_GITHUB` is the default repository-development workbench when it can safely complete the source portion.
 
 ```text
 GitHub-verifiable
 → exact-source diagnosis/design
-→ implementation not requiring unavailable generated/native output
+→ source implementation that needs no unavailable generated/native output
 → regression/static/integration contracts
 → CI routing + security/provenance
 → deterministic harness/evidence preparation
@@ -74,18 +73,18 @@ higher-context residue
 Rules:
 
 - Exhaust the GitHub-verifiable partition first.
-- Prebuild deterministic local/target test procedures when this reduces later interactive work.
-- Hand off only the minimum residue with exact inputs, acceptance and `do not redo` guidance.
-- Never claim a prepared harness or CI artifact performed the higher-context action itself.
+- Do not transfer an entire task because one residue needs higher capability.
+- Hand off only the minimum residue with exact inputs, acceptance, and `do not redo` guidance.
+- Never claim a prepared harness or CI artifact performed a higher-context action itself.
 - If a canonical edit cannot be complete without unavailable generated output, do not move `Local` with an incomplete canonical state.
 
 ### Source acceptance
 
-Normal development uses the smallest owning verifier. A stable `Local → main` promotion uses `Stable Release Gate`, which validates the GitHub pull-request merge candidate.
+Normal development uses the smallest owning verifier on the exact `Local` SHA under discussion.
 
-When combining separate source checks manually, require completed success on the same exact SHA. Do not combine different SHAs or ancestor results and call the result current proof.
+When combining separate checks manually, require completed success on the same exact SHA. Different SHAs or ancestor results do not compose into current proof.
 
-Record repository/ref, SHA, run/job and conclusion when evidence identity materially matters. Missing checks remain missing; do not create proof-only commits or temporary workflows merely to trigger them.
+Record repository/ref, SHA, run/job, and conclusion when evidence identity materially matters. Missing checks remain missing; do not create proof-only commits or temporary workflows merely to trigger them.
 
 ## 2. READ MINIMUM — only what can change the decision
 
@@ -99,8 +98,7 @@ broad scans          0
 
 - Prefer direct fetch for known paths.
 - Open more only for a concrete unresolved question.
-- Read Git history only when rationale/regression origin can change the decision.
-- Historical reports, deleted branches and old chats are not active authority.
+- Read history only when rationale/regression origin can change the decision.
 - Truncated/paginated/partial output is incomplete evidence, not absence.
 - Verify exact repo/ref/access once before concluding a target is missing.
 
@@ -132,11 +130,11 @@ derived artifact wrong
 ```
 
 - Do not widen Maintenance into redesign.
-- Do not perform unrelated cleanup, dependency upgrades, compatibility work, framework creation or documentation synchronization unless required by the same outcome.
+- Do not perform unrelated cleanup, dependency upgrades, compatibility work, framework creation, or documentation synchronization unless required by the same outcome.
 - CI failure is evidence, not permission to edit the easiest file.
 - Old TODOs/audits/experiments are inactive unless reproduced or explicitly reactivated.
 - `No change required` is valid.
-- Do not add routers, provider registries, generic evaluators, alternate runtimes, fallback stacks, persistent state or recovery frameworks without current evidence.
+- Do not add routers, provider registries, generic evaluators, alternate runtimes, fallback stacks, persistent state, or recovery frameworks without current evidence.
 
 ## 4. TOOL + TRANSFER GATE — choose the method that fits
 
@@ -144,14 +142,14 @@ Choose the simplest method that completes the largest valid partition inside the
 
 ```text
 REMOTE_GITHUB
-→ exact state: direct GitHub fetch
-→ one bounded UTF-8 edit: Contents API
-→ coherent multi-file UTF-8 change: atomic Git delivery
+→ exact state: direct GitHub fetch on Local
+→ one bounded UTF-8 edit: Contents API on Local
+→ coherent multi-file UTF-8 change: atomic Git delivery to Local
 → CI diagnosis: run → failing job/step → relevant log
 
 LOCAL_CODE
 → canonical generator / dependency lock / filesystem-heavy mutation
-→ local build/test requiring the real toolchain
+→ local build/test requiring the actual toolchain
 
 TARGET_WINDOWS
 → installed app / GPU / audio / device / meeting / clean-machine claim
@@ -171,25 +169,25 @@ pin exact Local HEAD + base tree
 → create blobs/tree while Local stays unchanged
 → re-check Local HEAD once
 → create one categorized logical commit
-→ move task branch or Local exactly once as planned
+→ move Local exactly once
 → relevant final verification
 → STOP
 ```
 
 Requirements:
 
-- Complete intended file set is known before the final ref movement.
+- Complete intended file set is known before final ref movement.
 - Full-file replacement requires complete current content when preserving it.
-- One logical change produces one reviewable commit on the working authority after merge/squash.
+- One logical change produces one reviewable `Local` commit by default.
 - Low-level Git is not an iterative scratch editor.
 - Never split `update_file`; it replaces the whole file.
-- Keep blob/content SHA, commit SHA, tree SHA, ref, workflow-run ID, artifact ID and job ID distinct.
-- Never force-push, rewrite shared history or destructively reset to work around stale state, CI failure, connector limits or messy history.
+- Keep blob/content SHA, commit SHA, tree SHA, ref, workflow-run ID, artifact ID, and job ID distinct.
+- Never force-push or rewrite `Local` history to work around stale state, CI failure, connector limits, or messy history.
 - Connector limitations must not change repository/product architecture.
 
 ### Transfer prohibitions
 
-Never create placeholders, transfer-only manifests, temporary loaders, artificial fragments, scratch architecture, one-use workflows, alternate repository layouts or generated wrappers solely to bypass a tool limitation.
+Never create placeholders, transfer-only manifests, temporary loaders, artificial fragments, scratch architecture, one-use workflows, alternate repository layouts, or generated wrappers solely to bypass a tool limitation.
 
 ### Execution Handoff
 
@@ -199,7 +197,7 @@ Use only for genuine remaining work above the current context:
 FROM_CONTEXT
 TO_CONTEXT
 repository
-branch/ref
+branch/ref = Local
 pinned HEAD
 completed here
 residue only
@@ -209,12 +207,12 @@ acceptance
 do not redo
 ```
 
-## 5. WRITE ONCE — deliver one meaningful logical state
+## 5. WRITE ONCE — deliver one meaningful Local state
 
 Before repository movement:
 
 ```text
-repo/ref/current state pinned
+repo/Local/current state pinned
 scope + owners final
 complete final contents ready
 no scratch/temporary paths
@@ -229,8 +227,8 @@ any NO
 - Same-file/overlapping mutations are serial.
 - Keep one canonical owner per durable rule/state.
 - Update README/status/continuation/proof only when the state it owns changes.
-- Preserve lockfiles, toolchain constraints and trusted pins unless they are the actual owner being changed.
-- New files/workflows/branches/PRs/issues/comments/releases default to zero unless scope proves a need.
+- Preserve lockfiles, toolchain constraints, and trusted pins unless they are the actual owner being changed.
+- New branches/PRs/issues/comments/releases default to zero unless the user explicitly requests them or scope proves a concrete need.
 - Generated artifacts follow source/generator; do not patch generated output to hide an upstream defect.
 
 ### Commit discipline
@@ -241,8 +239,8 @@ A commit is a categorized logical delivery, not a save/checkpoint/CI trigger/pro
 prepare complete logical change
 → cheapest relevant proof
 → review intended state
-→ one categorized logical commit
-→ one ref/push update
+→ one categorized logical commit on Local
+→ one Local ref update
 → relevant CI
 → STOP or hand off named residue
 ```
@@ -253,26 +251,26 @@ Message format:
 <type>(<optional-scope>): <concise logical outcome>
 ```
 
-Use `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `release`, or bounded `chore`. Split only for genuinely independent outcomes, never by file, layer, tool call or discovery order.
+Use `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `release`, or bounded `chore`. Split only for genuinely independent outcomes, never by file, layer, tool call, or discovery order.
 
 ### Branch delivery
 
-- Small bounded work may land as one direct logical commit on `Local` when repository policy and active tooling permit.
-- Non-trivial/high-impact changes should use a bounded task branch and PR to `Local`; when merged, prefer squash so one logical outcome becomes one `Local` commit.
-- `main` receives only explicit `Local → main` stable promotions and uses a normal merge commit so the stable boundary is visible.
-- Do not merge `main`-only stable marker commits back into `Local` merely for ancestry cosmetics.
+- Routine repository work lands on `Local` only.
+- Do not create a task branch, promotion branch, recovery branch, or alternate development branch as part of the normal method.
+- Do not target `main` from automation, CI, PRs, or release-source validation.
+- A different branch lifecycle requires a new explicit user decision before implementation.
 
 ## 6. VERIFY + FAILURE POLICY — prove only what matters
 
 - Run the cheapest check that can falsify the changed claim.
 - Targeted checks are default during iteration.
-- Repository/governance changes use `Repository Verify`.
-- Frontend/Rust/Python/runtime/release checks run only when their owned surface changed or at the stable gate.
+- Repository/governance changes use `Repository Verify` on `Local`.
+- Frontend/Rust/Python/runtime/release checks run only when their owned surface changed.
 - Only completed successful verification is PASS. Queued/running/cancelled/skipped/neutral/superseded is not PASS.
 - On failure, inspect the exact failing job/step and relevant error before editing.
 - Do not weaken/bypass a valid verifier for green status.
 - Regression tests protect material recurring invariants, not cosmetic prose.
-- Static source/CI does not prove model quality, speaker fidelity, physical audio, target GPU practicality, installed-runtime, meeting-app reception, latency or clean-machine behavior unless those actually ran.
+- Static source/CI does not prove model quality, speaker fidelity, physical audio, target GPU practicality, installed-runtime, meeting-app reception, latency, or clean-machine behavior unless those actually ran.
 
 ### Failure / retry matrix
 
@@ -288,11 +286,11 @@ Use `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `release`, or boun
 | 5xx/timeout/unknown mutation | inspect target before retry |
 | Same-cause valid-method failure with new evidence | maximum 2 attempts |
 
-Changing tools/encodings/branches/representations does not reset retry ceilings.
+Changing tools/encodings/representations does not reset retry ceilings.
 
 ### Interrupted delivery
 
-If current-task writes already occurred before a block, perform at most one bounded recovery pass: identify current-task artifacts, remove only accidental artifacts when safe, preserve legitimate changes, disclose remaining state, then STOP or hand off. Never rewrite shared history to hide interrupted delivery.
+If current-task writes already occurred before a block, perform at most one bounded recovery pass: identify current-task artifacts, remove only accidental artifacts when safe, preserve legitimate changes, disclose remaining state, then STOP or hand off. Never rewrite `Local` shared history to hide interrupted delivery.
 
 ## 7. STOP — completion is terminal
 
@@ -316,7 +314,7 @@ Local ref updates/task        1 by default
 relevant CI                   0–1 per proof surface
 placeholder/transfer hacks    0
 adjacent cleanup              0
-high-impact mutations         0 unless explicitly authorized
+other-branch mutations        0 unless explicitly authorized
 ```
 
 # TranslateIT repository boundaries
@@ -324,7 +322,7 @@ high-impact mutations         0 unless explicitly authorized
 ```text
 branch/history/security   → GITHUB_RULES.md
 agent routing/modes       → AGENTS.md
-stable orientation        → CONTEXT.md
+current orientation       → CONTEXT.md
 product/system law        → docs/foundation/
 continuation              → docs/knowledge/next-action.md
 current proof meaning     → docs/knowledge/current-validation.md
@@ -332,7 +330,7 @@ implementation ownership  → docs/knowledge/source-ownership.md
 durable decisions         → docs/knowledge/decisions/
 operational runbooks      → docs/knowledge/operations/
 specialist routing        → docs/knowledge/skills/
-actual behavior           → current source + matching proof
+actual behavior           → current Local source + matching proof
 historical evidence       → Git history only unless explicitly revalidated
 ```
 
@@ -346,21 +344,21 @@ Interpret 401 as authentication, 403 as permission/policy/rate-limit, 404 as mis
 
 ## Special files / generated artifacts / binaries
 
-Distinguish regular UTF-8 files from symlinks, submodules, Git LFS pointers, generated artifacts and binaries. Never hand-edit an LFS pointer as content. Generated output follows its canonical source/generator.
+Distinguish regular UTF-8 files from symlinks, submodules, Git LFS pointers, generated artifacts, and binaries. Never hand-edit an LFS pointer as content. Generated output follows its canonical source/generator.
 
 ## Pull requests / protection / rulesets
 
-Before merge/close/high-impact PR action, refresh head SHA, base, mergeability, relevant checks/reviews and protection state. Required human review, CODEOWNERS, rulesets, merge queues and deployment gates are authority, not obstacles to bypass.
+PRs and alternate branch flows are not part of the current Local-only method. If the user explicitly authorizes one, refresh head SHA, base, mergeability, checks/reviews, and protection state immediately before any consequential action.
 
-Branch/tag deletion, PR merge/close, release publication/deletion, repository settings/rules changes and history-altering operations require explicit authority and exact current targets.
+Branch/tag deletion, PR merge/close, release publication/deletion, repository settings/rules changes, and history-altering operations require explicit authority and exact current targets.
 
 ## GitHub Actions and hosted proof
 
 - Workflows are verification/deployment/artifact infrastructure, not a source editor or remote shell.
-- Automatic triggers should cover only paths/events their checks can falsify.
+- Automatic triggers target `Local` only under the current model.
 - Verification workflows are read-only by default and never commit/push back.
 - Use least-privilege permissions.
-- Pin third-party Actions to immutable 40-character commit SHAs and annotate the intended release in comments.
+- Pin third-party Actions to immutable 40-character commit SHAs and annotate the intended release.
 - `actions/checkout` uses `persist-credentials: false` for read-only verification.
 - Jobs have bounded timeouts.
 - Dependency installation uses canonical lockfiles/frozen modes where available.
@@ -370,6 +368,6 @@ Branch/tag deletion, PR merge/close, release publication/deletion, repository se
 
 ## Sensitive data / release / deployment
 
-Never commit or echo secrets, credentials, private keys, auth headers, personal voice recordings, private conversation bodies or unredacted user paths into public source/workflows/issues/PRs/comments/logs. Report sensitive findings by location/type without repeating protected values.
+Never commit or echo secrets, credentials, private keys, auth headers, personal voice recordings, private conversation bodies, or unredacted user paths into public source/workflows/issues/PRs/comments/logs. Report sensitive findings by location/type without repeating protected values.
 
-Release/deployment approval gates are authoritative. Publishing tags/releases remains a separate explicit user action; a stable `main` promotion does not automatically create a versioned release.
+Release-source validation runs from `Local`. Publishing tags/releases is a separate explicit user action and does not change repository branch authority.

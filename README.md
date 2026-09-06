@@ -2,7 +2,7 @@
 
 **Local-first Windows desktop translation for Indonesian ↔ English meetings.**
 
-> Working development authority: `Local`. Stable/default repository authority: `main`. Source/CI presence is not proof of target-Windows runtime, GPU, audio-route, installer or clean-machine behavior.
+> **Local-only repository model:** `Local` is the sole active source, development, governance, CI, proof, and continuation authority. Source/CI presence is not proof of target-Windows runtime, GPU, audio-route, installer, or clean-machine behavior.
 
 ## Product
 
@@ -46,7 +46,7 @@ Outbound Meeting translation may use the last three committed own-voice translat
 
 ### Text
 
-Standalone Indonesian ↔ English text translation with explicit direction, Translate, result review and Copy. Document/file translation is not current scope.
+Standalone Indonesian ↔ English text translation with explicit direction, Translate, result review, and Copy. Document/file translation is not current scope.
 
 ### My Voice
 
@@ -63,7 +63,7 @@ guided recording
 
 ### Current exclusions
 
-General History/Saved UI, Document Translation, Audio Studio, Push to Talk, Pause/Resume, user-facing Realtime/Quality or tone modes, additional languages, imported-audio/quick-clone My Voice modes, multiple normal voice engines, partial translated subtitles, incoming Indonesian TTS and automatic mid-session Meeting Sound rebind are outside the current product boundary.
+General History/Saved UI, Document Translation, Audio Studio, Push to Talk, Pause/Resume, user-facing Realtime/Quality or tone modes, additional languages, imported-audio/quick-clone My Voice modes, multiple normal voice engines, partial translated subtitles, incoming Indonesian TTS, and automatic mid-session Meeting Sound rebind are outside the current product boundary.
 
 ## Architecture
 
@@ -95,10 +95,10 @@ AGENTS.md
 → execution context / work mode / semantic routing
 
 GITHUB_RULES.md
-→ branch/ref / GitHub-first partition / atomic delivery / CI / security / retry / STOP
+→ Local-only authority / GitHub-first partition / atomic delivery / CI / security / retry / STOP
 
 CONTEXT.md
-→ stable orientation
+→ current orientation
 
 docs/foundation/
 → current product/system law
@@ -108,6 +108,7 @@ docs/knowledge/next-action.md
 
 docs/knowledge/current-validation.md
 → proof interpretation
+
 docs/knowledge/source-ownership.md
 → responsibility → current owner
 
@@ -131,15 +132,14 @@ PIN
 
 ## Branch model
 
+**Local-only.**
+
 ```text
 Local
-→ active development / working authority
-
-main
-→ stable/default repository history
+→ sole active development/source/governance/CI/proof authority
 ```
 
-Non-trivial/high-impact work should use a bounded task branch based on `Local` and a PR back to `Local`; squash is preferred so one logical outcome becomes one `Local` commit. Stable promotion is a dedicated `Local → main` PR using the `Stable Release Gate` and a normal merge commit.
+Routine work lands directly on `Local` as one logical delivery. Do not create promotion branches, task branches, or alternate development branches as part of the normal method. A different branch lifecycle requires a new explicit user decision.
 
 ## Development entrypoints
 
@@ -176,9 +176,9 @@ TranslateIT-Setup.exe
 TranslateIT-Payload.7z
 ```
 
-Setup owns validating and installing its colocated payload, private Python/runtime/model assets and supported Meeting audio provider inputs. Normal users are not asked to run pip, manually extract runtime assets or download core models.
+Release-source validation is performed from `Local`. Setup owns validating and installing its colocated payload, private Python/runtime/model assets, and supported Meeting audio provider inputs. Normal users are not asked to run pip, manually extract runtime assets, or download core models.
 
-Publishing a tag/GitHub Release is a separate explicit action and is not automatic after a stable `main` promotion.
+Publishing a tag/GitHub Release is a separate explicit action and does not change repository branch authority.
 
 ## Security / contribution
 

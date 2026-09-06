@@ -4,9 +4,11 @@ Repository state is authoritative. Chat history and old evidence are supporting 
 
 ## Branch and execution authority
 
-- `Local` is the working development authority.
-- `main` is the stable/default repository authority; routine work does not start there.
+**Local-only repository model:** `Local` is the sole active repository authority for development, governance, CI, proof, continuation, and release-source validation.
+
 - Material GitHub work follows root `GITHUB_RULES.md`.
+- Do not fall back to `main` or another branch for current source, proof, or continuation.
+- Do not create alternate development branches as part of the normal method.
 - Historical branches/reports are recovery evidence only and are not current task or product authority.
 
 ## Execution Context Gate
@@ -20,8 +22,8 @@ CONTEXT: TARGET_WINDOWS
 ```
 
 ```text
-REMOTE_GITHUB = repository + GitHub CI
-LOCAL_CODE = exact checkout + development toolchain/filesystem
+REMOTE_GITHUB  = repository + GitHub CI
+LOCAL_CODE     = exact checkout + development toolchain/filesystem
 TARGET_WINDOWS = LOCAL_CODE + installed TranslateIT + real Windows GPU/audio/device/meeting environment
 ```
 
@@ -29,7 +31,7 @@ Proof ceiling follows actual context. Exhaust the `REMOTE_GITHUB`-valid partitio
 
 ## Observe / recover context
 
-For `amati`, inspect, audit, understand or recovery:
+For `amati`, inspect, audit, understand, or recovery:
 
 ```text
 AGENTS.md
@@ -40,13 +42,13 @@ AGENTS.md
 → STOP
 ```
 
-Read-only means no edit, CI trigger, continuation advance or execution of the recorded next step.
+Read-only means no edit, CI trigger, continuation advance, or execution of the recorded next step.
 
 ## Work mode after context
 
 ### Bounded Maintenance
 
-Use for a concrete bug, stale rule, stale test, CI-routing defect or behavior-preserving cleanup.
+Use for a concrete bug, stale rule, stale test, CI-routing defect, or behavior-preserving cleanup.
 
 ```text
 Goal
@@ -80,7 +82,7 @@ Use `.agents/skills/development-brief/SKILL.md` for architecture/redesign, uncle
 Use when a high-impact product/architecture/release decision remains unresolved.
 
 ```text
-recover current authority
+recover current Local authority
 → inspect smallest relevant evidence
 → resolve/present the decision
 → NO IMPLEMENTATION
@@ -140,7 +142,7 @@ If investigation reveals a second independent problem, finish/reframe the curren
 |---|---|
 | GitHub/ref/history/CI/security/transfer/retry/STOP | `GITHUB_RULES.md` |
 | Agent mode/context/routing/skill budget | `AGENTS.md` |
-| Stable product/repository orientation | `CONTEXT.md` |
+| Current product/repository orientation | `CONTEXT.md` |
 | Current product/system law | `docs/foundation/` |
 | Active continuation + one next step | `docs/knowledge/next-action.md` |
 | Current proof interpretation | `docs/knowledge/current-validation.md` |
@@ -148,19 +150,19 @@ If investigation reveals a second independent problem, finish/reframe the curren
 | Durable decisions/reasons | `docs/knowledge/decisions/` |
 | Operational runbooks | `docs/knowledge/operations/` |
 | Skill inventory/routing | `docs/knowledge/skills/` |
-| Actual behavior | current source + matching proof |
+| Actual behavior | current `Local` source + matching proof |
 
-Do not create parallel status, plan, TODO, completion, review-state, roadmap or session-memory systems.
+Do not create parallel status, plan, TODO, completion, review-state, roadmap, or session-memory systems.
 
 ## Source precedence
 
 1. current explicit user instruction for task intent/new decision;
 2. current `docs/foundation/` law;
-3. current source + matching proof for actual implementation behavior;
+3. current `Local` source + matching proof for actual implementation behavior;
 4. target evidence for target-only claims;
 5. `next-action.md` for continuation;
 6. `source-ownership.md` for navigation;
-7. `CONTEXT.md` for stable orientation;
+7. `CONTEXT.md` for current orientation;
 8. `docs/knowledge/decisions/` for durable why/history;
 9. Git history as bounded recovery evidence.
 
@@ -191,9 +193,9 @@ Before a material edit establish:
 4. why the proposed change addresses that owner;
 5. cheapest proof that can falsify the result.
 
-Every persistent file/module/dependency/config/fallback/cache/workflow/state must trace to the goal, acceptance, required contract, proved cause or required proof.
+Every persistent file/module/dependency/config/fallback/cache/workflow/state must trace to the goal, acceptance, required contract, proved cause, or required proof.
 
-Do not hide unknown causes with blind retry, arbitrary delay, broad catch/fallback, parallel services, compatibility aliases, duplicate state or generic frameworks.
+Do not hide unknown causes with blind retry, arbitrary delay, broad catch/fallback, parallel services, compatibility aliases, duplicate state, or generic frameworks.
 
 ## Evidence language
 

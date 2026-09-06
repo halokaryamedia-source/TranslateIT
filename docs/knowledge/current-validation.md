@@ -6,17 +6,15 @@ This file owns **proof interpretation**, not a per-run diary. `next-action.md` o
 
 Repository: `halokaryamedia-source/TranslateIT`
 
-Working branch: `Local`.
+**Local-only source authority:** `Local` is the sole active branch for development, governance, CI, proof, continuation, and release-source validation.
 
-Stable branch: `main`.
-
-Current source claims must be supported by completed checks on the exact source/candidate SHA being discussed. Path-targeted development checks are intentionally narrow; a stable `Local → main` promotion uses `Stable Release Gate` as the broad source boundary.
+Current source claims must be supported by completed checks on the exact `Local` SHA being discussed. A green check on one SHA does not prove another SHA. A skipped/queued/running/cancelled/superseded check is not PASS.
 
 ## Verification surfaces
 
 ```text
 Repository Verify
-→ governance/routing/authority/skills/workflow/supply-chain static contracts
+→ governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
 
 Code Health
 → Svelte/TypeScript source checks + Python lint/compile + Rust compiler/dead-code checks
@@ -28,23 +26,20 @@ WorkerRuntime Lock Consistency
 → Python dependency lock integrity
 
 R3 Release Contract
-→ release-source and controlled-payload structure
-
-Stable Release Gate
-→ deliberate Local → main source/stable promotion boundary
+→ release-source and controlled-payload structure from Local
 ```
 
-A green check on one SHA does not prove another SHA. A skipped/queued/running/cancelled/superseded check is not PASS.
+Checks are path-targeted where appropriate. A broader source claim requires the relevant set of checks to succeed on the same exact `Local` SHA; do not compose different SHAs into one proof statement.
 
 ## Proof Boundaries
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/CI behavior that actually ran. It cannot establish physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime, speaker fidelity, real end-to-end latency or clean-machine success.
+Can establish repository/source/static/CI behavior that actually ran against `Local`. It cannot establish physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime, speaker fidelity, real end-to-end latency, or clean-machine success.
 
 ### LOCAL_CODE
 
-Can additionally establish exact local checkout/toolchain/filesystem/build/generator behavior that actually ran. It still does not automatically establish target-device behavior.
+Can additionally establish exact `Local` checkout/toolchain/filesystem/build/generator behavior that actually ran. It still does not automatically establish target-device behavior.
 
 ### TARGET_WINDOWS
 
@@ -59,7 +54,7 @@ Current target-Windows claims remain scenario-specific. Do not infer them from o
 ```text
 claim
 → owning verifier/scenario
-→ exact source identity
+→ exact Local source identity
 → completed matching evidence
 → only then PASS
 ```

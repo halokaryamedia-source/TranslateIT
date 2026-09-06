@@ -5,7 +5,6 @@ on:
   push:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"
@@ -15,7 +14,6 @@ on:
   pull_request:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/**"
       - "EngineData/Backend/RuntimeAssets/Translation/**"

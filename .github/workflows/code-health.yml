@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Frontend/RustApp/src/**"
       - "EngineData/Frontend/RustApp/src-tauri/src/**"
@@ -21,7 +20,6 @@ on:
   pull_request:
     branches:
       - Local
-      - main
     paths:
       - "EngineData/Frontend/RustApp/src/**"
       - "EngineData/Frontend/RustApp/src-tauri/src/**"
