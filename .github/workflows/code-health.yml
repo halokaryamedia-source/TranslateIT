@@ -62,11 +62,13 @@ jobs:
       - run: npm run typecheck
       - run: npm run validate:command-parity
       - run: npm run validate:virtual-route
+      - name: Audit production npm dependencies
+        run: npm audit --omit=dev --audit-level=high
 
   python:
-    name: Python source health
+    name: Python source and unit health
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
@@ -77,31 +79,36 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12.10"
-      - name: Resolve Ruff from uv.lock
-        id: ruff
+      - name: Install lock-resolved test tools only
         shell: bash
         run: |
-          version="$(python - <<'PY'
+          python - <<'PY' > "$RUNNER_TEMP/translateit-ci-dev-requirements.txt"
           import tomllib
           from pathlib import Path
-          lock = tomllib.loads(Path('uv.lock').read_text(encoding='utf-8'))
-          for package in lock.get('package', []):
-              if package.get('name') == 'ruff':
-                  print(package['version'])
-                  break
-          else:
-              raise SystemExit('ruff is missing from canonical uv.lock')
+
+          wanted = {"ruff", "pytest", "huggingface-hub"}
+          lock = tomllib.loads(Path("uv.lock").read_text(encoding="utf-8"))
+          versions = {
+              package.get("name"): package.get("version")
+              for package in lock.get("package", [])
+              if package.get("name") in wanted
+          }
+          missing = sorted(wanted - versions.keys())
+          if missing:
+              raise SystemExit(f"canonical uv.lock is missing CI dev tools: {missing}")
+          for name in sorted(wanted):
+              print(f"{name}=={versions[name]}")
           PY
-          )"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-      - run: python -m pip install "ruff==${{ steps.ruff.outputs.version }}"
+          python -m pip install -r "$RUNNER_TEMP/translateit-ci-dev-requirements.txt"
       - run: python -m compileall -q .
       - run: ruff check . --select F401,F811,F841,F842
+      - name: Run Python contract tests
+        run: python -m pytest -q
 
   rust:
-    name: Rust source health
+    name: Rust source and unit health
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: EngineData/Frontend/RustApp/src-tauri
@@ -129,3 +136,5 @@ jobs:
         env:
           RUSTFLAGS: "-Ddead_code -Dunused_imports -Dunused_variables -Dunused_mut -Dunused_assignments"
         run: cargo check --locked
+      - name: Run Rust unit tests
+        run: cargo test --locked

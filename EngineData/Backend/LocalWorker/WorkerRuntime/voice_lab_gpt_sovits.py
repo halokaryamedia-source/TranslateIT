@@ -24,7 +24,8 @@ VERSION = "v2ProPlus"
 REFERENCE_MIN_MS = 3_000
 REFERENCE_MAX_MS = 10_000
 REFERENCE_TARGET_MS = 5_000
-# Curated quick-build defaults: short books, few candidates, fast iteration.`r`nSOVITS_EPOCHS = 8
+# Curated quick-build defaults: short books, few candidates, fast iteration.
+SOVITS_EPOCHS = 8
 GPT_EPOCHS = 15
 MAX_TRAINING_CANDIDATES = 3
 ACTOR_SCHEMA_VERSION = 1

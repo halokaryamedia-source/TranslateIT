@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -21,8 +22,6 @@ const expectedNltkPackages = {
   "taggers/averaged_perceptron_tagger.zip": "e1f13cf2532daadfd6f3bc481a49859f0b8ea6432ccdcd83e6a49a5f19008de9",
   "taggers/averaged_perceptron_tagger_eng.zip": "6025f530624335c67d6547d44757b357b4e79bae030a0383e9887a92c1718f0b",
 };
-const expectedFfmpegExeSha256 = "ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d";
-const expectedFfmpegLicenseSha256 = "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768";
 const exceptionalPythonLicenseMaterials = {
   "ctranslate2-4.8.1.dist-info": {
     source: ["package=ctranslate2==4.8.1", "source_repo=OpenNMT/CTranslate2", "source_ref=v4.8.1", "source_commit=0d8bcd362ac75ef860ef161d6f0efad0ae439ff0"],
@@ -122,6 +121,20 @@ const requireDir = (path, label = path) => {
   }
 };
 const sha256File = (path) => createHash("sha256").update(readFileSync(path)).digest("hex");
+const parseKeyValueRecord = (text) => {
+  const entries = String(text)
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const separator = line.indexOf("=");
+      return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : null;
+    })
+    .filter(Boolean);
+  return Object.fromEntries(entries);
+};
 const hasAnyFile = (root) => {
   if (!existsSync(root) || !statSync(root).isDirectory()) return false;
   const stack = [root];
@@ -288,13 +301,7 @@ const ffmpegSourcePath = join(voiceSourceRoot, "FFMPEG_SOURCE.txt");
 requireFile(ffmpegPath, "GPT-SoVITS/Source/ffmpeg.exe");
 requireFile(ffmpegLicensePath, "GPT-SoVITS/Source/FFMPEG_LICENSE.txt");
 requireFile(ffmpegSourcePath, "GPT-SoVITS/Source/FFMPEG_SOURCE.txt");
-if (existsSync(ffmpegPath) && sha256File(ffmpegPath) !== expectedFfmpegExeSha256) {
-  fail("GPT-SoVITS/Source/ffmpeg.exe does not match the pinned BtbN LGPL static executable.");
-}
 if (existsSync(ffmpegLicensePath)) {
-  if (sha256File(ffmpegLicensePath) !== expectedFfmpegLicenseSha256) {
-    fail("GPT-SoVITS/Source/FFMPEG_LICENSE.txt must be the exact LICENSE.txt from the pinned BtbN archive.");
-  }
   const ffmpegLicense = readFileSync(ffmpegLicensePath, "utf8");
   if (!ffmpegLicense.includes("GNU LESSER GENERAL PUBLIC LICENSE") || !ffmpegLicense.includes("Version 3, 29 June 2007")) {
     fail("FFMPEG_LICENSE.txt does not contain the expected LGPL v3 license text.");
@@ -302,20 +309,52 @@ if (existsSync(ffmpegLicensePath)) {
 }
 if (existsSync(ffmpegSourcePath)) {
   const sourceRecord = readFileSync(ffmpegSourcePath, "utf8");
-  for (const marker of [
-    "source_kind=ffmpeg",
-    "binary_builder=BtbN/FFmpeg-Builds",
-    "builder_release_tag=autobuild-2026-08-10-13-17",
-    "builder_commit=2437e7b868da3c11872367b15f3c613b87c24819",
-    "archive=ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip",
-    "archive_sha256=b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab",
-    "ffmpeg_version=n8.1.2-34-g9b6c8969e0-20260810",
-    "ffmpeg_source_commit=9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b",
-    `ffmpeg_exe_sha256=${expectedFfmpegExeSha256}`,
-    "license_profile=LGPL-3.0-or-later",
-    "build_profile=win64-lgpl-static",
-  ]) {
-    if (!sourceRecord.includes(marker)) fail(`FFMPEG_SOURCE.txt provenance marker is missing: ${marker}`);
+  const source = parseKeyValueRecord(sourceRecord);
+  for (const [key, expected] of Object.entries({
+    source_kind: "ffmpeg",
+    binary_builder: "BtbN/FFmpeg-Builds",
+    builder_release_api: "https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest",
+    archive: "ffmpeg-n8.1-latest-win64-lgpl-8.1.zip",
+    license_profile: "LGPL-3.0-or-later",
+    build_profile: "win64-lgpl-static",
+    integrity_source: "github_release_asset_digest",
+  })) {
+    if (source[key] !== expected) fail(`FFMPEG_SOURCE.txt provenance field mismatch: ${key}`);
+  }
+  for (const key of ["builder_release_id", "builder_release_tag", "builder_release_name", "builder_release_published_at", "asset_id", "download_url", "ffmpeg_version_line"]) {
+    if (!String(source[key] ?? "").trim()) fail(`FFMPEG_SOURCE.txt provenance field is missing: ${key}`);
+  }
+  for (const key of ["archive_sha256", "ffmpeg_exe_sha256", "ffmpeg_license_sha256"]) {
+    if (!/^[0-9a-f]{64}$/.test(String(source[key] ?? ""))) fail(`FFMPEG_SOURCE.txt SHA-256 field is invalid: ${key}`);
+  }
+  if (!String(source.download_url ?? "").startsWith("https://github.com/BtbN/FFmpeg-Builds/releases/download/")) {
+    fail("FFMPEG_SOURCE.txt download_url is not a BtbN GitHub release asset.");
+  }
+  if (existsSync(ffmpegPath) && /^[0-9a-f]{64}$/.test(String(source.ffmpeg_exe_sha256 ?? "")) && sha256File(ffmpegPath) !== source.ffmpeg_exe_sha256) {
+    fail("GPT-SoVITS/Source/ffmpeg.exe does not match the SHA-256 recorded by controlled staging.");
+  }
+  if (existsSync(ffmpegLicensePath) && /^[0-9a-f]{64}$/.test(String(source.ffmpeg_license_sha256 ?? "")) && sha256File(ffmpegLicensePath) !== source.ffmpeg_license_sha256) {
+    fail("GPT-SoVITS/Source/FFMPEG_LICENSE.txt does not match the SHA-256 recorded by controlled staging.");
+  }
+  if (existsSync(ffmpegPath)) {
+    const version = spawnSync(ffmpegPath, ["-hide_banner", "-version"], { encoding: "utf8", windowsHide: true });
+    const versionText = `${version.stdout ?? ""}\n${version.stderr ?? ""}`.trim();
+    const versionLine = versionText.split(/\r?\n/)[0]?.trim() ?? "";
+    if (version.status !== 0 || !/^ffmpeg version n?8\.1(?:\.|\s|-)/.test(versionLine)) {
+      fail(`Staged FFmpeg does not report the approved n8.1 stable line: ${versionLine || version.status}`);
+    }
+    if (source.ffmpeg_version_line && versionLine !== source.ffmpeg_version_line) {
+      fail("FFMPEG_SOURCE.txt ffmpeg_version_line does not match the staged executable.");
+    }
+    const build = spawnSync(ffmpegPath, ["-hide_banner", "-buildconf"], { encoding: "utf8", windowsHide: true });
+    const buildText = `${build.stdout ?? ""}\n${build.stderr ?? ""}`;
+    if (build.status !== 0) fail("Staged FFmpeg build configuration could not be inspected.");
+    if (/(?:^|\s)--enable-(?:gpl|nonfree)(?:\s|$)/m.test(buildText)) {
+      fail("Staged FFmpeg unexpectedly enables GPL or nonfree build options.");
+    }
+    if (!/(?:^|\s)--enable-version3(?:\s|$)/m.test(buildText)) {
+      fail("Staged FFmpeg does not expose the expected LGPL version3 build contract.");
+    }
   }
 }
 for (const dir of [
@@ -380,4 +419,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-payload] Required private Python runtime, canonical modular WorkerRuntime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");
+console.log("[release-payload] Required private Python runtime, canonical modular WorkerRuntime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, integrity-bound FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");

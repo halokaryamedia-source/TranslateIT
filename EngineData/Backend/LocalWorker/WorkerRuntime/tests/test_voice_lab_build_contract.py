@@ -7,7 +7,13 @@ import wave
 from pathlib import Path
 
 from voice_lab_build import BuildError, validate_take_signal
-from voice_lab_gpt_sovits import VoiceLabProviderError, select_reference, training_takes
+from voice_lab_gpt_sovits import (
+    GPT_EPOCHS,
+    SOVITS_EPOCHS,
+    VoiceLabProviderError,
+    select_reference,
+    training_takes,
+)
 
 
 class VoiceLabBuildContractTests(unittest.TestCase):
@@ -27,6 +33,10 @@ class VoiceLabBuildContractTests(unittest.TestCase):
             writer.setsampwidth(2)
             writer.setframerate(32_000)
             writer.writeframes(struct.pack(f"<{len(samples)}h", *samples))
+
+    def test_training_epoch_contract_is_explicit_and_importable(self) -> None:
+        self.assertEqual(SOVITS_EPOCHS, 8)
+        self.assertEqual(GPT_EPOCHS, 15)
 
     def test_reference_selection_prefers_take_closest_to_five_seconds(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
