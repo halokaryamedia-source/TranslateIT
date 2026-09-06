@@ -86,7 +86,7 @@ jobs:
           import tomllib
           from pathlib import Path
 
-          wanted = {"ruff", "pytest", "huggingface-hub"}
+          wanted = {"ruff", "pytest", "huggingface-hub", "ffmpeg-python", "numpy"}
           lock = tomllib.loads(Path("uv.lock").read_text(encoding="utf-8"))
           versions = {
               package.get("name"): package.get("version")
@@ -95,7 +95,7 @@ jobs:
           }
           missing = sorted(wanted - versions.keys())
           if missing:
-              raise SystemExit(f"canonical uv.lock is missing CI dev tools: {missing}")
+              raise SystemExit(f"canonical uv.lock is missing CI test tools: {missing}")
           for name in sorted(wanted):
               print(f"{name}=={versions[name]}")
           PY
