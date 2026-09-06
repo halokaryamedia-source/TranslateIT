@@ -237,10 +237,26 @@
 <section class="ti-page ti-page-wide">
   <header class="ti-page-header">
     <div>
-      <h2 class="ti-page-title">My Voice</h2>
-      <p class="ti-page-copy">Record and review clear English lines for your meeting voice.</p>
+      <h2 class="ti-page-title">Meeting Voice</h2>
+      <p class="ti-page-copy">Choose a ready built-in English voice now, or create My Voice as a personalized replacement.</p>
     </div>
   </header>
+
+  <section class="ti-panel mb-6 p-5">
+    <span class="ti-kicker">Ready now</span>
+    <strong class="mt-2 block text-base font-semibold">Built-in Meeting voices</strong>
+    <p class="mb-0 mt-1.5 max-w-[720px] text-sm leading-6 text-[var(--ti-text-muted)]">Use Meeting immediately with Built-in Male or Female. You can create My Voice later without changing the rest of your Meeting setup.</p>
+    <div class="mt-4 flex flex-wrap gap-3">
+      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("MaleVoice")}>Built-in Male{builtinPendingId === "MaleVoice" ? " — select again to confirm" : ""}</button>
+      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("FemaleVoice")}>Built-in Female{builtinPendingId === "FemaleVoice" ? " — select again to confirm" : ""}</button>
+    </div>
+  </section>
+
+  <div class="mb-5 border-t border-[var(--ti-border)] pt-5">
+    <span class="ti-kicker">Optional upgrade</span>
+    <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Create My Voice</h3>
+    <p class="mb-0 mt-1.5 text-sm leading-6 text-[var(--ti-text-muted)]">Record clear English lines when you want a personalized Meeting voice.</p>
+  </div>
 
   <div class="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
     <article class="ti-panel p-6">
@@ -342,13 +358,5 @@
     </aside>
   </div>
 
-  <section class="ti-panel mt-6 p-4">
-    <strong class="text-sm font-semibold">Built-in voices</strong>
-    <p class="mt-1 text-xs leading-5 text-[var(--ti-text-muted)]">Use Meeting right away with a ready English voice. Your own recordings can replace it later.</p>
-    <div class="mt-3 flex flex-wrap gap-3">
-      <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void selectBuiltin("MaleVoice")}>Built-in Male{builtinPendingId === "MaleVoice" ? " — select again to confirm" : ""}</button>
-      <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void selectBuiltin("FemaleVoice")}>Built-in Female{builtinPendingId === "FemaleVoice" ? " — select again to confirm" : ""}</button>
-    </div>
-  </section>
   <MyVoiceBuild {onNotice} refreshRevision={buildRefreshRevision} />
 </section>
