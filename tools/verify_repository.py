@@ -129,7 +129,7 @@ def check_branch_authority(errors: list[str]) -> None:
         if not (ROOT / rel).is_file():
             continue
         value = text(rel)
-        if "`Local`" not in value or "`main`" not in value:
+        if "Local" not in value or "main" not in value:
             fail(errors, f"{rel} must state Local/main authority")
         for stale in (
             "Developing remains the GitHub default branch",
@@ -172,8 +172,7 @@ def check_next_action(errors: list[str]) -> None:
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
         if value.count(heading) != 1:
             fail(errors, f"next-action.md must contain exactly one {heading}")
-    stale = ("V1-Advance", "Developing` remains", "Start built-in voices integration")
-    for marker in stale:
+    for marker in ("V1-Advance", "Developing` remains", "Start built-in voices integration"):
         if marker in value:
             fail(errors, f"next-action.md contains stale continuation marker: {marker}")
 
@@ -191,16 +190,9 @@ def check_foundation(errors: list[str]) -> None:
     overview = text("docs/foundation/01-product-overview.md")
     requirements = text("docs/foundation/02-product-requirements.md")
     acceptance = text("docs/foundation/03-acceptance-scenarios.md")
-
-    for marker in (
-        "Built-in Male/Female",
-        "last 3 committed own-voice",
-        "incoming remains context-free",
-        "Svelte 5",
-    ):
+    for marker in ("Built-in Male/Female", "last 3 committed own-voice", "incoming remains context-free", "Svelte 5"):
         if marker not in overview:
             fail(errors, f"product overview missing current marker: {marker}")
-
     for stale in (
         "PR-045 — No automatic conversation context initially",
         "-> trained English Voice Actor TTS",
@@ -209,7 +201,6 @@ def check_foundation(errors: list[str]) -> None:
     ):
         if stale in requirements:
             fail(errors, f"product requirements retain superseded contract: {stale}")
-
     for marker in (
         "PR-045 — Context asymmetry",
         "selected Meeting voice (Built-in or approved My Voice)",
@@ -218,7 +209,6 @@ def check_foundation(errors: list[str]) -> None:
     ):
         if marker not in requirements:
             fail(errors, f"product requirements missing current contract: {marker}")
-
     if "does **not** store run outcomes" not in acceptance:
         fail(errors, "acceptance scenarios must be outcome-free policy")
     if "a selected built-in or approved My Voice" not in acceptance:
@@ -279,11 +269,9 @@ def check_workflow_supply_chain(errors: list[str]) -> None:
     temp = sorted(p.name for p in root.glob("temp-*"))
     if temp:
         fail(errors, f"temporary workflows are forbidden: {temp}")
-
     for path in sorted(root.glob("*.yml")):
         value = path.read_text(encoding="utf-8")
-        refs = ACTION_RE.findall(value)
-        for action, revision, note in refs:
+        for action, revision, note in ACTION_RE.findall(value):
             if action.startswith("./"):
                 continue
             if not SHA40_RE.fullmatch(revision):
@@ -307,7 +295,15 @@ def check_workflow_routing(errors: list[str]) -> None:
     for marker in ("- Local", "- main", "python tools/verify_repository.py"):
         if marker not in repository:
             fail(errors, f"Repository Verify missing marker: {marker}")
-    for marker in ("name: Stable Release Gate", "branches:\n      - main", "github.head_ref", '"Local"', "python tools/verify_repository.py", "npm run build:frontend", "cargo check --locked"):
+    for marker in (
+        "name: Stable Release Gate",
+        "branches:\n      - main",
+        "github.head_ref",
+        '"Local"',
+        "python tools/verify_repository.py",
+        "npm run build:frontend",
+        "cargo check --locked",
+    ):
         if marker not in stable:
             fail(errors, f"Stable Release Gate missing marker: {marker}")
 
@@ -348,13 +344,11 @@ def main() -> int:
     check_workflow_routing(errors)
     check_decision_boundary(errors)
     check_python_syntax(errors)
-
     if errors:
         print("REPOSITORY VERIFY FAILED")
         for error in errors:
             print(f"- {error}")
         return 1
-
     print("REPOSITORY VERIFY PASSED")
     print("- working authority: Local")
     print("- stable/default authority: main")

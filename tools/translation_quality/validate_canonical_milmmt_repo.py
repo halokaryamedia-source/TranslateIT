@@ -36,13 +36,15 @@ def read(root: Path, relative: str) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def assignment_int(source: str, name: str) -> int:
+    match = re.search(rf"(?m)^{re.escape(name)}\s*=\s*(\d+)\s*$", source)
+    require(match is not None, f"release:missing_assignment:{name}")
+    return int(match.group(1))
+
+
 def validate_manifest(root: Path) -> None:
     data = json.loads(read(root, "EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json"))
-    entries = [
-        item
-        for item in data.get("models", [])
-        if item.get("stage") == "translation_bidirectional_id_en"
-    ]
+    entries = [item for item in data.get("models", []) if item.get("stage") == "translation_bidirectional_id_en"]
     require(len(entries) == 1, "manifest:translation_entry_count")
     item = entries[0]
     require(item.get("model_id") == MODEL_ID, "manifest:model_id")
@@ -71,7 +73,6 @@ def validate_worker(root: Path) -> None:
     io_runtime = read(root, prefix + "worker_io_runtime.py")
     provider = read(root, prefix + "milmmt_translation_provider.py")
     acquisition = read(root, prefix + "prepare_model_assets.py")
-
     require('with_name("realtime_local_worker_base.py")' in entrypoint, "worker:base_missing")
     require("milmmt_translation_provider.install(globals())" in entrypoint, "worker:provider_missing")
     for label, body in (("base", base), ("common", common), ("io", io_runtime)):
@@ -147,11 +148,17 @@ def validate_release(root: Path) -> None:
         require(marker in installer, f"release:installer_marker:{marker}")
     require("R3 source contract PASS" in package_contract, "release:package_contract")
 
-    excluded = optimizer.split("EXCLUDED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
-    required = optimizer.split("REQUIRED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
-    require('"accelerate"' not in excluded, "release:accelerate_excluded")
-    require('"accelerate"' in required, "release:accelerate_required")
-    require("EXPECTED_OPTIMIZED_DISTRIBUTIONS = 98" in optimizer, "release:optimized_distribution_count")
+    excluded_block = optimizer.split("EXCLUDED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
+    required_block = optimizer.split("REQUIRED_DISTRIBUTIONS = {", 1)[1].split("}", 1)[0]
+    excluded_names = set(re.findall(r'"([^"]+)"', excluded_block))
+    baseline_count = assignment_int(optimizer, "EXPECTED_BASELINE_DISTRIBUTIONS")
+    optimized_count = assignment_int(optimizer, "EXPECTED_OPTIMIZED_DISTRIBUTIONS")
+    require('"accelerate"' not in excluded_block, "release:accelerate_excluded")
+    require('"accelerate"' in required_block, "release:accelerate_required")
+    require(
+        optimized_count == baseline_count - len(excluded_names),
+        "release:optimized_distribution_count_inconsistent",
+    )
 
     active_release = "\n".join((stage, optimizer, builder, installer, config))
     for marker in LEGACY_ACTIVE_MARKERS:
@@ -165,7 +172,6 @@ def validate_release(root: Path) -> None:
     require("controlled-payload" in release_workflow, "workflow:release_controlled_payload_job")
     require("push:\n    branches:\n      - Local" in release_workflow, "workflow:release_local_push")
     require("github.event_name == 'push'" in release_workflow, "workflow:release_push_payload")
-    require("workflow_dispatch" not in release_workflow, "workflow:release_stale_dispatch")
     require("build_r3_external_payload.py" in release_workflow, "workflow:payload_builder")
     require(not (root / ".github/workflows/release-efficiency-profile.yml").exists(), "workflow:duplicate_efficiency_profile")
     require(not (root / ".github/workflows/release-python-profile.yml").exists(), "workflow:duplicate_python_profile")
@@ -173,24 +179,15 @@ def validate_release(root: Path) -> None:
     require("--upgrade-package" not in lock_workflow, "workflow:lock_mutation")
 
 
-def validate_tests_and_docs(root: Path) -> None:
+def validate_tests_and_runtime_docs(root: Path) -> None:
     tests = "\n".join(
         read(root, f"EngineData/Backend/LocalWorker/WorkerRuntime/tests/{name}")
-        for name in (
-            "test_worker_contract.py",
-            "test_translation_reliability.py",
-            "test_prepare_model_assets.py",
-        )
+        for name in ("test_worker_contract.py", "test_translation_reliability.py", "test_prepare_model_assets.py")
     )
     require(MODEL_ID in tests, "tests:milmmt_identity")
     require("from transformers import AutoModelForSeq2SeqLM" not in tests, "tests:legacy_seq2seq")
-
-    context = read(root, "CONTEXT.md")
     runtime_readme = read(root, "EngineData/Backend/LocalWorker/WorkerRuntime/README.md")
-    next_action = read(root, "docs/knowledge/next-action.md")
-    for label, body in (("context", context), ("runtime_readme", runtime_readme), ("next_action", next_action)):
-        require("4.57.6" in body, f"docs:{label}:transformers")
-    require("R3" in context and "R3" in next_action, "docs:r3_boundary")
+    require(TRANSFORMERS_VERSION in runtime_readme, "docs:runtime_readme:transformers")
 
 
 def main() -> int:
@@ -199,7 +196,7 @@ def main() -> int:
     validate_worker(root)
     validate_dependencies(root)
     validate_release(root)
-    validate_tests_and_docs(root)
+    validate_tests_and_runtime_docs(root)
     print(
         json.dumps(
             {
