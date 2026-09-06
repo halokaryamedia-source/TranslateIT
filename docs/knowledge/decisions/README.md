@@ -79,6 +79,16 @@ Outbound translation may use the last three committed own-voice translation pair
 
 Built-in references are LibriSpeech/OpenSLR-derived CC-BY-4.0 material with exact source/utterance/hash metadata. They are **not** described as public-domain material.
 
+### D-036 — First stable promotion may retire main-only legacy residue
+
+Before the first `Local → main` stable promotion, `main` contained a historical RenderBridge self-audit workflow that did not exist in current `Local` and would otherwise survive the Git merge candidate. One exact user-authorized direct stable mutation retired that obsolete main-only workflow so the first promotion could be evaluated against the current governance contract rather than legacy CI residue.
+
+This is a bootstrap exception, not the normal development model. After the bootstrap cleanup, product/governance state reaches `main` through explicit stable promotion; direct `main` mutations remain exceptional and require exact user authority under `GITHUB_RULES.md`.
+
+Reason: merging `main` history back into `Local` solely to create a deletion record would pollute the working authority with retired stable-only CI history. Removing the exact obsolete stable residue preserves the intended `Local → main` boundary without weakening the verifier.
+
+Proof boundary: this decision records repository-history/governance rationale only. It does not create product/runtime or target-Windows proof.
+
 ## Recording policy
 
 Record a durable decision only when architecture/workflow/reasoning must survive sessions, multiple owners depend on it, a meaningful tradeoff exists, or an old method is explicitly superseded.
