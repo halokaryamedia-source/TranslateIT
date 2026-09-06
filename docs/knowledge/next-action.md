@@ -3,15 +3,21 @@
 ## Current Status
 
 - `Local` is the sole active repository authority. Development, governance, CI, proof, continuation, and release-source validation remain on `Local` only.
-- Repository governance follows the shared PRD-Creator/BuildIT discipline adapted to TranslateIT: execution-context gate, GitHub-first partitioning, first-wrong-owner diagnosis, atomic logical delivery, deterministic failure policy, and explicit proof ceilings.
 - Current application architecture is Tauri 2 + Svelte 5 + Rust + one canonical Python worker.
-- Built-in Male/Female Meeting voice selection already exists in current source; My Voice is an optional trained upgrade. Do not restart that feature from a stale historical plan.
-- Historical `DevelopingData` is not current authority; recovery remains available through Git history.
+- Code Health now executes real Python contract/unit tests and Rust unit tests in addition to compile/source checks; production npm dependencies are audited in CI.
+- Controlled release staging no longer depends on a dated BtbN FFmpeg autobuild URL. The selected n8.1 LGPL release asset must carry a GitHub SHA-256 digest and pass staged binary/license/build-profile validation.
+- VoiceLab training now has an executable `SOVITS_EPOCHS = 8` contract protected by regression coverage.
+- Built-in Male/Female are presented as the day-one Meeting voice path in current Setup and Meeting UI; My Voice remains an optional personalized replacement.
+- Legacy Dev-Rust/DevelopingData issues were closed as obsolete and are not continuation authority.
 
 ## Active Boundary
 
-This repository-governance repair does not itself prove target-Windows microphone, GPU, VB-CABLE, meeting-app, speaker-quality, installer, or clean-machine behavior. Those claims remain governed by `docs/foundation/03-acceptance-scenarios.md` and the proof ceiling in `GITHUB_RULES.md`.
+REMOTE_GITHUB source/CI work is substantially hardened, but one reproduced optional-incoming correctness residue remains: an incoming `transcribe` request can yield to the required outbound helper pipeline before ASR execution, while `meeting_session.rs` currently reaches its generic ASR-failure branch before the later translation-stage deferred-queue handling. Required outbound remains fail-closed and prioritized; the residue affects the optional incoming lane and its status/retention semantics.
+
+The current GitHub connector can replace that large owner only as a complete file, so an unreviewable full-file transfer is intentionally not used to patch a small logic hunk. This is a transfer boundary, not a request to redesign the scheduler.
+
+Target-Windows microphone, GPU, VB-CABLE, meeting-app reception, real latency, installed-runtime and clean-machine claims still require `TARGET_WINDOWS` evidence under `docs/foundation/03-acceptance-scenarios.md`.
 
 ## Next Step
 
-For the next product-development request, inspect the exact current `Local` source and acceptance owner first, then continue from the first still-unmet product claim rather than from historical TODOs or retired plans.
+Resolve the reproduced incoming ASR-stage deferral ordering in the exact current `meeting_session.rs` with a minimal regression-tested edit; do not redesign the required outbound scheduler or weaken outbound priority.

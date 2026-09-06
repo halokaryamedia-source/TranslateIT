@@ -17,7 +17,10 @@ Repository Verify
 → governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
 
 Code Health
-→ Svelte/TypeScript source checks + Python lint/compile + Rust compiler/dead-code checks
+→ Svelte/TypeScript build + source/bridge contracts
+→ production npm vulnerability audit
+→ Python compile/lint + contract/unit tests
+→ Rust compiler/dead-code checks + Rust unit tests
 
 MiLMMT Repository Contract
 → canonical translation provider/repository contract
@@ -26,7 +29,8 @@ WorkerRuntime Lock Consistency
 → Python dependency lock integrity
 
 R3 Release Contract
-→ release-source and controlled-payload structure from Local
+→ release-source contract + controlled Windows payload staging/validation/evidence from Local
+→ FFmpeg acquisition is integrity-bound to the selected BtbN GitHub release asset digest and validated LGPL build profile instead of a dated ephemeral autobuild URL
 ```
 
 Checks are path-targeted where appropriate. A broader source claim requires the relevant set of checks to succeed on the same exact `Local` SHA; do not compose different SHAs into one proof statement.
@@ -35,7 +39,7 @@ Checks are path-targeted where appropriate. A broader source claim requires the 
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/CI behavior that actually ran against `Local`. It cannot establish physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime, speaker fidelity, real end-to-end latency, or clean-machine success.
+Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows payload staging can establish only the controlled payload work that runner executed. It cannot establish physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
 
 ### LOCAL_CODE
 
@@ -47,7 +51,7 @@ Required for claims that depend on the user's real Windows hardware/install/audi
 
 ## Target Windows
 
-Current target-Windows claims remain scenario-specific. Do not infer them from old run notes or source presence. When target proof is requested, execute only the owning scenario(s) from `docs/foundation/03-acceptance-scenarios.md` and record evidence outside tracked user-private data.
+Current target-Windows claims remain scenario-specific. Do not infer them from old run notes, hosted CI, or source presence. When target proof is requested, execute only the owning scenario(s) from `docs/foundation/03-acceptance-scenarios.md` and record evidence outside tracked user-private data.
 
 ## Evidence rule
 
