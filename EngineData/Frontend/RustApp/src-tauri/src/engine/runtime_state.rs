@@ -456,6 +456,85 @@ mod tests {
     }
 
     #[test]
+    fn duplicate_application_meeting_claim_preserves_generation_and_session() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let first = begin_application_meeting_session();
+        let first_snapshot = first.snapshot.as_ref().expect("first meeting claim");
+        let generation = first_snapshot.generation;
+        let session_id = first_snapshot.session_id.clone();
+        assert!(runtime_generation_is_authoritative(generation));
+
+        let duplicate = begin_application_meeting_session();
+        let duplicate_snapshot = duplicate.snapshot.as_ref().expect("duplicate meeting claim");
+        assert_eq!(duplicate.blocker, "runtime_session:already_active");
+        assert_eq!(duplicate_snapshot.generation, generation);
+        assert_eq!(duplicate_snapshot.session_id, session_id);
+        assert_eq!(duplicate_snapshot.owner_id, APPLICATION_MEETING_OWNER_ID);
+        assert_eq!(duplicate_snapshot.phase, "starting");
+        assert!(duplicate_snapshot.authority_active);
+        assert!(runtime_generation_is_authoritative(generation));
+
+        reset_test_state();
+    }
+
+    #[test]
+    fn stale_live_commit_does_not_promote_current_session() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        let generation = meeting.snapshot.as_ref().expect("meeting claim").generation;
+        let stale = commit_application_meeting_session_live(
+            generation.saturating_add(1),
+            true,
+            "stale commit must not promote",
+        );
+        let stale_snapshot = stale.snapshot.as_ref().expect("retained meeting snapshot");
+        assert_eq!(stale.blocker, "runtime_session:generation_not_authoritative");
+        assert_eq!(stale_snapshot.generation, generation);
+        assert_eq!(stale_snapshot.phase, "starting");
+        assert!(stale_snapshot.authority_active);
+        assert!(!stale_snapshot.live_capture_stream_active);
+        assert!(runtime_generation_is_authoritative(generation));
+
+        let committed = commit_application_meeting_session_live(
+            generation,
+            true,
+            "authoritative commit may promote",
+        );
+        let committed_snapshot = committed.snapshot.as_ref().expect("live meeting snapshot");
+        assert!(committed.blocker.is_empty());
+        assert_eq!(committed_snapshot.phase, "live");
+        assert!(committed_snapshot.live_capture_stream_active);
+        assert!(committed_snapshot.authority_active);
+
+        reset_test_state();
+    }
+
+    #[test]
+    fn revoke_invalidates_generation_before_cleanup() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        let generation = meeting.snapshot.as_ref().expect("meeting claim").generation;
+        assert!(runtime_generation_is_authoritative(generation));
+
+        let revoked = revoke_runtime_session_authority(generation, "stop accepted");
+        let snapshot = revoked.snapshot.as_ref().expect("revoked meeting snapshot");
+        assert_eq!(revoked.blocker, "runtime_session:authority_revoked");
+        assert_eq!(snapshot.generation, generation);
+        assert_eq!(snapshot.phase, "stopping");
+        assert!(!snapshot.authority_active);
+        assert!(!snapshot.live_capture_stream_active);
+        assert!(!runtime_generation_is_authoritative(generation));
+
+        reset_test_state();
+    }
+
+    #[test]
     fn stale_cleanup_generation_cannot_clear_a_newer_owner() {
         let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
         reset_test_state();
@@ -485,6 +564,37 @@ mod tests {
 
         let final_clear = clear_runtime_session_if_generation(mic_generation);
         assert_eq!(final_clear.blocker, "runtime_session:cleared");
+        reset_test_state();
+    }
+
+    #[test]
+    fn stale_revoke_cannot_cancel_a_newer_owner() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        let meeting_generation = meeting.snapshot.as_ref().expect("meeting claim").generation;
+        assert_eq!(
+            clear_runtime_session_if_generation(meeting_generation).blocker,
+            "runtime_session:cleared"
+        );
+
+        let mic = begin_direct_live_capture_session();
+        let mic_generation = mic.snapshot.as_ref().expect("mic claim").generation;
+        assert!(runtime_generation_is_authoritative(mic_generation));
+
+        let stale_revoke = revoke_runtime_session_authority(meeting_generation, "stale stop");
+        let snapshot = stale_revoke.snapshot.as_ref().expect("newer owner retained");
+        assert_eq!(stale_revoke.blocker, "runtime_session:generation_mismatch");
+        assert_eq!(snapshot.generation, mic_generation);
+        assert_eq!(snapshot.owner_id, DIRECT_LIVE_CAPTURE_OWNER_ID);
+        assert!(snapshot.authority_active);
+        assert!(runtime_generation_is_authoritative(mic_generation));
+
+        assert_eq!(
+            clear_runtime_session_if_generation(mic_generation).blocker,
+            "runtime_session:cleared"
+        );
         reset_test_state();
     }
 
@@ -529,7 +639,18 @@ mod tests {
             Some(APPLICATION_MEETING_OWNER_ID),
         );
 
-        let cleared = clear_runtime_session_state();
+        let stale_retry = clear_runtime_session_if_generation(generation.saturating_add(1));
+        assert_eq!(stale_retry.blocker, "runtime_session:generation_mismatch");
+        assert_eq!(
+            stale_retry.snapshot.as_ref().map(|value| value.generation),
+            Some(generation)
+        );
+        assert_eq!(
+            stale_retry.snapshot.as_ref().map(|value| value.phase.as_str()),
+            Some("cleanup_incomplete")
+        );
+
+        let cleared = clear_runtime_session_if_generation(generation);
         assert!(!cleared.has_active_session);
         assert!(cleared.snapshot.is_none());
         assert_eq!(cleared.blocker, "runtime_session:cleared");

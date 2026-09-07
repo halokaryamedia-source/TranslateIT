@@ -8,8 +8,8 @@
 - Optional incoming deferral state is isolated in `meeting_session/incoming_deferred.rs`; incoming ASR -> translation -> deferred-drain processing is isolated in `meeting_session/incoming_pipeline.rs`.
 - Committed Meeting-turn storage/order/bounds/delivery-state/timing ownership is isolated in `meeting_session/committed_turns.rs` with deterministic ordering/retention/terminal-state/context tests.
 - Required outbound finalized-WAV ASR -> ID->EN translation -> TTS -> Meeting delivery is isolated in `meeting_session/outbound_pipeline.rs`; `meeting_session.rs` retains consumer lifecycle, Meeting authority, shared status, self-output suppression ownership, and public command surfaces.
+- Runtime-session regression coverage proves competing-owner exclusion, duplicate Meeting claim generation/session retention, stale Live-commit rejection, revoke-before-cleanup authority invalidation, stale revoke/clear isolation, and cleanup-incomplete retained-generation retry semantics.
 - Required outbound priority, generation checks, committed-turn semantics, cleanup behavior, and audio routing remain unchanged.
-- Deferred incoming keeps `MAX_DEFERRED_INCOMING_AGE_MS = 20_000` as a hard first-deferral ceiling.
 
 ## Active Boundary
 
@@ -19,4 +19,4 @@ Remote work should continue until architecture, contract tests, hosted-Windows p
 
 ## Next Step
 
-Strengthen Meeting lifecycle regression coverage around Start/Stop rollback and authority transitions: duplicate Start/Stop, stale generation, prerequisite loss during Starting, outbound-consumer activation failure, cleanup-incomplete retention/retry, and optional incoming suppression failure. Prefer pure helpers/state-transition tests where possible; preserve command surfaces and production scheduler/audio behavior.
+Audit and harden helper scheduler/bridge ownership in `helper_bridge.rs` and `helper_bridge_runtime.rs`. Preserve `MeetingOutbound > MeetingIncoming > Text > Diagnostic` priority and existing worker protocol while adding deterministic coverage for admission limits, priority/preemption decisions, timeout/cancellation permit release, stale Meeting generation/session rejection, and transport failure cleanup. Extract focused private modules only where ownership boundaries materially reduce coupling; do not redesign the scheduler or introduce local-only workflow dependencies.
