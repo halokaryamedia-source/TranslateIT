@@ -17,11 +17,12 @@ Repository Verify
 → governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
 
 Code Health
-→ Svelte/TypeScript build + source/bridge contracts
+→ strict Svelte/TypeScript checking + bridge no-any/source contracts
 → production npm vulnerability audit
-→ Python compile + E4/E7/E9/full-F static gate + contract/unit tests
+→ Linux Python compile + E4/E7/E9/full-F static gate + contract/unit tests
+→ hosted Windows Python compile + E4/E7/E9/full-F static gate + contract/unit tests
 → Linux Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests
-→ hosted Windows Rust compiler/dead-code checks + Rust unit tests for Windows-compiled source
+→ hosted Windows Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests for Windows-compiled source
 
 MiLMMT Repository Contract
 → canonical translation provider/repository contract
@@ -40,7 +41,7 @@ Checks are path-targeted where appropriate. A broader source claim requires the 
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that the Windows-selected Rust source compiles and its Rust unit tests execute on GitHub's hosted Windows runner. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
+Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that Windows-selected Rust source compiles, Rust Clippy correctness runs, Rust unit tests execute, and the Python WorkerRuntime passes its compile/static/contract test suite on GitHub's hosted Windows runner. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
 
 ### LOCAL_CODE
 
