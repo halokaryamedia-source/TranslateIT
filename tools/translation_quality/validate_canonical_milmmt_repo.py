@@ -73,8 +73,12 @@ def validate_worker(root: Path) -> None:
     io_runtime = read(root, prefix + "worker_io_runtime.py")
     provider = read(root, prefix + "milmmt_translation_provider.py")
     acquisition = read(root, prefix + "prepare_model_assets.py")
-    require('with_name("realtime_local_worker_base.py")' in entrypoint, "worker:base_missing")
-    require("milmmt_translation_provider.install(globals())" in entrypoint, "worker:provider_missing")
+    require("import realtime_local_worker_base as runtime" in entrypoint, "worker:base_missing")
+    require("milmmt_translation_provider.install(vars(runtime))" in entrypoint, "worker:provider_missing")
+    require("_PROVIDER_SENTINEL" in entrypoint, "worker:provider_install_guard_missing")
+    require("exec(" not in entrypoint and "compile(" not in entrypoint, "worker:dynamic_exec_bootstrap")
+    require("import prepare_model_assets_core as _core" in acquisition, "acquisition:core_import_missing")
+    require("exec(" not in acquisition and "compile(" not in acquisition, "acquisition:dynamic_exec_bootstrap")
     for label, body in (("base", base), ("common", common), ("io", io_runtime)):
         for marker in LEGACY_ACTIVE_MARKERS:
             require(marker not in body, f"worker:{label}:legacy:{marker}")

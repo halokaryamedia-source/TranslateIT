@@ -8,9 +8,9 @@ if not getattr(runtime, _PROVIDER_SENTINEL, False):
     milmmt_translation_provider.install(vars(runtime))
     setattr(runtime, _PROVIDER_SENTINEL, True)
 
-# The old exec-based entrypoint exposed one mutable module namespace. Keep the
-# small set of injection hooks used by contract tests/diagnostics while the real
-# implementation authority now lives explicitly in `runtime`.
+# The old exec-based entrypoint exposed one mutable module namespace. Preserve
+# only the bounded test/diagnostic injection surface while implementation truth
+# now lives explicitly in `runtime`.
 _RUNTIME_OVERRIDE_NAMES = (
     "asr_model_ready",
     "import_ready",
@@ -21,26 +21,37 @@ _RUNTIME_OVERRIDE_NAMES = (
 )
 
 
-def _sync_runtime_overrides() -> None:
+def _call_with_runtime_overrides(callback, *args):
     local = globals()
+    previous: dict[str, object] = {}
+    applied: list[str] = []
     for name in _RUNTIME_OVERRIDE_NAMES:
-        if name in local:
-            setattr(runtime, name, local[name])
+        if name not in local:
+            continue
+        previous[name] = getattr(runtime, name)
+        setattr(runtime, name, local[name])
+        applied.append(name)
+    try:
+        return callback(*args)
+    finally:
+        for name in reversed(applied):
+            setattr(runtime, name, previous[name])
 
 
 def handle_translate(payload):
-    _sync_runtime_overrides()
-    return runtime.handle_translate(payload)
+    return _call_with_runtime_overrides(runtime.handle_translate, payload)
 
 
 def build_status_payload(payload=None):
-    _sync_runtime_overrides()
-    return runtime.build_status_payload(payload)
+    return _call_with_runtime_overrides(runtime.build_status_payload, payload)
 
 
 def get_translation_runtime(source_language: str, target_language: str):
-    _sync_runtime_overrides()
-    return runtime.get_translation_runtime(source_language, target_language)
+    return _call_with_runtime_overrides(
+        runtime.get_translation_runtime,
+        source_language,
+        target_language,
+    )
 
 
 def __getattr__(name: str):
