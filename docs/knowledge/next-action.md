@@ -9,14 +9,17 @@
 - VoiceLab training now has an executable `SOVITS_EPOCHS = 8` contract protected by regression coverage.
 - Built-in Male/Female are presented as the day-one Meeting voice path in current Setup and Meeting UI; My Voice remains an optional personalized replacement.
 - Legacy Dev-Rust/DevelopingData issues were closed as obsolete and are not continuation authority.
-- Optional incoming Meeting work now distinguishes ASR-stage deferral from ASR failure before transcript validation. A deferred finalized WAV is retained as `NeedsAsr`, retried FIFO after required outbound yields the helper pipeline, and released on completion, stale/overflow eviction, disable, or session cleanup. Regression coverage protects the deferred-before-failure classification.
+- Optional incoming Meeting work distinguishes ASR-stage deferral from ASR failure before transcript validation. A deferred finalized WAV is retained as `NeedsAsr`, retried FIFO after required outbound yields the helper pipeline, and released on completion, stale/overflow eviction, disable, or session cleanup.
+- Finalized Meeting WAV promotion is fail-closed: a failed write no longer reports a promoted audio path, and failed write/flush/promotion paths remove the partial `.wav.tmp` artifact. Regression coverage exercises cleanup after a forced promotion failure.
 
 ## Active Boundary
 
-The reproduced REMOTE_GITHUB incoming ASR-stage deferral ordering residue is resolved in current source without redesigning the required outbound scheduler or weakening outbound priority. Required outbound remains fail-closed and prioritized; optional incoming ASR/translation deferrals retain their original stage and FIFO ordering rather than being misreported as generic ASR failure.
+Required outbound remains fail-closed and prioritized; optional incoming remains degradable. The user has explicitly deferred `LOCAL_CODE` / `TARGET_WINDOWS` execution for now, so continuation remains inside `REMOTE_GITHUB` source and CI hardening without upgrading target-device claims.
 
-Target-Windows microphone, GPU, VB-CABLE, meeting-app reception, real latency, installed-runtime and clean-machine claims still require `TARGET_WINDOWS` evidence under `docs/foundation/03-acceptance-scenarios.md`.
+One bounded incoming-queue residue remains worth resolving remotely: repeated outbound preemption currently reconstructs deferred ASR/translation jobs with a fresh `enqueued_unix_ms`, so `MAX_DEFERRED_INCOMING_AGE_MS` is not yet a hard age ceiling from the first deferral. The original deferral timestamp should survive every requeue while FIFO ordering and outbound priority remain unchanged.
+
+Target-Windows microphone, GPU, VB-CABLE, meeting-app reception, real latency, installed-runtime and clean-machine claims still require `TARGET_WINDOWS` evidence under `docs/foundation/03-acceptance-scenarios.md` when the user later resumes that proof context.
 
 ## Next Step
 
-Execute `TARGET_WINDOWS` scenario C1 (Outbound end-to-end) on the exact current `Local` SHA, satisfying its relevant A/B prerequisites on the target machine before treating Meeting delivery as verified.
+Preserve the original deferred-incoming enqueue timestamp across ASR and translation requeues, with regression coverage proving repeated outbound preemption cannot reset the 20-second age budget; do not redesign the scheduler or weaken outbound priority.

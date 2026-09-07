@@ -114,13 +114,13 @@ fn write_finalized_meeting_utterance_wav(
         },
         Err(_error) => LiveSegmentWavWriteReport {
             ok: false,
-            audio_path: Some(label),
+            audio_path: None,
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
             blocker: "finalized_utterance_writer:wav_write_failed".to_string(),
-            note: "Failed to write finalized Meeting utterance WAV. No AI/output stage should consume this utterance."
+            note: "Failed to write finalized Meeting utterance WAV. No AI/output stage should consume this utterance and no finalized path is promoted."
                 .to_string(),
         },
     }
@@ -239,47 +239,53 @@ pub(crate) fn write_pcm16_wav(
         fs::create_dir_all(parent)?;
     }
     let temp_path = path.with_extension("wav.tmp");
-    let mut file = fs::File::create(&temp_path)?;
-    let bits_per_sample = 16u16;
-    let bytes_per_sample = bits_per_sample / 8;
-    let block_align = channels * bytes_per_sample;
-    let byte_rate = sample_rate_hz * u32::from(block_align);
-    let data_size = (samples.len() * usize::from(bytes_per_sample)) as u32;
-    let riff_size = 36u32.saturating_add(data_size);
+    let write_result = (|| -> io::Result<()> {
+        let mut file = fs::File::create(&temp_path)?;
+        let bits_per_sample = 16u16;
+        let bytes_per_sample = bits_per_sample / 8;
+        let block_align = channels * bytes_per_sample;
+        let byte_rate = sample_rate_hz * u32::from(block_align);
+        let data_size = (samples.len() * usize::from(bytes_per_sample)) as u32;
+        let riff_size = 36u32.saturating_add(data_size);
 
-    file.write_all(b"RIFF")?;
-    file.write_all(&riff_size.to_le_bytes())?;
-    file.write_all(b"WAVE")?;
-    file.write_all(b"fmt ")?;
-    file.write_all(&16u32.to_le_bytes())?;
-    file.write_all(&1u16.to_le_bytes())?;
-    file.write_all(&channels.to_le_bytes())?;
-    file.write_all(&sample_rate_hz.to_le_bytes())?;
-    file.write_all(&byte_rate.to_le_bytes())?;
-    file.write_all(&block_align.to_le_bytes())?;
-    file.write_all(&bits_per_sample.to_le_bytes())?;
-    file.write_all(b"data")?;
-    file.write_all(&data_size.to_le_bytes())?;
+        file.write_all(b"RIFF")?;
+        file.write_all(&riff_size.to_le_bytes())?;
+        file.write_all(b"WAVE")?;
+        file.write_all(b"fmt ")?;
+        file.write_all(&16u32.to_le_bytes())?;
+        file.write_all(&1u16.to_le_bytes())?;
+        file.write_all(&channels.to_le_bytes())?;
+        file.write_all(&sample_rate_hz.to_le_bytes())?;
+        file.write_all(&byte_rate.to_le_bytes())?;
+        file.write_all(&block_align.to_le_bytes())?;
+        file.write_all(&bits_per_sample.to_le_bytes())?;
+        file.write_all(b"data")?;
+        file.write_all(&data_size.to_le_bytes())?;
 
-    for sample in samples {
-        let value = (safe_sample(*sample) * i16::MAX as f32).round() as i16;
-        file.write_all(&value.to_le_bytes())?;
-    }
-    file.flush()?;
-    drop(file);
+        for sample in samples {
+            let value = (safe_sample(*sample) * i16::MAX as f32).round() as i16;
+            file.write_all(&value.to_le_bytes())?;
+        }
+        file.flush()?;
+        drop(file);
 
-    match fs::rename(&temp_path, path) {
-        Ok(()) => Ok(()),
-        Err(error) => {
-            if path.exists() {
-                fs::remove_file(path)?;
-                fs::rename(&temp_path, path)
-            } else {
-                let _ = fs::remove_file(&temp_path);
-                Err(error)
+        match fs::rename(&temp_path, path) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                if path.exists() {
+                    fs::remove_file(path)?;
+                    fs::rename(&temp_path, path)
+                } else {
+                    Err(error)
+                }
             }
         }
+    })();
+
+    if write_result.is_err() {
+        let _ = fs::remove_file(&temp_path);
     }
+    write_result
 }
 
 fn safe_sample(value: f32) -> f32 {
@@ -287,5 +293,42 @@ fn safe_sample(value: f32) -> f32 {
         value.clamp(-1.0, 1.0)
     } else {
         0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn unique_test_root(label: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system time after epoch")
+            .as_nanos();
+        std::env::temp_dir().join(format!(
+            "translateit-{label}-{}-{nonce}",
+            std::process::id()
+        ))
+    }
+
+    #[test]
+    fn failed_wav_promotion_removes_partial_temp_file() {
+        let root = unique_test_root("wav-failure-cleanup");
+        fs::create_dir_all(&root).expect("create test root");
+        let destination = root.join("blocked.wav");
+        fs::create_dir_all(&destination).expect("create directory at destination path");
+        let temp_path = destination.with_extension("wav.tmp");
+
+        let result = write_pcm16_wav(&destination, TARGET_SAMPLE_RATE_HZ, 1, &[0.25, -0.25]);
+
+        assert!(result.is_err(), "directory destination must reject WAV promotion");
+        assert!(
+            !temp_path.exists(),
+            "failed WAV promotion must not leave a partial temp file"
+        );
+        assert!(destination.is_dir(), "failed promotion must not remove the blocking directory");
+
+        fs::remove_dir_all(root).expect("remove test root");
     }
 }
