@@ -19,8 +19,8 @@ Repository Verify
 Code Health
 → Svelte/TypeScript build + source/bridge contracts
 → production npm vulnerability audit
-→ Python compile/lint + contract/unit tests
-→ Rust compiler/dead-code checks + Rust unit tests
+→ Python compile + E4/E7/E9/full-F static gate + contract/unit tests
+→ Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests
 
 MiLMMT Repository Contract
 → canonical translation provider/repository contract

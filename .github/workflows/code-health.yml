@@ -101,7 +101,8 @@ jobs:
           PY
           python -m pip install -r "$RUNNER_TEMP/translateit-ci-dev-requirements.txt"
       - run: python -m compileall -q .
-      - run: ruff check . --select F401,F811,F841,F842
+      - name: Python static correctness gate
+        run: ruff check . --select E4,E7,E9,F
       - name: Run Python contract tests
         run: python -m pytest -q
 
@@ -136,5 +137,7 @@ jobs:
         env:
           RUSTFLAGS: "-Ddead_code -Dunused_imports -Dunused_variables -Dunused_mut -Dunused_assignments"
         run: cargo check --locked
+      - name: Rust Clippy correctness gate
+        run: cargo clippy --locked --all-targets -- -D clippy::correctness
       - name: Run Rust unit tests
         run: cargo test --locked
