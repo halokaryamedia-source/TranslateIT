@@ -65,7 +65,6 @@ fn required_outbound_functional_readiness_verified_unix_ms(generation_token: u64
         .map(|cached| cached.verified_unix_ms)
 }
 
-
 fn decorate_functional_readiness_status(mut status: HelperBridgeStatus) -> HelperBridgeStatus {
     let verified_unix_ms =
         required_outbound_functional_readiness_verified_unix_ms(status.generation_token);
@@ -159,15 +158,22 @@ fn functional_asr_output(response: &HelperBridgeWorkerResponse) -> bool {
 
 fn failed_required_outbound_task_invalidates_cache(
     task: &str,
+    priority: HelperTaskPriority,
     response: &HelperBridgeWorkerResponse,
 ) -> bool {
-    if response.ok {
+    if response.ok || priority == HelperTaskPriority::MeetingIncoming {
         return false;
     }
     let value = worker_response_value(response);
     let blocker = worker_text(&value, "blocker").unwrap_or_default();
     match task {
-        "status" | "asr_preload" | "translation_preload" | "voice_actor_preflight" => true,
+        "status" | "asr_preload" | "voice_actor_preflight" => true,
+        // An explicit optional EN->ID preload failure is not evidence that the
+        // required outbound ID->EN runtime became unusable. Unknown/malformed
+        // preload direction stays fail-closed.
+        "translation_preload" => {
+            value.get("direction_pair").and_then(Value::as_str) != Some("en->id")
+        }
         // A finalized speech event may legitimately contain no stable transcript.
         // That is not evidence that the loaded ASR runtime is broken.
         "transcribe" => blocker != "asr:empty_transcript",
@@ -880,7 +886,7 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
         }
     }
 
-    if failed_required_outbound_task_invalidates_cache(task, &response) {
+    if failed_required_outbound_task_invalidates_cache(task, priority, &response) {
         invalidate_required_outbound_ai_readiness();
     }
     response
@@ -1361,8 +1367,8 @@ pub fn helper_bridge_worker_status() -> HelperBridgeWorkerResponse {
 mod c4_functional_readiness_tests {
     use super::{
         failed_required_outbound_task_invalidates_cache, functional_asr_output,
-        functional_translation_output, HelperBridgeWorkerResponse,
-        RequiredOutboundFunctionalReadiness,
+        functional_translation_output, helper_transport_failure, live_outbound_stage_retry_safe,
+        HelperBridgeWorkerResponse, HelperTaskPriority, RequiredOutboundFunctionalReadiness,
     };
 
     fn response(ok: bool, body: &str) -> HelperBridgeWorkerResponse {
@@ -1420,6 +1426,7 @@ mod c4_functional_readiness_tests {
         );
         assert!(!failed_required_outbound_task_invalidates_cache(
             "transcribe",
+            HelperTaskPriority::MeetingOutbound,
             &empty
         ));
 
@@ -1429,8 +1436,85 @@ mod c4_functional_readiness_tests {
         );
         assert!(failed_required_outbound_task_invalidates_cache(
             "voice_actor_synthesize",
+            HelperTaskPriority::MeetingOutbound,
             &hard_tts
         ));
+    }
+
+    #[test]
+    fn optional_incoming_failures_cannot_invalidate_required_outbound_capability() {
+        let hard_asr = response(
+            false,
+            r#"{"ok":false,"stage":"transcribe","blocker":"asr:provider_failed"}"#,
+        );
+        assert!(!failed_required_outbound_task_invalidates_cache(
+            "transcribe",
+            HelperTaskPriority::MeetingIncoming,
+            &hard_asr
+        ));
+        assert!(failed_required_outbound_task_invalidates_cache(
+            "transcribe",
+            HelperTaskPriority::MeetingOutbound,
+            &hard_asr
+        ));
+
+        let hard_translation = response(
+            false,
+            r#"{"ok":false,"stage":"translate","blocker":"translation:provider_failed"}"#,
+        );
+        assert!(!failed_required_outbound_task_invalidates_cache(
+            "translate",
+            HelperTaskPriority::MeetingIncoming,
+            &hard_translation
+        ));
+        assert!(failed_required_outbound_task_invalidates_cache(
+            "translate",
+            HelperTaskPriority::MeetingOutbound,
+            &hard_translation
+        ));
+
+        let optional_preload = response(
+            false,
+            r#"{"ok":false,"stage":"translation_preload","direction_pair":"en->id","blocker":"translation:provider_failed"}"#,
+        );
+        assert!(!failed_required_outbound_task_invalidates_cache(
+            "translation_preload",
+            HelperTaskPriority::Diagnostic,
+            &optional_preload
+        ));
+        let outbound_preload = response(
+            false,
+            r#"{"ok":false,"stage":"translation_preload","direction_pair":"id->en","blocker":"translation:provider_failed"}"#,
+        );
+        assert!(failed_required_outbound_task_invalidates_cache(
+            "translation_preload",
+            HelperTaskPriority::Diagnostic,
+            &outbound_preload
+        ));
+    }
+
+    #[test]
+    fn transport_failure_and_retry_policy_remain_bounded() {
+        let write_failure = response(
+            false,
+            r#"{"ok":false,"blocker":"helper_bridge:translate_write_failed:broken_pipe"}"#,
+        );
+        assert!(helper_transport_failure(&write_failure));
+        let read_failure = response(
+            false,
+            r#"{"ok":false,"blocker":"helper_bridge:transcribe_read_failed:response_deadline"}"#,
+        );
+        assert!(helper_transport_failure(&read_failure));
+        let model_failure = response(
+            false,
+            r#"{"ok":false,"blocker":"translation:provider_failed"}"#,
+        );
+        assert!(!helper_transport_failure(&model_failure));
+
+        assert!(live_outbound_stage_retry_safe("transcribe"));
+        assert!(live_outbound_stage_retry_safe("translate"));
+        assert!(!live_outbound_stage_retry_safe("voice_actor_synthesize"));
+        assert!(!live_outbound_stage_retry_safe("status"));
     }
 
     #[test]
