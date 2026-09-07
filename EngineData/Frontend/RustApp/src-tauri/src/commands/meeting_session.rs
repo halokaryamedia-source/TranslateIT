@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 use std::fs;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::Instant;
@@ -46,6 +46,15 @@ use super::helper_bridge::{
 use super::helper_bridge_runtime::unix_ms;
 use super::virtual_mic_route::{
     get_bound_virtual_mic_output_device, get_virtual_mic_route_selection,
+};
+
+mod incoming_deferred;
+
+use incoming_deferred::{
+    classify_incoming_asr_response, clear_deferred_incoming_queue, deferred_enqueue_unix_ms,
+    enqueue_deferred_incoming, incoming_deferred_for_required_outbound,
+    requeue_deferred_incoming_front, take_due_deferred_incoming, DeferredIncomingJob,
+    DeferredIncomingStage, IncomingAsrDisposition, MAX_DEFERRED_INCOMING,
 };
 
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
@@ -1035,42 +1044,11 @@ fn worker_blocker(response: &HelperBridgeWorkerResponse, fallback: &str) -> Stri
     worker_text(response, "blocker").unwrap_or_else(|| fallback.to_string())
 }
 
-fn incoming_deferred_for_required_outbound(response: &HelperBridgeWorkerResponse) -> bool {
-    worker_text(response, "blocker").as_deref()
-        == Some("helper_scheduler:incoming_deferred_for_outbound")
-}
-
-#[derive(Debug, PartialEq, Eq)]
-enum IncomingAsrDisposition {
-    Deferred,
-    EmptyTranscript,
-    Failed(String),
-    Transcript(String),
-}
-
 #[derive(Debug, PartialEq, Eq)]
 enum IncomingAudioProcessResult {
     Complete,
     DeferredAsr,
     DeferredTranslation,
-}
-
-fn classify_incoming_asr_response(asr: &HelperBridgeWorkerResponse) -> IncomingAsrDisposition {
-    if incoming_deferred_for_required_outbound(asr) {
-        return IncomingAsrDisposition::Deferred;
-    }
-
-    let transcript = worker_text(asr, "transcript_text");
-    if !asr.ok || transcript.is_none() {
-        let blocker = worker_blocker(asr, "asr:empty_transcript");
-        if blocker.contains("empty_transcript") {
-            IncomingAsrDisposition::EmptyTranscript
-        } else {
-            IncomingAsrDisposition::Failed(blocker)
-        }
-    } else {
-        IncomingAsrDisposition::Transcript(transcript.unwrap_or_default())
-    }
 }
 
 fn generation_is_live(generation: u64) -> bool {
@@ -1630,10 +1608,8 @@ fn process_authoritative_finalized_incoming_wav(
 
     let transcript = match classify_incoming_asr_response(&asr) {
         IncomingAsrDisposition::Deferred => {
-            let enqueued_unix_ms = deferred_enqueue_unix_ms(
-                deferred_enqueued_unix_ms,
-                unix_ms() as u64,
-            );
+            let enqueued_unix_ms =
+                deferred_enqueue_unix_ms(deferred_enqueued_unix_ms, unix_ms() as u64);
             let held = if retrying_deferred {
                 requeue_deferred_incoming_front(DeferredIncomingJob {
                     session_id: session_id.to_string(),
@@ -1783,7 +1759,9 @@ fn translate_and_commit_incoming_transcript(
                 session_id: session_id.to_string(),
                 event_sequence,
                 utterance_id,
-                stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.to_string() },
+                stage: DeferredIncomingStage::NeedsTranslation {
+                    transcript: transcript.to_string(),
+                },
                 enqueued_unix_ms: unix_ms() as u64,
             });
             if held == 0 {
@@ -2058,105 +2036,6 @@ fn stop_meeting_outbound_consumer(generation: u64) -> MeetingConsumerCleanupResu
         } else {
             format!("Meeting outbound consumer for {session_id} generation {generation} exited unexpectedly during cleanup.")
         },
-    }
-}
-
-// --- Deferred incoming queue (#4): hold optional incoming work while required
-// outbound has priority, then process it FIFO when outbound is idle. Nothing
-// is lost silently: capacity overflow and age expiry each bump a counter.
-
-const MAX_DEFERRED_INCOMING: usize = 4;
-const MAX_DEFERRED_INCOMING_AGE_MS: u64 = 20_000;
-
-#[derive(Clone)]
-enum DeferredIncomingStage {
-    NeedsAsr { audio_path: String },
-    NeedsTranslation { transcript: String },
-}
-
-struct DeferredIncomingJob {
-    session_id: String,
-    event_sequence: u64,
-    utterance_id: u64,
-    stage: DeferredIncomingStage,
-    // First deferral time. Requeues must retain this value so the 20-second
-    // bounded age budget cannot be refreshed by repeated outbound preemption.
-    enqueued_unix_ms: u64,
-}
-
-static DEFERRED_INCOMING_QUEUE: OnceLock<Mutex<VecDeque<DeferredIncomingJob>>> = OnceLock::new();
-static DEFERRED_DROPPED_OVERFLOW: AtomicU64 = AtomicU64::new(0);
-static DEFERRED_DROPPED_STALE: AtomicU64 = AtomicU64::new(0);
-
-fn deferred_incoming_queue() -> &'static Mutex<VecDeque<DeferredIncomingJob>> {
-    DEFERRED_INCOMING_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
-}
-
-fn deferred_enqueue_unix_ms(first_deferred_unix_ms: Option<u64>, now_unix_ms: u64) -> u64 {
-    first_deferred_unix_ms.unwrap_or(now_unix_ms)
-}
-
-fn cleanup_deferred_incoming_job(job: DeferredIncomingJob) {
-    if let DeferredIncomingStage::NeedsAsr { audio_path } = job.stage {
-        remove_finalized_meeting_utterance_wav(&audio_path);
-    }
-}
-
-fn enqueue_deferred_incoming(job: DeferredIncomingJob) -> usize {
-    let Ok(mut guard) = deferred_incoming_queue().lock() else {
-        return 0;
-    };
-    guard.push_back(job);
-    while guard.len() > MAX_DEFERRED_INCOMING {
-        if let Some(evicted) = guard.pop_front() {
-            cleanup_deferred_incoming_job(evicted);
-        }
-        DEFERRED_DROPPED_OVERFLOW.fetch_add(1, Ordering::Relaxed);
-    }
-    guard.len()
-}
-
-fn requeue_deferred_incoming_front(job: DeferredIncomingJob) -> usize {
-    let Ok(mut guard) = deferred_incoming_queue().lock() else {
-        return 0;
-    };
-    guard.push_front(job);
-    while guard.len() > MAX_DEFERRED_INCOMING {
-        if let Some(evicted) = guard.pop_back() {
-            cleanup_deferred_incoming_job(evicted);
-        }
-        DEFERRED_DROPPED_OVERFLOW.fetch_add(1, Ordering::Relaxed);
-    }
-    guard.len()
-}
-
-fn take_due_deferred_incoming(session_id: &str, now_unix_ms: u64) -> Option<DeferredIncomingJob> {
-    let mut guard = deferred_incoming_queue().lock().ok()?;
-    while let Some(front) = guard.front() {
-        if front.session_id != session_id {
-            if let Some(stale) = guard.pop_front() {
-                cleanup_deferred_incoming_job(stale);
-            }
-            DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
-            continue;
-        }
-        if now_unix_ms.saturating_sub(front.enqueued_unix_ms) > MAX_DEFERRED_INCOMING_AGE_MS {
-            if let Some(stale) = guard.pop_front() {
-                cleanup_deferred_incoming_job(stale);
-            }
-            DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
-            continue;
-        }
-        return guard.pop_front();
-    }
-    None
-}
-
-fn clear_deferred_incoming_queue() {
-    if let Ok(mut guard) = deferred_incoming_queue().lock() {
-        while let Some(job) = guard.pop_front() {
-            cleanup_deferred_incoming_job(job);
-        }
     }
 }
 
@@ -2651,7 +2530,9 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     // required prerequisite loss in the activation window must roll back rather than
     // expose a transient Live state.
     let prepared_preflight = build_preflight();
-    if !prepared_preflight.ready_for_start || required_outbound_voice_actor_token(generation).is_none() {
+    if !prepared_preflight.ready_for_start
+        || required_outbound_voice_actor_token(generation).is_none()
+    {
         let _ = revoke_runtime_session_authority(
             generation,
             "Final pre-Live My Voice readiness changed after required resources opened. Authority was revoked before rollback.",
@@ -3033,120 +2914,5 @@ mod c4_functional_preflight_tests {
         assert!(meeting_required_ai_ready(true, true));
         assert!(!meeting_start_ai_eligible(true, false));
         assert!(!meeting_required_ai_ready(false, true));
-    }
-}
-
-#[cfg(test)]
-mod deferred_incoming_tests {
-    use super::*;
-
-    fn job(session: &str, seq: u64, transcript: &str, enqueued_unix_ms: u64) -> DeferredIncomingJob {
-        DeferredIncomingJob {
-            session_id: session.to_string(),
-            event_sequence: seq,
-            utterance_id: seq,
-            stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.to_string() },
-            enqueued_unix_ms,
-        }
-    }
-
-    #[test]
-    fn incoming_asr_deferral_is_classified_before_missing_transcript() {
-        let response = HelperBridgeWorkerResponse {
-            ok: false,
-            state: "deferred".to_string(),
-            task: "transcribe".to_string(),
-            request_id: "test-incoming-asr-deferred".to_string(),
-            scheduler_priority: "meeting_incoming".to_string(),
-            message: "deferred".to_string(),
-            generation_token: 1,
-            runtime_claim: "test".to_string(),
-            worker_response_json: serde_json::json!({
-                "ok": false,
-                "stage": "transcribe",
-                "blocker": "helper_scheduler:incoming_deferred_for_outbound",
-            })
-            .to_string(),
-        };
-
-        assert_eq!(
-            classify_incoming_asr_response(&response),
-            IncomingAsrDisposition::Deferred
-        );
-    }
-
-    #[test]
-    fn deferred_retry_preserves_first_deferral_age_budget() {
-        clear_deferred_incoming_queue();
-        let first_deferred_unix_ms = 10_000;
-        let retry_unix_ms = 29_000;
-        let preserved = deferred_enqueue_unix_ms(Some(first_deferred_unix_ms), retry_unix_ms);
-        assert_eq!(preserved, first_deferred_unix_ms);
-        assert_eq!(deferred_enqueue_unix_ms(None, retry_unix_ms), retry_unix_ms);
-
-        requeue_deferred_incoming_front(job("sess", 1, "t", preserved));
-        let stale_before = DEFERRED_DROPPED_STALE.load(Ordering::Relaxed);
-        assert!(
-            take_due_deferred_incoming(
-                "sess",
-                first_deferred_unix_ms + MAX_DEFERRED_INCOMING_AGE_MS + 1,
-            )
-            .is_none(),
-            "requeued work must expire from its first deferral time"
-        );
-        assert_eq!(
-            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
-            1
-        );
-        clear_deferred_incoming_queue();
-    }
-
-    #[test]
-    fn deferred_queue_caps_evicts_expired_and_respects_session() {
-        clear_deferred_incoming_queue();
-        assert!(deferred_incoming_queue().lock().unwrap().is_empty());
-
-        // Session binding: draining under a foreign session yields nothing and
-        // still counts the held job as stale-dropped.
-        enqueue_deferred_incoming(job("sess", 1, "t", 1_000));
-        let stale_before = DEFERRED_DROPPED_STALE.fetch_and(0, Ordering::Relaxed);
-        assert!(take_due_deferred_incoming("other-sess", 2_000).is_none());
-        assert_eq!(
-            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
-            1,
-            "foreign-session job must be treated as stale"
-        );
-
-        // Capacity: six more jobs against a cap of 4 evicts exactly the oldest two.
-        for seq in 2..=7 {
-            enqueue_deferred_incoming(job("sess", seq, "t", 10_000));
-        }
-        assert_eq!(deferred_incoming_queue().lock().unwrap().len(), MAX_DEFERRED_INCOMING);
-        let dropped_overflow = DEFERRED_DROPPED_OVERFLOW.swap(0, Ordering::Relaxed);
-        assert_eq!(dropped_overflow, 2, "oldest two jobs must be evicted");
-
-        // Age expiry: at now=40_000 every remaining job (enqueued at 10_000) is
-        // stale and must be dropped instead of delivered.
-        let stale_before = DEFERRED_DROPPED_STALE.load(Ordering::Relaxed);
-        let mut delivered = 0;
-        while take_due_deferred_incoming("sess", 40_000).is_some() {
-            delivered += 1;
-        }
-        assert_eq!(delivered, 0, "expired jobs are dropped, not delivered");
-        assert_eq!(
-            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
-            MAX_DEFERRED_INCOMING as u64
-        );
-
-        // Fresh jobs inside the age window are delivered FIFO.
-        enqueue_deferred_incoming(job("sess", 7, "a", 50_000));
-        enqueue_deferred_incoming(job("sess", 8, "b", 51_000));
-        let first = take_due_deferred_incoming("sess", 52_000).expect("fresh job due");
-        let second = take_due_deferred_incoming("sess", 52_000).expect("second fresh job due");
-        assert_eq!(first.event_sequence, 7);
-        assert_eq!(second.event_sequence, 8);
-
-        clear_deferred_incoming_queue();
-        assert!(deferred_incoming_queue().lock().unwrap().is_empty());
     }
 }
