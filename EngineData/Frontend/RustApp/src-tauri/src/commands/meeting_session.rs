@@ -1040,6 +1040,39 @@ fn incoming_deferred_for_required_outbound(response: &HelperBridgeWorkerResponse
         == Some("helper_scheduler:incoming_deferred_for_outbound")
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum IncomingAsrDisposition {
+    Deferred,
+    EmptyTranscript,
+    Failed(String),
+    Transcript(String),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum IncomingAudioProcessResult {
+    Complete,
+    DeferredAsr,
+    DeferredTranslation,
+}
+
+fn classify_incoming_asr_response(asr: &HelperBridgeWorkerResponse) -> IncomingAsrDisposition {
+    if incoming_deferred_for_required_outbound(asr) {
+        return IncomingAsrDisposition::Deferred;
+    }
+
+    let transcript = worker_text(asr, "transcript_text");
+    if !asr.ok || transcript.is_none() {
+        let blocker = worker_blocker(asr, "asr:empty_transcript");
+        if blocker.contains("empty_transcript") {
+            IncomingAsrDisposition::EmptyTranscript
+        } else {
+            IncomingAsrDisposition::Failed(blocker)
+        }
+    } else {
+        IncomingAsrDisposition::Transcript(transcript.unwrap_or_default())
+    }
+}
+
 fn generation_is_live(generation: u64) -> bool {
     if !runtime_generation_is_authoritative(generation) {
         return false;
@@ -1564,10 +1597,11 @@ fn process_authoritative_finalized_incoming_wav(
     session_id: &str,
     event_sequence: u64,
     utterance_id: u64,
-    audio_path: String,
-) {
+    audio_path: &str,
+    retrying_deferred: bool,
+) -> IncomingAudioProcessResult {
     if !incoming_session_is_eligible(session_id) {
-        return;
+        return IncomingAudioProcessResult::Complete;
     }
     update_incoming_status(
         session_id,
@@ -1590,56 +1624,118 @@ fn process_authoritative_finalized_incoming_wav(
         }),
     );
     if !incoming_session_is_eligible(session_id) {
-        return;
+        return IncomingAudioProcessResult::Complete;
     }
-    let transcript = worker_text(&asr, "transcript_text");
-    if !asr.ok || transcript.is_none() {
-        let blocker = worker_blocker(&asr, "asr:empty_transcript");
-        let empty = blocker.contains("empty_transcript");
-        update_incoming_status(
-            session_id,
-            "listening",
-            !empty,
-            if empty { "" } else { &blocker },
-            if empty {
-                "Finalized Meeting Sound did not produce stable English speech. Incoming remains listening."
-            } else {
-                "Incoming English ASR failed for the latest finalized Meeting Sound event. Outbound remains available."
-            },
-        );
-        return;
-    }
-    let transcript = transcript.unwrap_or_default();
 
-    if incoming_deferred_for_required_outbound(&asr) {
-        let held = enqueue_deferred_incoming(DeferredIncomingJob {
-            session_id: session_id.to_string(),
-            event_sequence,
-            utterance_id,
-            stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.clone() },
-            enqueued_unix_ms: unix_ms() as u64,
-        });
-        update_incoming_status(
-            session_id,
-            "listening",
-            false,
-            "",
-            &format!(
-                "Held {held}/{MAX_DEFERRED_INCOMING} while your outbound translation finishes. This segment will be translated right after; incoming is listening for fresh Meeting Sound."
-            ),
-        );
-        return;
-    }
+    let transcript = match classify_incoming_asr_response(&asr) {
+        IncomingAsrDisposition::Deferred => {
+            let held = if retrying_deferred {
+                requeue_deferred_incoming_front(DeferredIncomingJob {
+                    session_id: session_id.to_string(),
+                    event_sequence,
+                    utterance_id,
+                    stage: DeferredIncomingStage::NeedsAsr {
+                        audio_path: audio_path.to_string(),
+                    },
+                    enqueued_unix_ms: unix_ms() as u64,
+                })
+            } else {
+                enqueue_deferred_incoming(DeferredIncomingJob {
+                    session_id: session_id.to_string(),
+                    event_sequence,
+                    utterance_id,
+                    stage: DeferredIncomingStage::NeedsAsr {
+                        audio_path: audio_path.to_string(),
+                    },
+                    enqueued_unix_ms: unix_ms() as u64,
+                })
+            };
+            if held == 0 {
+                update_incoming_status(
+                    session_id,
+                    "degraded",
+                    true,
+                    "meeting_incoming:deferred_queue_unavailable",
+                    "Incoming English ASR yielded to required outbound work, but the deferred queue was unavailable. Outbound remains available.",
+                );
+                return IncomingAudioProcessResult::Complete;
+            }
+            update_incoming_status(
+                session_id,
+                "listening",
+                false,
+                "",
+                &format!(
+                    "Held {held}/{MAX_DEFERRED_INCOMING} before ASR while your outbound translation finishes. This Meeting Sound segment will resume first when the helper pipeline is available."
+                ),
+            );
+            return IncomingAudioProcessResult::DeferredAsr;
+        }
+        IncomingAsrDisposition::EmptyTranscript => {
+            update_incoming_status(
+                session_id,
+                "listening",
+                false,
+                "",
+                "Finalized Meeting Sound did not produce stable English speech. Incoming remains listening.",
+            );
+            return IncomingAudioProcessResult::Complete;
+        }
+        IncomingAsrDisposition::Failed(blocker) => {
+            update_incoming_status(
+                session_id,
+                "listening",
+                true,
+                &blocker,
+                "Incoming English ASR failed for the latest finalized Meeting Sound event. Outbound remains available.",
+            );
+            return IncomingAudioProcessResult::Complete;
+        }
+        IncomingAsrDisposition::Transcript(transcript) => transcript,
+    };
 
     let held = translate_and_commit_incoming_transcript(
         session_id,
         event_sequence,
         utterance_id,
         &transcript,
-        true,
+        !retrying_deferred,
     );
+    if held && retrying_deferred {
+        let held_count = requeue_deferred_incoming_front(DeferredIncomingJob {
+            session_id: session_id.to_string(),
+            event_sequence,
+            utterance_id,
+            stage: DeferredIncomingStage::NeedsTranslation {
+                transcript: transcript.clone(),
+            },
+            enqueued_unix_ms: unix_ms() as u64,
+        });
+        if held_count == 0 {
+            update_incoming_status(
+                session_id,
+                "degraded",
+                true,
+                "meeting_incoming:deferred_queue_unavailable",
+                "Incoming translation yielded to required outbound work, but the deferred queue was unavailable. Outbound remains available.",
+            );
+            return IncomingAudioProcessResult::Complete;
+        }
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            &format!(
+                "Held {held_count}/{MAX_DEFERRED_INCOMING} after ASR while your outbound translation finishes. The original incoming order is preserved."
+            ),
+        );
+        return IncomingAudioProcessResult::DeferredTranslation;
+    }
     if held {
-        return;
+        IncomingAudioProcessResult::DeferredTranslation
+    } else {
+        IncomingAudioProcessResult::Complete
     }
 }
 
@@ -1682,6 +1778,16 @@ fn translate_and_commit_incoming_transcript(
                 stage: DeferredIncomingStage::NeedsTranslation { transcript: transcript.to_string() },
                 enqueued_unix_ms: unix_ms() as u64,
             });
+            if held == 0 {
+                update_incoming_status(
+                    session_id,
+                    "degraded",
+                    true,
+                    "meeting_incoming:deferred_queue_unavailable",
+                    "Incoming translation yielded to required outbound work, but the deferred queue was unavailable. Outbound remains available.",
+                );
+                return false;
+            }
             update_incoming_status(
                 session_id,
                 "listening",
@@ -1744,6 +1850,25 @@ fn drain_due_deferred_incoming(session_id: &str) {
         };
         let DeferredIncomingJob { event_sequence, utterance_id, stage, .. } = job;
         match stage {
+            DeferredIncomingStage::NeedsAsr { audio_path } => {
+                let result = process_authoritative_finalized_incoming_wav(
+                    session_id,
+                    event_sequence,
+                    utterance_id,
+                    &audio_path,
+                    true,
+                );
+                match result {
+                    IncomingAudioProcessResult::DeferredAsr => break,
+                    IncomingAudioProcessResult::DeferredTranslation => {
+                        remove_finalized_meeting_utterance_wav(&audio_path);
+                        break;
+                    }
+                    IncomingAudioProcessResult::Complete => {
+                        remove_finalized_meeting_utterance_wav(&audio_path);
+                    }
+                }
+            }
             DeferredIncomingStage::NeedsTranslation { transcript } => {
                 let held = translate_and_commit_incoming_transcript(
                     session_id,
@@ -1755,14 +1880,21 @@ fn drain_due_deferred_incoming(session_id: &str) {
                 if held {
                     // Outbound still has priority; keep the original job at the
                     // front so ordering is preserved and retry on a later tick.
-                    if let Ok(mut guard) = deferred_incoming_queue().lock() {
-                        guard.push_front(DeferredIncomingJob {
-                            session_id: session_id.to_string(),
-                            event_sequence,
-                            utterance_id,
-                            stage: DeferredIncomingStage::NeedsTranslation { transcript },
-                            enqueued_unix_ms: unix_ms() as u64,
-                        });
+                    let held_count = requeue_deferred_incoming_front(DeferredIncomingJob {
+                        session_id: session_id.to_string(),
+                        event_sequence,
+                        utterance_id,
+                        stage: DeferredIncomingStage::NeedsTranslation { transcript },
+                        enqueued_unix_ms: unix_ms() as u64,
+                    });
+                    if held_count == 0 {
+                        update_incoming_status(
+                            session_id,
+                            "degraded",
+                            true,
+                            "meeting_incoming:deferred_queue_unavailable",
+                            "Incoming translation yielded again, but the deferred queue was unavailable. Outbound remains available.",
+                        );
                     }
                     break;
                 }
@@ -1924,6 +2056,7 @@ const MAX_DEFERRED_INCOMING_AGE_MS: u64 = 20_000;
 
 #[derive(Clone)]
 enum DeferredIncomingStage {
+    NeedsAsr { audio_path: String },
     NeedsTranslation { transcript: String },
 }
 
@@ -1943,13 +2076,35 @@ fn deferred_incoming_queue() -> &'static Mutex<VecDeque<DeferredIncomingJob>> {
     DEFERRED_INCOMING_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
 }
 
+fn cleanup_deferred_incoming_job(job: DeferredIncomingJob) {
+    if let DeferredIncomingStage::NeedsAsr { audio_path } = job.stage {
+        remove_finalized_meeting_utterance_wav(&audio_path);
+    }
+}
+
 fn enqueue_deferred_incoming(job: DeferredIncomingJob) -> usize {
     let Ok(mut guard) = deferred_incoming_queue().lock() else {
         return 0;
     };
     guard.push_back(job);
     while guard.len() > MAX_DEFERRED_INCOMING {
-        let _ = guard.pop_front();
+        if let Some(evicted) = guard.pop_front() {
+            cleanup_deferred_incoming_job(evicted);
+        }
+        DEFERRED_DROPPED_OVERFLOW.fetch_add(1, Ordering::Relaxed);
+    }
+    guard.len()
+}
+
+fn requeue_deferred_incoming_front(job: DeferredIncomingJob) -> usize {
+    let Ok(mut guard) = deferred_incoming_queue().lock() else {
+        return 0;
+    };
+    guard.push_front(job);
+    while guard.len() > MAX_DEFERRED_INCOMING {
+        if let Some(evicted) = guard.pop_back() {
+            cleanup_deferred_incoming_job(evicted);
+        }
         DEFERRED_DROPPED_OVERFLOW.fetch_add(1, Ordering::Relaxed);
     }
     guard.len()
@@ -1959,12 +2114,16 @@ fn take_due_deferred_incoming(session_id: &str, now_unix_ms: u64) -> Option<Defe
     let mut guard = deferred_incoming_queue().lock().ok()?;
     while let Some(front) = guard.front() {
         if front.session_id != session_id {
-            let _ = guard.pop_front();
+            if let Some(stale) = guard.pop_front() {
+                cleanup_deferred_incoming_job(stale);
+            }
             DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
             continue;
         }
         if now_unix_ms.saturating_sub(front.enqueued_unix_ms) > MAX_DEFERRED_INCOMING_AGE_MS {
-            let _ = guard.pop_front();
+            if let Some(stale) = guard.pop_front() {
+                cleanup_deferred_incoming_job(stale);
+            }
             DEFERRED_DROPPED_STALE.fetch_add(1, Ordering::Relaxed);
             continue;
         }
@@ -1973,11 +2132,11 @@ fn take_due_deferred_incoming(session_id: &str, now_unix_ms: u64) -> Option<Defe
     None
 }
 
-
-
 fn clear_deferred_incoming_queue() {
     if let Ok(mut guard) = deferred_incoming_queue().lock() {
-        guard.clear();
+        while let Some(job) = guard.pop_front() {
+            cleanup_deferred_incoming_job(job);
+        }
     }
 }
 
@@ -2044,13 +2203,16 @@ fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
                     remove_finalized_meeting_utterance_wav(&audio_path);
                     break;
                 }
-                process_authoritative_finalized_incoming_wav(
+                let result = process_authoritative_finalized_incoming_wav(
                     &thread_session_id,
                     utterance.sequence,
                     utterance.utterance_id,
-                    audio_path.clone(),
+                    &audio_path,
+                    false,
                 );
-                remove_finalized_meeting_utterance_wav(&audio_path);
+                if result != IncomingAudioProcessResult::DeferredAsr {
+                    remove_finalized_meeting_utterance_wav(&audio_path);
+                }
             }
         })
         .map_err(|error| format!("meeting_incoming:consumer_spawn_failed:{error}"))?;
@@ -2575,7 +2737,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         clear_prepared_meeting_output_device();
         let incoming_capture_stop = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();
-    clear_deferred_incoming_queue();
+        clear_deferred_incoming_queue();
         clear_finalized_meeting_sequence();
         clear_all_committed_turns();
         clear_outbound_status();
@@ -2869,6 +3031,31 @@ mod deferred_incoming_tests {
     }
 
     #[test]
+    fn incoming_asr_deferral_is_classified_before_missing_transcript() {
+        let response = HelperBridgeWorkerResponse {
+            ok: false,
+            state: "deferred".to_string(),
+            task: "transcribe".to_string(),
+            request_id: "test-incoming-asr-deferred".to_string(),
+            scheduler_priority: "meeting_incoming".to_string(),
+            message: "deferred".to_string(),
+            generation_token: 1,
+            runtime_claim: "test".to_string(),
+            worker_response_json: serde_json::json!({
+                "ok": false,
+                "stage": "transcribe",
+                "blocker": "helper_scheduler:incoming_deferred_for_outbound",
+            })
+            .to_string(),
+        };
+
+        assert_eq!(
+            classify_incoming_asr_response(&response),
+            IncomingAsrDisposition::Deferred
+        );
+    }
+
+    #[test]
     fn deferred_queue_caps_evicts_expired_and_respects_session() {
         clear_deferred_incoming_queue();
         assert!(deferred_incoming_queue().lock().unwrap().is_empty());
@@ -2889,8 +3076,7 @@ mod deferred_incoming_tests {
             enqueue_deferred_incoming(job("sess", seq, "t", 10_000));
         }
         assert_eq!(deferred_incoming_queue().lock().unwrap().len(), MAX_DEFERRED_INCOMING);
-        let dropped_overflow =
-            DEFERRED_DROPPED_OVERFLOW.swap(0, Ordering::Relaxed);
+        let dropped_overflow = DEFERRED_DROPPED_OVERFLOW.swap(0, Ordering::Relaxed);
         assert_eq!(dropped_overflow, 2, "oldest two jobs must be evicted");
 
         // Age expiry: at now=40_000 every remaining job (enqueued at 10_000) is

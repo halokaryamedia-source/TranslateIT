@@ -9,15 +9,14 @@
 - VoiceLab training now has an executable `SOVITS_EPOCHS = 8` contract protected by regression coverage.
 - Built-in Male/Female are presented as the day-one Meeting voice path in current Setup and Meeting UI; My Voice remains an optional personalized replacement.
 - Legacy Dev-Rust/DevelopingData issues were closed as obsolete and are not continuation authority.
+- Optional incoming Meeting work now distinguishes ASR-stage deferral from ASR failure before transcript validation. A deferred finalized WAV is retained as `NeedsAsr`, retried FIFO after required outbound yields the helper pipeline, and released on completion, stale/overflow eviction, disable, or session cleanup. Regression coverage protects the deferred-before-failure classification.
 
 ## Active Boundary
 
-REMOTE_GITHUB source/CI work is substantially hardened, but one reproduced optional-incoming correctness residue remains: an incoming `transcribe` request can yield to the required outbound helper pipeline before ASR execution, while `meeting_session.rs` currently reaches its generic ASR-failure branch before the later translation-stage deferred-queue handling. Required outbound remains fail-closed and prioritized; the residue affects the optional incoming lane and its status/retention semantics.
-
-The current GitHub connector can replace that large owner only as a complete file, so an unreviewable full-file transfer is intentionally not used to patch a small logic hunk. This is a transfer boundary, not a request to redesign the scheduler.
+The reproduced REMOTE_GITHUB incoming ASR-stage deferral ordering residue is resolved in current source without redesigning the required outbound scheduler or weakening outbound priority. Required outbound remains fail-closed and prioritized; optional incoming ASR/translation deferrals retain their original stage and FIFO ordering rather than being misreported as generic ASR failure.
 
 Target-Windows microphone, GPU, VB-CABLE, meeting-app reception, real latency, installed-runtime and clean-machine claims still require `TARGET_WINDOWS` evidence under `docs/foundation/03-acceptance-scenarios.md`.
 
 ## Next Step
 
-Resolve the reproduced incoming ASR-stage deferral ordering in the exact current `meeting_session.rs` with a minimal regression-tested edit; do not redesign the required outbound scheduler or weaken outbound priority.
+Execute `TARGET_WINDOWS` scenario C1 (Outbound end-to-end) on the exact current `Local` SHA, satisfying its relevant A/B prerequisites on the target machine before treating Meeting delivery as verified.
