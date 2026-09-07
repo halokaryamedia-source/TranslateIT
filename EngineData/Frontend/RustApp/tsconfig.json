@@ -10,6 +10,7 @@
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
