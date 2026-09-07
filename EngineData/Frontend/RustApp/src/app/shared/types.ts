@@ -92,7 +92,7 @@ export type InputPreparationStatus = {
   selected_device_name: string | null;
   input_device_name?: string | null;
   device_count: number;
-  blocker?: string;
+  blocker?: string | undefined;
   note: string;
   [key: string]: unknown;
 };
