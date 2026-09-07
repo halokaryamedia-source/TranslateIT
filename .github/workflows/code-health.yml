@@ -172,5 +172,7 @@ jobs:
         env:
           RUSTFLAGS: "-Ddead_code -Dunused_imports -Dunused_variables -Dunused_mut -Dunused_assignments"
         run: cargo check --locked
+      - name: Windows Rust Clippy correctness gate
+        run: cargo clippy --locked --all-targets -- -D clippy::correctness
       - name: Run Windows Rust unit tests
         run: cargo test --locked
