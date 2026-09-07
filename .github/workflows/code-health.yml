@@ -106,6 +106,48 @@ jobs:
       - name: Run Python contract tests
         run: python -m pytest -q
 
+  python-windows:
+    name: Windows Python source and unit health
+    runs-on: windows-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: "3.12.10"
+      - name: Install lock-resolved test tools only
+        shell: bash
+        run: |
+          python - <<'PY'
+          import subprocess
+          import sys
+          import tomllib
+          from pathlib import Path
+
+          wanted = {"ruff", "pytest", "huggingface-hub", "ffmpeg-python", "numpy"}
+          lock = tomllib.loads(Path("uv.lock").read_text(encoding="utf-8"))
+          versions = {
+              package.get("name"): package.get("version")
+              for package in lock.get("package", [])
+              if package.get("name") in wanted
+          }
+          missing = sorted(wanted - versions.keys())
+          if missing:
+              raise SystemExit(f"canonical uv.lock is missing CI test tools: {missing}")
+          requirements = [f"{name}=={versions[name]}" for name in sorted(wanted)]
+          subprocess.check_call([sys.executable, "-m", "pip", "install", *requirements])
+          PY
+      - run: python -m compileall -q .
+      - name: Windows Python static correctness gate
+        run: ruff check . --select E4,E7,E9,F
+      - name: Run Windows Python contract tests
+        run: python -m pytest -q
+
   rust:
     name: Rust source and unit health
     runs-on: ubuntu-latest
