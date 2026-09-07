@@ -1598,8 +1598,9 @@ fn process_authoritative_finalized_incoming_wav(
     event_sequence: u64,
     utterance_id: u64,
     audio_path: &str,
-    retrying_deferred: bool,
+    deferred_enqueued_unix_ms: Option<u64>,
 ) -> IncomingAudioProcessResult {
+    let retrying_deferred = deferred_enqueued_unix_ms.is_some();
     if !incoming_session_is_eligible(session_id) {
         return IncomingAudioProcessResult::Complete;
     }
@@ -1629,6 +1630,10 @@ fn process_authoritative_finalized_incoming_wav(
 
     let transcript = match classify_incoming_asr_response(&asr) {
         IncomingAsrDisposition::Deferred => {
+            let enqueued_unix_ms = deferred_enqueue_unix_ms(
+                deferred_enqueued_unix_ms,
+                unix_ms() as u64,
+            );
             let held = if retrying_deferred {
                 requeue_deferred_incoming_front(DeferredIncomingJob {
                     session_id: session_id.to_string(),
@@ -1637,7 +1642,7 @@ fn process_authoritative_finalized_incoming_wav(
                     stage: DeferredIncomingStage::NeedsAsr {
                         audio_path: audio_path.to_string(),
                     },
-                    enqueued_unix_ms: unix_ms() as u64,
+                    enqueued_unix_ms,
                 })
             } else {
                 enqueue_deferred_incoming(DeferredIncomingJob {
@@ -1647,7 +1652,7 @@ fn process_authoritative_finalized_incoming_wav(
                     stage: DeferredIncomingStage::NeedsAsr {
                         audio_path: audio_path.to_string(),
                     },
-                    enqueued_unix_ms: unix_ms() as u64,
+                    enqueued_unix_ms,
                 })
             };
             if held == 0 {
@@ -1709,7 +1714,10 @@ fn process_authoritative_finalized_incoming_wav(
             stage: DeferredIncomingStage::NeedsTranslation {
                 transcript: transcript.clone(),
             },
-            enqueued_unix_ms: unix_ms() as u64,
+            enqueued_unix_ms: deferred_enqueue_unix_ms(
+                deferred_enqueued_unix_ms,
+                unix_ms() as u64,
+            ),
         });
         if held_count == 0 {
             update_incoming_status(
@@ -1848,7 +1856,13 @@ fn drain_due_deferred_incoming(session_id: &str) {
         let Some(job) = take_due_deferred_incoming(session_id, unix_ms() as u64) else {
             break;
         };
-        let DeferredIncomingJob { event_sequence, utterance_id, stage, .. } = job;
+        let DeferredIncomingJob {
+            event_sequence,
+            utterance_id,
+            stage,
+            enqueued_unix_ms,
+            ..
+        } = job;
         match stage {
             DeferredIncomingStage::NeedsAsr { audio_path } => {
                 let result = process_authoritative_finalized_incoming_wav(
@@ -1856,7 +1870,7 @@ fn drain_due_deferred_incoming(session_id: &str) {
                     event_sequence,
                     utterance_id,
                     &audio_path,
-                    true,
+                    Some(enqueued_unix_ms),
                 );
                 match result {
                     IncomingAudioProcessResult::DeferredAsr => break,
@@ -1879,13 +1893,13 @@ fn drain_due_deferred_incoming(session_id: &str) {
                 );
                 if held {
                     // Outbound still has priority; keep the original job at the
-                    // front so ordering is preserved and retry on a later tick.
+                    // front so ordering and the original age budget are preserved.
                     let held_count = requeue_deferred_incoming_front(DeferredIncomingJob {
                         session_id: session_id.to_string(),
                         event_sequence,
                         utterance_id,
                         stage: DeferredIncomingStage::NeedsTranslation { transcript },
-                        enqueued_unix_ms: unix_ms() as u64,
+                        enqueued_unix_ms,
                     });
                     if held_count == 0 {
                         update_incoming_status(
@@ -2065,6 +2079,8 @@ struct DeferredIncomingJob {
     event_sequence: u64,
     utterance_id: u64,
     stage: DeferredIncomingStage,
+    // First deferral time. Requeues must retain this value so the 20-second
+    // bounded age budget cannot be refreshed by repeated outbound preemption.
     enqueued_unix_ms: u64,
 }
 
@@ -2074,6 +2090,10 @@ static DEFERRED_DROPPED_STALE: AtomicU64 = AtomicU64::new(0);
 
 fn deferred_incoming_queue() -> &'static Mutex<VecDeque<DeferredIncomingJob>> {
     DEFERRED_INCOMING_QUEUE.get_or_init(|| Mutex::new(VecDeque::new()))
+}
+
+fn deferred_enqueue_unix_ms(first_deferred_unix_ms: Option<u64>, now_unix_ms: u64) -> u64 {
+    first_deferred_unix_ms.unwrap_or(now_unix_ms)
 }
 
 fn cleanup_deferred_incoming_job(job: DeferredIncomingJob) {
@@ -2208,7 +2228,7 @@ fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
                     utterance.sequence,
                     utterance.utterance_id,
                     &audio_path,
-                    false,
+                    None,
                 );
                 if result != IncomingAudioProcessResult::DeferredAsr {
                     remove_finalized_meeting_utterance_wav(&audio_path);
@@ -3053,6 +3073,32 @@ mod deferred_incoming_tests {
             classify_incoming_asr_response(&response),
             IncomingAsrDisposition::Deferred
         );
+    }
+
+    #[test]
+    fn deferred_retry_preserves_first_deferral_age_budget() {
+        clear_deferred_incoming_queue();
+        let first_deferred_unix_ms = 10_000;
+        let retry_unix_ms = 29_000;
+        let preserved = deferred_enqueue_unix_ms(Some(first_deferred_unix_ms), retry_unix_ms);
+        assert_eq!(preserved, first_deferred_unix_ms);
+        assert_eq!(deferred_enqueue_unix_ms(None, retry_unix_ms), retry_unix_ms);
+
+        requeue_deferred_incoming_front(job("sess", 1, "t", preserved));
+        let stale_before = DEFERRED_DROPPED_STALE.load(Ordering::Relaxed);
+        assert!(
+            take_due_deferred_incoming(
+                "sess",
+                first_deferred_unix_ms + MAX_DEFERRED_INCOMING_AGE_MS + 1,
+            )
+            .is_none(),
+            "requeued work must expire from its first deferral time"
+        );
+        assert_eq!(
+            DEFERRED_DROPPED_STALE.load(Ordering::Relaxed) - stale_before,
+            1
+        );
+        clear_deferred_incoming_queue();
     }
 
     #[test]

@@ -10,16 +10,17 @@
 - Built-in Male/Female are presented as the day-one Meeting voice path in current Setup and Meeting UI; My Voice remains an optional personalized replacement.
 - Legacy Dev-Rust/DevelopingData issues were closed as obsolete and are not continuation authority.
 - Optional incoming Meeting work distinguishes ASR-stage deferral from ASR failure before transcript validation. A deferred finalized WAV is retained as `NeedsAsr`, retried FIFO after required outbound yields the helper pipeline, and released on completion, stale/overflow eviction, disable, or session cleanup.
+- Deferred incoming work now retains its original first-deferral timestamp across ASR and translation requeues, so `MAX_DEFERRED_INCOMING_AGE_MS = 20_000` remains a hard age ceiling even under repeated outbound preemption. Regression coverage protects the preserved age budget.
 - Finalized Meeting WAV promotion is fail-closed: a failed write no longer reports a promoted audio path, and failed write/flush/promotion paths remove the partial `.wav.tmp` artifact. Regression coverage exercises cleanup after a forced promotion failure.
 
 ## Active Boundary
 
 Required outbound remains fail-closed and prioritized; optional incoming remains degradable. The user has explicitly deferred `LOCAL_CODE` / `TARGET_WINDOWS` execution for now, so continuation remains inside `REMOTE_GITHUB` source and CI hardening without upgrading target-device claims.
 
-One bounded incoming-queue residue remains worth resolving remotely: repeated outbound preemption currently reconstructs deferred ASR/translation jobs with a fresh `enqueued_unix_ms`, so `MAX_DEFERRED_INCOMING_AGE_MS` is not yet a hard age ceiling from the first deferral. The original deferral timestamp should survive every requeue while FIFO ordering and outbound priority remain unchanged.
+The known incoming deferral ordering, retained-WAV lifecycle, and deferred-age-budget residues are now closed in current source without redesigning the required outbound scheduler or weakening outbound priority. The next high-value remote step is maintainability: reduce the size and coupling of `meeting_session.rs` without changing behavior.
 
 Target-Windows microphone, GPU, VB-CABLE, meeting-app reception, real latency, installed-runtime and clean-machine claims still require `TARGET_WINDOWS` evidence under `docs/foundation/03-acceptance-scenarios.md` when the user later resumes that proof context.
 
 ## Next Step
 
-Preserve the original deferred-incoming enqueue timestamp across ASR and translation requeues, with regression coverage proving repeated outbound preemption cannot reset the 20-second age budget; do not redesign the scheduler or weaken outbound priority.
+Extract the optional-incoming deferred queue/classification/cleanup ownership from `meeting_session.rs` into a focused Rust module with behavior-preserving interfaces and existing regression coverage; keep scheduler priority, command surfaces, status semantics, and outbound behavior unchanged.

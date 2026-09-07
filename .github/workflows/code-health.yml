@@ -183,7 +183,7 @@ jobs:
       - name: Rust Clippy correctness gate
         run: cargo clippy --locked --all-targets -- -D clippy::correctness
       - name: Run Rust unit tests
-        run: cargo test --locked
+        run: cargo test --locked -- --test-threads=1
 
   rust-windows:
     name: Windows Rust source and unit health
@@ -218,4 +218,4 @@ jobs:
       - name: Windows Rust Clippy correctness gate
         run: cargo clippy --locked --all-targets -- -D clippy::correctness
       - name: Run Windows Rust unit tests
-        run: cargo test --locked
+        run: cargo test --locked -- --test-threads=1
