@@ -1,6 +1,5 @@
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::VecDeque;
 use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
@@ -48,9 +47,16 @@ use super::virtual_mic_route::{
     get_bound_virtual_mic_output_device, get_virtual_mic_route_selection,
 };
 
+mod committed_turns;
 mod incoming_deferred;
 mod incoming_pipeline;
 
+use committed_turns::{
+    clear_all_committed_turns, clear_committed_turns_for_session, commit_meeting_turn,
+    current_committed_turn_snapshot, interrupt_committed_turns_for_generation,
+    recent_outbound_context_pairs, reset_committed_turns, update_committed_turn_delivery_state,
+    update_committed_turn_outbound_timing,
+};
 use incoming_deferred::clear_deferred_incoming_queue;
 use incoming_pipeline::{
     drain_due_deferred_incoming, process_authoritative_finalized_incoming_wav,
@@ -58,7 +64,6 @@ use incoming_pipeline::{
 };
 
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
-const MAX_LIVE_COMMITTED_TURNS: usize = 240;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MeetingSessionPreflightStatus {
@@ -207,12 +212,6 @@ struct MeetingConsumerCleanupResult {
     message: String,
 }
 
-struct MeetingCommittedTurnStore {
-    session_id: String,
-    dropped_turn_count: u64,
-    turns: VecDeque<MeetingCommittedTurn>,
-}
-
 struct MeetingSelfOutputSuppression {
     session_id: String,
     active: Arc<AtomicBool>,
@@ -244,8 +243,6 @@ static MEETING_INCOMING_STATUS: OnceLock<Mutex<MeetingIncomingRuntimeStatus>> = 
 static MEETING_OUTBOUND_CONSUMER: OnceLock<Mutex<Option<MeetingOutboundConsumerRuntime>>> =
     OnceLock::new();
 static MEETING_INCOMING_CONSUMER: OnceLock<Mutex<Option<MeetingIncomingConsumerRuntime>>> =
-    OnceLock::new();
-static MEETING_COMMITTED_TURNS: OnceLock<Mutex<Option<MeetingCommittedTurnStore>>> =
     OnceLock::new();
 static MEETING_SELF_OUTPUT_SUPPRESSION: OnceLock<Mutex<Option<MeetingSelfOutputSuppression>>> =
     OnceLock::new();
@@ -302,10 +299,6 @@ fn outbound_consumer_store() -> &'static Mutex<Option<MeetingOutboundConsumerRun
 
 fn incoming_consumer_store() -> &'static Mutex<Option<MeetingIncomingConsumerRuntime>> {
     MEETING_INCOMING_CONSUMER.get_or_init(|| Mutex::new(None))
-}
-
-fn committed_turn_store() -> &'static Mutex<Option<MeetingCommittedTurnStore>> {
-    MEETING_COMMITTED_TURNS.get_or_init(|| Mutex::new(None))
 }
 
 fn suppression_store() -> &'static Mutex<Option<MeetingSelfOutputSuppression>> {
@@ -537,313 +530,6 @@ fn mark_incoming_cleanup_incomplete_status(
             runtime_claim: "meeting_incoming_cleanup_incomplete_resource_release_not_confirmed"
                 .to_string(),
         };
-    }
-}
-
-fn reset_committed_turns(session_id: &str) {
-    if let Ok(mut guard) = committed_turn_store().lock() {
-        *guard = Some(MeetingCommittedTurnStore {
-            session_id: session_id.to_string(),
-            dropped_turn_count: 0,
-            turns: VecDeque::new(),
-        });
-    }
-}
-
-fn clear_committed_turns_for_session(session_id: &str) {
-    if let Ok(mut guard) = committed_turn_store().lock() {
-        if guard
-            .as_ref()
-            .map(|store| store.session_id == session_id)
-            .unwrap_or(false)
-        {
-            *guard = None;
-        }
-    }
-}
-
-fn clear_all_committed_turns() {
-    if let Ok(mut guard) = committed_turn_store().lock() {
-        *guard = None;
-    }
-}
-
-fn terminal_delivery_state(state: Option<&str>) -> bool {
-    matches!(
-        state,
-        Some("output_complete" | "output_failed" | "interrupted")
-    )
-}
-
-fn recent_outbound_context_pairs(
-    session_id: &str,
-    max_pairs: usize,
-) -> Vec<[String; 2]> {
-    let Ok(guard) = committed_turn_store().lock() else {
-        return Vec::new();
-    };
-    let Some(store) = guard.as_ref() else {
-        return Vec::new();
-    };
-    if store.session_id != session_id {
-        return Vec::new();
-    }
-    let mut newest_first: Vec<[String; 2]> = store
-        .turns
-        .iter()
-        .rev()
-        .filter(|turn| turn.lane == "you")
-        .take(max_pairs)
-        .map(|turn| [turn.source_text.clone(), turn.translated_text.clone()])
-        .collect();
-    newest_first.reverse();
-    newest_first
-}
-
-fn commit_meeting_turn(
-    session_id: &str,
-    sequence: u64,
-    generation: Option<u64>,
-    utterance_id: u64,
-    lane: &str,
-    source_text: &str,
-    translated_text: &str,
-    delivery_state: Option<&str>,
-    outbound_timing: Option<MeetingOutboundTiming>,
-) -> bool {
-    if sequence == 0 || !matches!(lane, "you" | "incoming") {
-        return false;
-    }
-    if lane == "you"
-        && (generation.is_none() || delivery_state.is_none() || outbound_timing.is_none())
-    {
-        return false;
-    }
-    if lane == "incoming"
-        && (generation.is_some() || delivery_state.is_some() || outbound_timing.is_some())
-    {
-        return false;
-    }
-
-    let Ok(mut guard) = committed_turn_store().lock() else {
-        return false;
-    };
-    let Some(store) = guard.as_mut() else {
-        return false;
-    };
-    if store.session_id != session_id {
-        return false;
-    }
-    if store
-        .turns
-        .iter()
-        .any(|turn| turn.session_id == session_id && turn.sequence == sequence)
-    {
-        return true;
-    }
-
-    let now = unix_ms();
-    let turn = MeetingCommittedTurn {
-        session_id: session_id.to_string(),
-        sequence,
-        generation,
-        utterance_id,
-        lane: lane.to_string(),
-        source_text: source_text.to_string(),
-        translated_text: translated_text.to_string(),
-        delivery_state: delivery_state.map(str::to_string),
-        outbound_timing,
-        created_unix_ms: now,
-        updated_unix_ms: now,
-    };
-    let insert_at = store
-        .turns
-        .iter()
-        .position(|existing| existing.sequence > sequence)
-        .unwrap_or(store.turns.len());
-    store.turns.insert(insert_at, turn);
-
-    while store.turns.len() > MAX_LIVE_COMMITTED_TURNS {
-        let _ = store.turns.pop_front();
-        store.dropped_turn_count = store.dropped_turn_count.saturating_add(1);
-    }
-    true
-}
-
-fn update_committed_turn_delivery_state(
-    session_id: &str,
-    generation: u64,
-    utterance_id: u64,
-    delivery_state: &str,
-) -> bool {
-    if !matches!(
-        delivery_state,
-        "preparing_voice" | "speaking" | "output_complete" | "output_failed" | "interrupted"
-    ) {
-        return false;
-    }
-
-    let Ok(mut guard) = committed_turn_store().lock() else {
-        return false;
-    };
-    let Some(store) = guard.as_mut() else {
-        return false;
-    };
-    if store.session_id != session_id {
-        return false;
-    }
-    let Some(turn) = store.turns.iter_mut().find(|turn| {
-        turn.session_id == session_id
-            && turn.generation == Some(generation)
-            && turn.utterance_id == utterance_id
-            && turn.lane == "you"
-    }) else {
-        return false;
-    };
-
-    if terminal_delivery_state(turn.delivery_state.as_deref()) {
-        return turn.delivery_state.as_deref() == Some(delivery_state);
-    }
-    turn.delivery_state = Some(delivery_state.to_string());
-    turn.updated_unix_ms = unix_ms();
-    true
-}
-
-fn update_committed_turn_outbound_timing(
-    session_id: &str,
-    generation: u64,
-    utterance_id: u64,
-    timing: &MeetingOutboundTiming,
-) -> bool {
-    let Ok(mut guard) = committed_turn_store().lock() else {
-        return false;
-    };
-    let Some(store) = guard.as_mut() else {
-        return false;
-    };
-    if store.session_id != session_id {
-        return false;
-    }
-    let Some(turn) = store.turns.iter_mut().find(|turn| {
-        turn.session_id == session_id
-            && turn.generation == Some(generation)
-            && turn.utterance_id == utterance_id
-            && turn.lane == "you"
-    }) else {
-        return false;
-    };
-    turn.outbound_timing = Some(timing.clone());
-    turn.updated_unix_ms = unix_ms();
-    true
-}
-
-fn interrupt_committed_turns_for_generation(session_id: &str, generation: u64) {
-    let Ok(mut guard) = committed_turn_store().lock() else {
-        return;
-    };
-    let Some(store) = guard.as_mut() else {
-        return;
-    };
-    if store.session_id != session_id {
-        return;
-    }
-    let now = unix_ms();
-    for turn in &mut store.turns {
-        if turn.generation == Some(generation)
-            && !terminal_delivery_state(turn.delivery_state.as_deref())
-        {
-            turn.delivery_state = Some("interrupted".to_string());
-            turn.updated_unix_ms = now;
-        }
-    }
-}
-
-fn empty_committed_turn_snapshot(
-    has_session: bool,
-    session_id: Option<String>,
-    blocker: &str,
-    note: &str,
-) -> MeetingCommittedTurnsSnapshot {
-    MeetingCommittedTurnsSnapshot {
-        ok: blocker.is_empty(),
-        has_session,
-        session_id,
-        turns: Vec::new(),
-        dropped_turn_count: 0,
-        truncated: false,
-        blocker: blocker.to_string(),
-        note: note.to_string(),
-        runtime_claim: "meeting_committed_turn_snapshot_source_contract_not_rendered_runtime_proof"
-            .to_string(),
-    }
-}
-
-fn current_committed_turn_snapshot() -> MeetingCommittedTurnsSnapshot {
-    let session = latest_runtime_session_state().snapshot;
-    let Some(session) = session else {
-        return empty_committed_turn_snapshot(
-            false,
-            None,
-            "",
-            "No application Meeting session currently owns committed transcript turns.",
-        );
-    };
-    if session.owner_id != APPLICATION_MEETING_OWNER_ID {
-        return empty_committed_turn_snapshot(
-            true,
-            Some(session.session_id),
-            "meeting_committed_turns:owner_conflict",
-            "Committed Meeting turns are unavailable because another runtime owner holds the active session.",
-        );
-    }
-
-    let session_id = session.session_id;
-    let Ok(guard) = committed_turn_store().lock() else {
-        return empty_committed_turn_snapshot(
-            true,
-            Some(session_id),
-            "meeting_committed_turns:state_lock_failed",
-            "Committed Meeting turn state is temporarily unavailable.",
-        );
-    };
-    let Some(store) = guard.as_ref() else {
-        return empty_committed_turn_snapshot(
-            true,
-            Some(session_id),
-            "",
-            "The active Meeting session has not committed any translated turns yet.",
-        );
-    };
-    if store.session_id != session_id {
-        return empty_committed_turn_snapshot(
-            true,
-            Some(session_id),
-            "meeting_committed_turns:session_mismatch",
-            "Committed Meeting turn state does not belong to the current application Meeting session.",
-        );
-    }
-
-    let mut turns = store.turns.iter().cloned().collect::<Vec<_>>();
-    turns.sort_by_key(|turn| turn.sequence);
-    MeetingCommittedTurnsSnapshot {
-        ok: true,
-        has_session: true,
-        session_id: Some(store.session_id.clone()),
-        turns,
-        dropped_turn_count: store.dropped_turn_count,
-        truncated: store.dropped_turn_count > 0,
-        blocker: String::new(),
-        note: if store.dropped_turn_count > 0 {
-            format!(
-                "Live transcript snapshot is bounded; {} earlier committed turns are no longer retained in the transient view.",
-                store.dropped_turn_count
-            )
-        } else {
-            "Live transcript snapshot contains the currently retained committed turns for this Meeting session in finalized speech/event order."
-                .to_string()
-        },
-        runtime_claim: "meeting_committed_turn_snapshot_source_contract_not_rendered_runtime_proof"
-            .to_string(),
     }
 }
 
