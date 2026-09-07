@@ -60,6 +60,7 @@ jobs:
           cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
       - run: npm ci
       - run: npm run typecheck
+      - run: npm run validate:bridge-types
       - run: npm run validate:command-parity
       - run: npm run validate:virtual-route
       - name: Audit production npm dependencies
