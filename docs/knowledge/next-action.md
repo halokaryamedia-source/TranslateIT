@@ -7,7 +7,7 @@
 - Code Health covers frontend/bridge checks, Linux + hosted-Windows Python and Rust compiler/static/Clippy/unit gates, plus production npm audit.
 - Meeting incoming deferral, incoming processing, committed-turn ownership, and required outbound finalized-WAV ASR -> ID->EN translation -> TTS -> Meeting delivery have focused private ownership modules.
 - Runtime-session tests prove duplicate/stale/revoke/cleanup-incomplete authority semantics; helper scheduler/bridge tests prove lane priority, admission/timeouts, stale rejection, readiness isolation, bounded retry policy, and request/session cleanup ownership.
-- Audio pure-contract coverage now proves the 2-second rolling mono buffer bound, newest-sample retention, source-format reset, max-two finalized incoming backlog with oldest eviction/FIFO retained order, shared Meeting sequence identity, and fail-closed finalized WAV lane/target-format validation. Transactional failed-WAV staging cleanup is also covered.
+- Audio pure-contract coverage proves the 2-second rolling mono buffer bound, source-format reset, max-two finalized incoming backlog with oldest eviction/FIFO retained order, shared Meeting sequence identity, and fail-closed finalized WAV staging validation. Meeting output now has a guarded public facade that rejects impossible, truncated, or undersized RIFF declared boundaries before native CPAL delivery; the native runtime retains its existing PCM16 decode/resample, bounded-deadline, and monotonic playback-time tests.
 - Required outbound remains fail-closed and higher priority; optional incoming remains degradable.
 
 ## Active Boundary
@@ -18,4 +18,4 @@ Remote work should continue until pure runtime contracts, Python/frontend tests,
 
 ## Next Step
 
-Harden pure Meeting output contracts in `engine/audio/meeting_output.rs`: WAV parser truncation/layout/encoding boundaries, downmix/resample frame-count and channel-replication invariants, non-finite/clamping behavior, bounded delivery deadlines, and generation-scoped cancellation state where it can be tested without CPAL devices. Then revisit finalized-producer generation cancellation/overflow coverage if gaps remain. Do not alter device enumeration/routing or claim physical output behavior from hosted CI.
+Revisit finalized-utterance producer pure contracts through its public producer API: outbound generation revocation/cancellation, pending-queue cleanup after authority loss, source-rate transition reset, pre-roll bounds, overflow fail-closed behavior where a deterministic fixture is practical, and target-format/resample invariants. Prefer extending the existing serialized audio contract test module without changing CPAL device behavior. Keep actual microphone/output/VB-CABLE/meeting-app behavior for `TARGET_WINDOWS`.

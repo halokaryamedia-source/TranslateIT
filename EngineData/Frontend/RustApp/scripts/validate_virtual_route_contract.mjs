@@ -8,6 +8,7 @@ const files = {
   outboundPipeline: resolve(root, "src-tauri/src/commands/meeting_session/outbound_pipeline.rs"),
   route: resolve(root, "src-tauri/src/commands/virtual_mic_route.rs"),
   meetingOutput: resolve(root, "src-tauri/src/engine/audio/meeting_output.rs"),
+  meetingOutputRuntime: resolve(root, "src-tauri/src/engine/audio/meeting_output_runtime.rs"),
   audioMod: resolve(root, "src-tauri/src/engine/audio/mod.rs"),
   commandsMod: resolve(root, "src-tauri/src/commands/mod.rs"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
@@ -51,7 +52,14 @@ forbidMarkers(`${source.meeting}\n${source.outboundPipeline}`, "retired Python r
   "prepare_meeting_virtual_audio_route_provider",
   "route_execution_guard_ready",
 ]);
-requireMarkers(source.meetingOutput, "native Meeting output runtime", [
+requireMarkers(source.meetingOutput, "guarded Meeting output facade", [
+  "mod runtime;",
+  "pub fn deliver_meeting_output_wav(",
+  "validate_source_riff_boundary",
+  "meeting_output:wav_riff_size_mismatch",
+  "runtime::deliver_meeting_output_wav",
+]);
+requireMarkers(source.meetingOutputRuntime, "native Meeting output runtime", [
   "pub fn prepare_meeting_output_device(",
   "pub fn deliver_meeting_output_wav(",
   "pub fn cancel_meeting_output_for_generation(",
@@ -84,4 +92,4 @@ forbidMarkers(source.registry, "mutating/manual route surface", [
   "dispatch_guarded_virtual_audio_route_provider",
 ]);
 
-console.log("[virtual-route] Meeting session orchestration and outbound delivery ownership are split explicitly; Rust/CPAL owns one matched generation-bound virtual pair, and retired Python/manual route owners are absent.");
+console.log("[virtual-route] Meeting session orchestration, guarded output facade, and native CPAL delivery ownership are explicit; Rust owns one matched generation-bound virtual pair, and retired Python/manual route owners are absent.");
