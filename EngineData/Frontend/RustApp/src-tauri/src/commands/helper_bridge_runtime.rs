@@ -42,11 +42,12 @@ pub fn worker_response_deadline_ms(task: &str) -> u128 {
     }
 }
 
-// Deadline selection that distinguishes standalone translate work from MeetingOutbound
-// lanes using the scheduler priority already resolved for the request. Unknown/default
-// tasks keep the existing per-task class.
+// Only standalone Text translation receives the extended multi-chunk budget. Meeting
+// lanes remain on the bounded inference deadline so optional incoming work cannot hold
+// the single shared helper pipeline for the standalone Text budget while required
+// outbound work is waiting.
 pub fn worker_response_deadline_for_priority(task: &str, priority: HelperTaskPriority) -> u128 {
-    if task == "translate" && priority != HelperTaskPriority::MeetingOutbound {
+    if task == "translate" && priority == HelperTaskPriority::Text {
         return STANDALONE_TRANSLATION_DEADLINE_MS;
     }
     worker_response_deadline_ms(task)
@@ -929,6 +930,81 @@ mod scheduler_policy_tests {
         }
         reset_scheduler();
     }
+
+    #[test]
+    fn scheduler_waiters_enter_in_priority_order_after_active_permit_releases() {
+        let _serial = scheduler_test_guard();
+        reset_scheduler();
+        let active = acquire_helper_task_permit_with_wait_deadline(
+            HelperTaskPriority::Diagnostic,
+            Duration::from_millis(100),
+        )
+        .expect("seed active scheduler permit");
+
+        let (entered_tx, entered_rx) = mpsc::channel::<&'static str>();
+        let mut handles = Vec::new();
+        for (priority, label) in [
+            (HelperTaskPriority::Diagnostic, "diagnostic"),
+            (HelperTaskPriority::Text, "text"),
+            (HelperTaskPriority::MeetingIncoming, "meeting_incoming"),
+            (HelperTaskPriority::MeetingOutbound, "meeting_outbound"),
+        ] {
+            let tx = entered_tx.clone();
+            handles.push(thread::spawn(move || {
+                let permit = acquire_helper_task_permit_with_wait_deadline(
+                    priority,
+                    Duration::from_secs(2),
+                )
+                .expect("queued scheduler permit");
+                tx.send(label).expect("record scheduler entry");
+                drop(permit);
+            }));
+        }
+        drop(entered_tx);
+
+        let registration_deadline = Instant::now() + Duration::from_secs(1);
+        loop {
+            let all_registered = {
+                let (lock, _) = scheduler();
+                let state = lock.lock().expect("scheduler test lock");
+                state.waiting_meeting_outbound == 1
+                    && state.waiting_meeting_incoming == 1
+                    && state.waiting_text == 1
+                    && state.waiting_diagnostic == 1
+            };
+            if all_registered {
+                break;
+            }
+            assert!(
+                Instant::now() < registration_deadline,
+                "all scheduler waiters must register before releasing the active permit"
+            );
+            thread::sleep(Duration::from_millis(2));
+        }
+
+        drop(active);
+        let entered: Vec<&'static str> = (0..4)
+            .map(|_| {
+                entered_rx
+                    .recv_timeout(Duration::from_secs(2))
+                    .expect("scheduler entry order")
+            })
+            .collect();
+        assert_eq!(
+            entered,
+            vec![
+                "meeting_outbound",
+                "meeting_incoming",
+                "text",
+                "diagnostic"
+            ]
+        );
+
+        for handle in handles {
+            handle.join().expect("scheduler waiter thread");
+        }
+        reset_scheduler();
+    }
 }
 
 #[cfg(test)]
@@ -949,7 +1025,7 @@ mod deadline_policy_tests {
     }
 
     #[test]
-    fn standalone_translation_deadline_applies_only_outside_meeting_outbound_priority() {
+    fn standalone_translation_deadline_applies_only_to_text_priority() {
         assert_eq!(STANDALONE_TRANSLATION_DEADLINE_MS, 180_000);
         assert!(
             STANDALONE_TRANSLATION_DEADLINE_MS > WORKER_INFERENCE_RESPONSE_DEADLINE_MS,
@@ -967,11 +1043,15 @@ mod deadline_policy_tests {
                 "translate",
                 HelperTaskPriority::MeetingIncoming
             ),
-            STANDALONE_TRANSLATION_DEADLINE_MS
+            WORKER_INFERENCE_RESPONSE_DEADLINE_MS
         );
         assert_eq!(
             worker_response_deadline_for_priority("translate", HelperTaskPriority::Text),
             STANDALONE_TRANSLATION_DEADLINE_MS
+        );
+        assert_eq!(
+            worker_response_deadline_for_priority("translate", HelperTaskPriority::Diagnostic),
+            WORKER_INFERENCE_RESPONSE_DEADLINE_MS
         );
         assert_eq!(
             worker_response_deadline_for_priority("transcribe", HelperTaskPriority::Text),
