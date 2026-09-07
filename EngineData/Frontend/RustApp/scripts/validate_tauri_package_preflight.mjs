@@ -32,6 +32,7 @@ const pathsOwnerPath = join(tauriRoot, "src", "engine", "paths.rs");
 const bridgePathsPath = join(tauriRoot, "src", "commands", "bridge_paths.rs");
 const helperBridgePath = join(tauriRoot, "src", "commands", "helper_bridge.rs");
 const meetingOutputPath = join(tauriRoot, "src", "engine", "audio", "meeting_output.rs");
+const meetingOutputRuntimePath = join(tauriRoot, "src", "engine", "audio", "meeting_output_runtime.rs");
 const runtimeInventoryPath = join(tauriRoot, "src", "commands", "runtime_inventory.rs");
 const workerEntrypointPath = join(workerRoot, "realtime_local_worker.py");
 const workerCommonPath = join(workerRoot, "worker_runtime_common.py");
@@ -49,6 +50,7 @@ for (const path of [
   bridgePathsPath,
   helperBridgePath,
   meetingOutputPath,
+  meetingOutputRuntimePath,
   runtimeInventoryPath,
   workerEntrypointPath,
   workerCommonPath,
@@ -152,10 +154,20 @@ forbidMarkers(helperBridgeRs, "legacy helper Python selection", [
 ]);
 
 const meetingOutputRs = readText(meetingOutputPath);
-requireMarkers(meetingOutputRs, "Rust Meeting audio delivery", [
+const meetingOutputRuntimeRs = readText(meetingOutputRuntimePath);
+requireMarkers(meetingOutputRs, "guarded Rust Meeting audio delivery facade", [
+  '#[path = "meeting_output_runtime.rs"]',
+  "pub fn deliver_meeting_output_wav(",
+  "validate_source_riff_boundary",
+  "meeting_output:wav_riff_size_mismatch",
+  "runtime::deliver_meeting_output_wav",
+]);
+requireMarkers(meetingOutputRuntimeRs, "native Rust Meeting audio delivery runtime", [
   "pub fn prepare_meeting_output_device(",
   "pub fn deliver_meeting_output_wav(",
+  "pub fn cancel_meeting_output_for_generation(",
   ".build_output_stream(",
+  "runtime_generation_is_authoritative",
 ]);
 
 const workerPyproject = readText(workerPyprojectPath);
@@ -206,4 +218,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[tauri-package-preflight] ${error}`);
   process.exit(1);
 }
-console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths resolve through the Tauri resource root, the private Python runtime stays production-only, WorkerRuntime uses an explicit non-exec composition entrypoint pinned to Transformers 4.57.6, and R3 uses one per-machine Setup with a generated external-payload lifecycle hook. Artifact/install/clean-machine proof remains separate.");
+console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths resolve through the Tauri resource root, Meeting output uses an explicit guarded facade over the native CPAL runtime, the private Python runtime stays production-only, WorkerRuntime uses an explicit non-exec composition entrypoint pinned to Transformers 4.57.6, and R3 uses one per-machine Setup with a generated external-payload lifecycle hook. Artifact/install/clean-machine proof remains separate.");
