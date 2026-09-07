@@ -5,8 +5,12 @@ use crate::engine::runtime_state::{
     clear_runtime_session_state, commit_application_meeting_session_live,
 };
 
-use super::helper_bridge::{send_helper_worker_task, HelperBridgeWorkerResponse};
-use super::helper_bridge_runtime::{runtime, stop_child, HelperBridgeRuntime};
+use super::helper_bridge::{
+    cancel_helper_bridge_meeting_session, send_helper_worker_task, HelperBridgeWorkerResponse,
+};
+use super::helper_bridge_runtime::{
+    clear_active_request, runtime, set_blocked, stop_child, HelperBridgeRuntime,
+};
 
 fn reset_bridge_runtime() {
     if let Ok(mut bridge) = runtime().lock() {
@@ -155,4 +159,103 @@ fn bridge_priority_and_stale_guards_follow_production_payload_contract() {
 
     reset_bridge_runtime();
     let _ = clear_runtime_session_state();
+}
+
+#[test]
+fn request_cleanup_preserves_replacement_and_clears_exact_identity() {
+    let mut bridge = HelperBridgeRuntime::default();
+    bridge.active_task = Some("translate".to_string());
+    bridge.active_request_id = Some("request-new".to_string());
+    bridge.active_meeting_generation = Some(44);
+    bridge.active_meeting_session_id = Some("session-new".to_string());
+    bridge.active_meeting_lane = Some("you".to_string());
+
+    clear_active_request(&mut bridge, "request-old");
+    assert_eq!(bridge.active_task.as_deref(), Some("translate"));
+    assert_eq!(bridge.active_request_id.as_deref(), Some("request-new"));
+    assert_eq!(bridge.active_meeting_generation, Some(44));
+    assert_eq!(
+        bridge.active_meeting_session_id.as_deref(),
+        Some("session-new")
+    );
+    assert_eq!(bridge.active_meeting_lane.as_deref(), Some("you"));
+
+    clear_active_request(&mut bridge, "request-new");
+    assert!(bridge.active_task.is_none());
+    assert!(bridge.active_request_id.is_none());
+    assert!(bridge.active_meeting_generation.is_none());
+    assert!(bridge.active_meeting_session_id.is_none());
+    assert!(bridge.active_meeting_lane.is_none());
+}
+
+#[test]
+fn helper_hard_cancel_is_session_scoped_and_cleans_matching_metadata() {
+    reset_bridge_runtime();
+    {
+        let mut bridge = runtime().lock().expect("helper bridge test lock");
+        bridge.state = "ready".to_string();
+        bridge.generation_token = 41;
+        bridge.active_task = Some("translate".to_string());
+        bridge.active_request_id = Some("request-live".to_string());
+        bridge.active_meeting_generation = Some(77);
+        bridge.active_meeting_session_id = Some("session-live".to_string());
+        bridge.active_meeting_lane = Some("you".to_string());
+    }
+
+    let stale_cancel = cancel_helper_bridge_meeting_session("session-stale");
+    assert!(stale_cancel.ok);
+    {
+        let bridge = runtime().lock().expect("helper bridge test lock");
+        assert_eq!(bridge.generation_token, 41);
+        assert_eq!(bridge.active_task.as_deref(), Some("translate"));
+        assert_eq!(bridge.active_request_id.as_deref(), Some("request-live"));
+        assert_eq!(bridge.active_meeting_generation, Some(77));
+        assert_eq!(
+            bridge.active_meeting_session_id.as_deref(),
+            Some("session-live")
+        );
+        assert_eq!(bridge.active_meeting_lane.as_deref(), Some("you"));
+    }
+
+    let matching_cancel = cancel_helper_bridge_meeting_session("session-live");
+    assert!(matching_cancel.ok);
+    assert_eq!(matching_cancel.state, "stopped");
+    {
+        let bridge = runtime().lock().expect("helper bridge test lock");
+        assert_eq!(bridge.generation_token, 42);
+        assert!(bridge.active_task.is_none());
+        assert!(bridge.active_request_id.is_none());
+        assert!(bridge.active_meeting_generation.is_none());
+        assert!(bridge.active_meeting_session_id.is_none());
+        assert!(bridge.active_meeting_lane.is_none());
+        assert_eq!(
+            bridge.last_error.as_deref(),
+            Some("helper_bridge:meeting_session_hard_cancelled")
+        );
+    }
+    reset_bridge_runtime();
+}
+
+#[test]
+fn blocked_bridge_state_clears_all_active_request_metadata() {
+    let mut bridge = HelperBridgeRuntime::default();
+    bridge.active_task = Some("transcribe".to_string());
+    bridge.active_request_id = Some("request-active".to_string());
+    bridge.active_meeting_generation = Some(9);
+    bridge.active_meeting_session_id = Some("session-active".to_string());
+    bridge.active_meeting_lane = Some("incoming".to_string());
+
+    let blocked = set_blocked(
+        &mut bridge,
+        "test helper bridge blocked state",
+        "helper_bridge:test_blocked",
+    );
+    assert!(!blocked.ok);
+    assert_eq!(blocked.state, "blocked");
+    assert!(bridge.active_task.is_none());
+    assert!(bridge.active_request_id.is_none());
+    assert!(bridge.active_meeting_generation.is_none());
+    assert!(bridge.active_meeting_session_id.is_none());
+    assert!(bridge.active_meeting_lane.is_none());
+    assert_eq!(bridge.last_error.as_deref(), Some("helper_bridge:test_blocked"));
 }
