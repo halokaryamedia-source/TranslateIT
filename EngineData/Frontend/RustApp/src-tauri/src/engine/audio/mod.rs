@@ -11,6 +11,8 @@ pub mod vad;
 
 #[cfg(test)]
 mod audio_contract_tests;
+#[cfg(test)]
+mod meeting_output_public_contract_tests;
 
 use serde::{Deserialize, Serialize};
 
