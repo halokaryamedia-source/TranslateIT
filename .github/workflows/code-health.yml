@@ -141,3 +141,36 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D clippy::correctness
       - name: Run Rust unit tests
         run: cargo test --locked
+
+  rust-windows:
+    name: Windows Rust source and unit health
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp/src-tauri
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Build frontend
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Show hosted Windows Rust toolchain
+        run: |
+          rustc --version
+          cargo --version
+      - name: Windows Rust compiler gate
+        env:
+          RUSTFLAGS: "-Ddead_code -Dunused_imports -Dunused_variables -Dunused_mut -Dunused_assignments"
+        run: cargo check --locked
+      - name: Run Windows Rust unit tests
+        run: cargo test --locked
