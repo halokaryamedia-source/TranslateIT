@@ -6,7 +6,7 @@ export type CommandResult = {
   ok: boolean;
   state: string;
   message: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type RuntimeCommandError = {
@@ -45,7 +45,7 @@ export type HelperBridgeStatus = {
   stderr_log_path?: string | null;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type HelperBridgeActionResult = {
@@ -54,7 +54,7 @@ export type HelperBridgeActionResult = {
   message: string;
   generation_token: number;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type HelperBridgeWorkerResponse = {
@@ -65,14 +65,14 @@ export type HelperBridgeWorkerResponse = {
   generation_token: number;
   runtime_claim: string;
   worker_response_json: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type AudioDeviceSummary = {
   id?: string;
   name: string;
   is_default?: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type AudioDeviceListReport = {
@@ -81,7 +81,7 @@ export type AudioDeviceListReport = {
   output_devices: AudioDeviceSummary[];
   blocker?: string;
   note?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type InputPreparationStatus = {
@@ -94,13 +94,13 @@ export type InputPreparationStatus = {
   device_count: number;
   blocker?: string;
   note: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type ModelInventoryItem = {
   required: boolean;
   found: boolean;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type ModelInventoryReport = {
@@ -109,5 +109,5 @@ export type ModelInventoryReport = {
   items: ModelInventoryItem[];
   blockers: string[];
   note?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
