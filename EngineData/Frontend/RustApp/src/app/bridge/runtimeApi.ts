@@ -44,7 +44,7 @@ export type VirtualMicRouteContractStatus = {
   next_action: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type TextTranslationCommandResult = {
@@ -71,7 +71,7 @@ export type MeetingSessionPreflightStatus = {
   blockers: string[];
   summary: string;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type MeetingOutboundTiming = {
@@ -100,7 +100,7 @@ export type MeetingOutboundRuntimeStatus = {
   note: string;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type MeetingIncomingRuntimeStatus = {
@@ -113,7 +113,7 @@ export type MeetingIncomingRuntimeStatus = {
   note: string;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type MeetingSessionStatus = {
@@ -132,7 +132,7 @@ export type MeetingSessionStatus = {
   outbound: MeetingOutboundRuntimeStatus;
   incoming: MeetingIncomingRuntimeStatus;
   runtime_claim: string;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type MeetingSessionActionResult = {
@@ -140,7 +140,7 @@ export type MeetingSessionActionResult = {
   state: string;
   message: string;
   status: MeetingSessionStatus;
-  [key: string]: any;
+  [key: string]: unknown;
 };
 
 export type MeetingCommittedTurn = {
