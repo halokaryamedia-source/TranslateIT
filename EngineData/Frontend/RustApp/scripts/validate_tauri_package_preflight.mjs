@@ -174,9 +174,11 @@ forbidMarkers(workerPyproject, "retired WorkerRuntime dependency boundary", [
 
 const workerEntrypoint = readText(workerEntrypointPath);
 requireMarkers(workerEntrypoint, "thin worker entrypoint", [
-  'with_name("realtime_local_worker_base.py")',
-  "milmmt_translation_provider.install(globals())",
+  "import realtime_local_worker_base as runtime",
+  "milmmt_translation_provider.install(vars(runtime))",
+  "_PROVIDER_SENTINEL",
 ]);
+forbidMarkers(workerEntrypoint, "dynamic worker bootstrap", ["exec(", "compile(", 'globals()["__name__"]']);
 
 const workerCommon = readText(workerCommonPath);
 requireMarkers(workerCommon, "worker runtime/user path owner", [
@@ -204,4 +206,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[tauri-package-preflight] ${error}`);
   process.exit(1);
 }
-console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths resolve through the Tauri resource root, the private Python runtime stays production-only, WorkerRuntime is pinned to Transformers 4.57.6, and R3 uses one per-machine Setup with a generated external-payload lifecycle hook. Artifact/install/clean-machine proof remains separate.");
+console.log("[tauri-package-preflight] Tauri/WorkerRuntime source contract PASS: packaged paths resolve through the Tauri resource root, the private Python runtime stays production-only, WorkerRuntime uses an explicit non-exec composition entrypoint pinned to Transformers 4.57.6, and R3 uses one per-machine Setup with a generated external-payload lifecycle hook. Artifact/install/clean-machine proof remains separate.");

@@ -124,7 +124,8 @@ for (const id of ["faster-whisper-large-v3-turbo", "milmmt-46-1b-v1.0", "gpt-sov
 for (const legacy of ["marianmt-id-en", "marianmt-en-id", "m2m100-418m"]) if (requiredIds.has(legacy)) fail(`Legacy translator remains required: ${legacy}`);
 const milmmt = (manifest.models ?? []).find((item) => item.model_id === "milmmt-46-1b-v1.0");
 if (milmmt?.repo_id !== "xiaomi-research/MiLMMT-46-1B-v1.0" || milmmt?.revision !== "4fc480b6c58dec29c159dcdf9fde0f6d5c354995") fail("MiLMMT release identity drifted.");
-if (!entrypoint.includes('with_name("realtime_local_worker_base.py")') || !entrypoint.includes("milmmt_translation_provider.install(globals())")) fail("Canonical worker entrypoint drifted.");
+if (!entrypoint.includes("import realtime_local_worker_base as runtime") || !entrypoint.includes("milmmt_translation_provider.install(vars(runtime))") || !entrypoint.includes("_PROVIDER_SENTINEL")) fail("Canonical worker entrypoint drifted.");
+if (entrypoint.includes("exec(") || entrypoint.includes("compile(") || entrypoint.includes('globals()["__name__"]')) fail("Canonical worker entrypoint returned to dynamic exec bootstrap.");
 if (base.includes("AutoModelForSeq2SeqLM") || base.toLowerCase().includes("m2m100")) fail("Legacy translator implementation returned to worker base.");
 for (const marker of ["AutoModelForCausalLM", "milmmt-46-1b-v1.0", "4fc480b6c58dec29c159dcdf9fde0f6d5c354995", "do_sample=False"]) if (!provider.includes(marker)) fail(`MiLMMT provider marker missing: ${marker}`);
 
@@ -136,4 +137,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, transactional runtime replacement, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, transactional runtime replacement, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
