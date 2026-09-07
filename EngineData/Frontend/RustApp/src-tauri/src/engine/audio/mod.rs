@@ -9,6 +9,9 @@ pub mod meeting_output;
 pub mod meeting_sound_capture;
 pub mod vad;
 
+#[cfg(test)]
+mod audio_contract_tests;
+
 use serde::{Deserialize, Serialize};
 
 pub const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
