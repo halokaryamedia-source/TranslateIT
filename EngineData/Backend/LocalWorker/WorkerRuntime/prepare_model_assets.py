@@ -12,7 +12,7 @@ exec(
 )
 globals()["__name__"] = _entry_name
 
-_ORIGINAL_REPLACE_TARGET_FROM_SNAPSHOT = replace_target_from_snapshot
+_ORIGINAL_REPLACE_TARGET_FROM_SNAPSHOT = globals()["replace_target_from_snapshot"]
 REVISION_MARKER = ".translateit_model_revision"
 
 
@@ -25,4 +25,4 @@ def replace_target_from_snapshot(item):
 
 
 if _entry_name == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(globals()["main"]())

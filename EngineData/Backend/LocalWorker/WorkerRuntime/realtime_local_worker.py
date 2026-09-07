@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
 
 _entry_name = __name__
@@ -12,9 +13,8 @@ exec(
 )
 globals()["__name__"] = _entry_name
 
-import milmmt_translation_provider
-
+milmmt_translation_provider = importlib.import_module("milmmt_translation_provider")
 milmmt_translation_provider.install(globals())
 
 if _entry_name == "__main__":
-    raise SystemExit(main())
+    raise SystemExit(globals()["main"]())
