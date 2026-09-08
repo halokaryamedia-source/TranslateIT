@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_ROOT = ROOT / "EngineData" / "Frontend" / "RustApp"
 TEST_ROOT = APP_ROOT / "scripts" / "tests"
 PACKAGE_PATH = APP_ROOT / "package.json"
+CANONICAL_GLOB = 'scripts/tests/*.test.ts'
 
 
 def main() -> int:
@@ -17,20 +18,24 @@ def main() -> int:
         for path in TEST_ROOT.glob("*.test.ts")
         if path.is_file()
     )
-    missing = [test for test in tests if test not in command]
 
     if not tests:
         print("FRONTEND POLICY TEST REGISTRATION FAILED")
         print("- no scripts/tests/*.test.ts files found")
         return 1
+
+    uses_canonical_glob = CANONICAL_GLOB in command
+    missing = [] if uses_canonical_glob else [test for test in tests if test not in command]
     if missing:
         print("FRONTEND POLICY TEST REGISTRATION FAILED")
         for test in missing:
             print(f"- unregistered frontend policy test: {test}")
+        print(f"- prefer canonical auto-discovery glob: {CANONICAL_GLOB}")
         return 1
 
     print("FRONTEND POLICY TEST REGISTRATION PASSED")
-    print(f"- registered tests: {len(tests)}")
+    print(f"- discovered tests: {len(tests)}")
+    print(f"- registration mode: {'canonical glob' if uses_canonical_glob else 'explicit list'}")
     return 0
 
 
