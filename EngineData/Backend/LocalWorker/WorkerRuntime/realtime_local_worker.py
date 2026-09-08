@@ -14,6 +14,7 @@ _CONTEXT_POLICY_ORIGINAL = "_translateit_translation_context_policy_original_han
 MAX_PROTOCOL_STAGE_CHARS = 96
 MAX_PROTOCOL_BLOCKER_CHARS = 512
 MAX_PROTOCOL_NOTE_CHARS = 1_000
+MAX_TRANSLATION_OUTPUT_CHARS = runtime.MAX_TRANSLATION_TEXT_CHARS * 2
 
 
 class _NonFiniteJsonNumber(ValueError):
@@ -23,6 +24,52 @@ class _NonFiniteJsonNumber(ValueError):
 if not getattr(runtime, _PROVIDER_SENTINEL, False):
     milmmt_translation_provider.install(vars(runtime))
     setattr(runtime, _PROVIDER_SENTINEL, True)
+
+
+def _translation_contract_result(result):
+    if not isinstance(result, dict) or not result.get("ok"):
+        return result
+
+    translated = str(result.get("translated_text", ""))
+    if not translated.strip():
+        failed = dict(result)
+        failed.update(
+            {
+                "ok": False,
+                "blocker": "translation:empty_output",
+                "translated_text": "",
+                "complete": False,
+            }
+        )
+        return failed
+
+    if result.get("complete") is not True or result.get("finished_with_eos") is not True:
+        failed = dict(result)
+        failed.update(
+            {
+                "ok": False,
+                "blocker": "translation:output_incomplete",
+                "translated_text": "",
+                "complete": False,
+                "finished_with_eos": bool(result.get("finished_with_eos")),
+            }
+        )
+        return failed
+
+    if len(translated) > MAX_TRANSLATION_OUTPUT_CHARS:
+        failed = dict(result)
+        failed.update(
+            {
+                "ok": False,
+                "blocker": "translation:output_too_large",
+                "translated_text": "",
+                "max_chars": MAX_TRANSLATION_OUTPUT_CHARS,
+                "complete": False,
+            }
+        )
+        return failed
+
+    return result
 
 
 def _translation_context_authorized(payload: dict) -> bool:
@@ -58,13 +105,21 @@ def _translation_payload_with_context_policy(payload):
 
 def _context_guarded_runtime_translate(payload):
     original = getattr(runtime, _CONTEXT_POLICY_ORIGINAL)
-    return original(_translation_payload_with_context_policy(payload))
+    result = original(_translation_payload_with_context_policy(payload))
+    return _translation_contract_result(result)
 
 
 if not getattr(runtime, _CONTEXT_POLICY_SENTINEL, False):
     setattr(runtime, _CONTEXT_POLICY_ORIGINAL, runtime.handle_translate)
     runtime.handle_translate = _context_guarded_runtime_translate
     setattr(runtime, _CONTEXT_POLICY_SENTINEL, True)
+
+
+def _contract_guarded_translate_request(payload):
+    return _translation_contract_result(runtime.handle_translate_request(payload))
+
+
+runtime.HANDLERS["translate"] = _contract_guarded_translate_request
 
 # The old exec-based entrypoint exposed one mutable module namespace. Preserve
 # only the bounded test/diagnostic injection surface while implementation truth
