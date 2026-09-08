@@ -19,7 +19,10 @@ on:
       - ".agents/skills/**"
       - "docs/foundation/**"
       - "docs/knowledge/**"
+      - "EngineData/Frontend/RustApp/package.json"
+      - "EngineData/Frontend/RustApp/scripts/tests/**"
       - "tools/verify_repository.py"
+      - "tools/verify_frontend_runtime_policy_tests.py"
       - ".github/workflows/**"
   pull_request:
     branches:
@@ -39,7 +42,10 @@ on:
       - ".agents/skills/**"
       - "docs/foundation/**"
       - "docs/knowledge/**"
+      - "EngineData/Frontend/RustApp/package.json"
+      - "EngineData/Frontend/RustApp/scripts/tests/**"
       - "tools/verify_repository.py"
+      - "tools/verify_frontend_runtime_policy_tests.py"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -66,3 +72,5 @@ jobs:
           python-version: "3.12.10"
       - name: Verify repository governance
         run: python tools/verify_repository.py
+      - name: Verify frontend policy test registration
+        run: python tools/verify_frontend_runtime_policy_tests.py
