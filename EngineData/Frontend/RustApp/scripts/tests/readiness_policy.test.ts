@@ -11,6 +11,7 @@ test("preflight-ready Meeting stays Setup Needed until a Meeting voice is select
   });
   assert.equal(result.meetingReady, false);
   assert.equal(result.status, "Setup Needed");
+  assert.equal(result.blocker, "meeting_voice:not_selected");
   assert.match(result.nextAction ?? "", /Choose a Meeting voice/);
   assert.doesNotMatch(result.summary ?? "", /My Voice isn't ready/);
 });
@@ -23,6 +24,7 @@ test("unknown Meeting voice readiness remains Checking instead of claiming Ready
   });
   assert.equal(result.meetingReady, false);
   assert.equal(result.status, "Checking");
+  assert.equal(result.blocker, null);
   assert.match(result.nextAction ?? "", /Checking the selected Meeting voice/);
 });
 
@@ -34,6 +36,7 @@ test("selected Meeting voice completes preflight readiness", () => {
   });
   assert.equal(result.meetingReady, true);
   assert.equal(result.status, "Ready");
+  assert.equal(result.blocker, null);
 });
 
 test("an authoritative live Meeting remains ready if a later voice probe is unavailable", () => {
@@ -43,15 +46,17 @@ test("an authoritative live Meeting remains ready if a later voice probe is unav
     selectedVoiceReady: null,
   });
   assert.equal(result.meetingReady, true);
+  assert.equal(result.blocker, null);
 });
 
-test("voice state does not hide an unmet preflight owner", () => {
+test("voice state does not hide or duplicate an unmet preflight owner", () => {
   const result = resolveMeetingVoiceGate({
     live: false,
     preflightReady: false,
-    selectedVoiceReady: true,
+    selectedVoiceReady: false,
   });
   assert.equal(result.meetingReady, false);
   assert.equal(result.status, "Setup Needed");
+  assert.equal(result.blocker, null);
   assert.equal(result.nextAction, null);
 });
