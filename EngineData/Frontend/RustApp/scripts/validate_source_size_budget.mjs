@@ -2,7 +2,7 @@ import { readdir, stat } from "node:fs/promises";
 import { extname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const appRoot = resolve(fileURLToPath(new URL("..", import.meta.url)), "..");
+const appRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 const roots = [resolve(appRoot, "src"), resolve(appRoot, "src-tauri", "src")];
 const trackedExtensions = new Set([".rs", ".svelte", ".ts"]);
