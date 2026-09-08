@@ -231,7 +231,7 @@ pub(super) fn process_outbound_wav(
             false,
             false,
             &blocker,
-            "My Voice authority is no longer bound to this Meeting generation. Stop and start Translation again before producing more voice output.",
+            "Meeting voice authority is no longer bound to this Meeting generation. Stop and start Translation again before producing more voice output.",
         );
         return MeetingOutboundProcessResult {
             ok: false,
@@ -289,7 +289,7 @@ pub(super) fn process_outbound_wav(
             false,
             false,
             &blocker,
-            "My Voice synthesis failed before Meeting delivery. No Meeting output was generated.",
+            "Meeting voice synthesis failed before Meeting delivery. No Meeting output was generated.",
         );
         return MeetingOutboundProcessResult {
             ok: false,
