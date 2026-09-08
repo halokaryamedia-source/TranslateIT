@@ -10,26 +10,21 @@ Repository: `halokaryamedia-source/TranslateIT`
 
 Current source claims require completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. A later documentation-only SHA may record proof without changing the validated source identity.
 
-Validated performance source identity: `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf`.
+Current latency-hardening head: `d246f9bba69966780c346e0e31938b9d4ca69c73`.
 
-Code Health run `34255751440` passed on that exact source identity:
-- frontend source health: typecheck, production build, runtime-policy tests, source-size, Rust↔TypeScript bridge contract, reachability, virtual-route contract, and production dependency audit;
-- Linux Rust: compiler/dead-code, Clippy, and unit tests;
-- hosted-Windows Rust: compiler/dead-code, Clippy, and unit tests.
+Rust/audio-preparation identity `417302f5365978d1822bacf4c0d01383ebff73b3` changed finalized-ASR WAV preparation plus the first Python TTS-validation optimization. Code Health run `34259551481` passed frontend source health, Python compile/static/format/pytest on Linux and hosted Windows, and Rust compiler/dead-code, Clippy and unit tests on Linux and hosted Windows.
 
-Python jobs were intentionally skipped because WorkerRuntime Python source and its dependency lock did not change. A skipped unrelated domain is not proof for that domain.
-
-Repository Verify run `34255116890` passed on preceding delivery `cc667607a35297d23bcce3e70d8cf52c0f2a690e`, which changed the same performance-hardening set plus current operations/continuation documentation. Corrective child `a6431b2...` changed only `live_capture.rs` to satisfy the existing Rust dead-code contract while preserving the native mono-F32 fast path.
+Python latency identity `d246f9bba69966780c346e0e31938b9d4ca69c73` retains that Rust blob and adds the final Python inference changes. Code Health run `34260288389` passed Python compile/static/format/pytest on Linux and hosted Windows; unrelated Rust/frontend jobs were intentionally skipped. MiLMMT Repository Contract run `34260288382` passed for the same head.
 
 Current source proof establishes:
-- rolling preview audio is bounded/preallocated instead of trimming a `Vec` by shifting the retained tail;
-- capture conversion/downmix reuses callback-owned scratch storage and native mono-F32 avoids downmix allocation;
-- finalized-utterance observation avoids a sanitized duplicate `Vec` per callback chunk;
-- audio evidence avoids temporary normalized/frame-energy vectors;
-- inactive My Voice guided recording can reject Meeting callback work before its capture mutex;
-- existing bounded drop/queue, generation-authority, and fail-closed Meeting semantics remain owned by their prior contracts.
+- realtime capture uses bounded/preallocated rolling storage, reusable downmix/conversion scratch, a native mono-F32 fast path, allocation-reduced finalized/VAD evidence, and an inactive My Voice atomic fast gate;
+- finalized ASR PCM16 WAV bytes are assembled in bounded memory and written once instead of issuing a tiny file write per sample, while atomic temp-file promotion and cleanup remain intact;
+- warm My Voice synthesis reuses one already-validated actor package snapshot when resolving the resident runtime, while cold-load post-validation still detects an actor changing during load;
+- deterministic MiLMMT generation explicitly enables KV cache without changing the pinned model, prompt/context policy, generation budget, or `do_sample=False` contract;
+- Faster-Whisper text-only transcription disables unused timestamp-token decoding while preserving beam=1, explicit language, VAD filtering, and the same transcript consumer contract;
+- existing bounded queue/drop, generation authority, cancellation, and fail-closed Meeting semantics remain unchanged.
 
-Older identity `1ccc24246c591451ea7c4dd92356f02dd522d8d6` remains valid for the frontend/CI cleanup claims it proved. Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains the controlled-payload proof; performance hardening did not change controlled payload inputs.
+Older identity `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf` remains valid for the preceding realtime-callback hardening it proved. Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains the controlled-payload proof; this latency pass did not change controlled payload inputs.
 
 ## Verification surfaces
 
@@ -40,7 +35,7 @@ Repository Verify
 Code Health
 → frontend: typecheck + build + runtime-policy/source contracts + npm audit
 → Rust: compiler/dead-code + Clippy + unit tests on Linux/hosted Windows when selected
-→ Python: compile + Ruff + pytest on Linux/hosted Windows when selected
+→ Python: compile + Ruff + format + pytest on Linux/hosted Windows when selected
 
 MiLMMT Repository Contract
 → canonical translation-provider/repository contract
@@ -58,11 +53,11 @@ Checks are path-targeted. Skipped unrelated jobs are intentional and are not evi
 
 ### REMOTE_GITHUB
 
-REMOTE_GITHUB is complete for the current performance-hardening source claims. It proves the optimized callback/buffer source compiles under the repository dead-code policy, satisfies Clippy and unit contracts on Linux and hosted Windows, and preserves retained frontend/source gates.
+REMOTE_GITHUB is complete for the current behavior-preserving latency hardening. It proves the changed source satisfies its selected repository contracts and preserves the existing safety/correctness boundaries.
 
-It does **not** establish physical microphone stability, real callback scheduling under the target driver, target GPU practicality, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, actual Start → Live time, speaker fidelity, real end-to-end latency, installed-runtime success, or repeated-session behavior on the user's machine.
+It does **not** establish physical microphone scheduling, real CUDA performance, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, Start → Live time, speaker fidelity, or real end-of-speech → first translated playback latency on TARGET_WINDOWS.
 
-The current source intentionally retains the full generation-bound Meeting Start functional check, resident AI-model behavior, and temporary-WAV transport until target evidence identifies one of them as a material first bottleneck.
+The full generation-bound Meeting Start functional check and resident AI-model policy remain unchanged. GPT-SoVITS also remains full-WAV/non-streaming; streaming TTS must not be introduced unless target timing shows `tts_ms` is the material first bottleneck because that change affects output/cancellation ownership.
 
 ### LOCAL_CODE
 
@@ -74,9 +69,9 @@ Required for claims that depend on the user's real Windows hardware/install/audi
 
 ## Target Windows
 
-Use `docs/knowledge/operations/target-windows-performance.md`. It starts outbound-only with a built-in voice, records stage timing and hardware pressure, then covers optional incoming isolation, Stop, and repeated-session stability.
+Use `docs/knowledge/operations/target-windows-performance.md`. For perceived latency, evaluate `speech_boundary_ms + outbound_latency_ms`: the internal `outbound_latency_ms` starts only after finalization.
 
-Target results must name the measured first bottleneck before additional performance architecture changes.
+Run outbound-only with a built-in voice first, record stage timing and hardware pressure, then isolate optional incoming, Stop, and repeated-session behavior. Return only the measured first bottleneck; consider streaming TTS only when `tts_ms` is demonstrably dominant.
 
 ## Evidence Rule
 
