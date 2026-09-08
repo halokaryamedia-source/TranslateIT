@@ -9,11 +9,15 @@ use std::time::Duration;
 use crate::engine::paths::ProjectPaths;
 
 use super::bridge_paths::{resolve_worker_python_command, worker_root, worker_python_unavailable_message};
+use super::builtin_voice::{
+    is_supported_builtin_voice, meeting_blocks_voice_change, replace_directory_atomically,
+};
 use super::voice_lab::{
     begin_voice_lab_build, current_voice_lab_build_snapshot, fail_voice_lab_build,
     finish_voice_lab_build, mark_voice_lab_build_evaluating, mark_voice_lab_build_training,
     prepare_guided_dataset, promote_voice_actor_candidate, request_voice_lab_build_cancel,
-    GuidedDatasetManifest, GuidedEvaluationLineContract, GuidedTakeContract, VoiceLabStoragePaths,
+    voice_lab_build_blocks_meeting, GuidedDatasetManifest, GuidedEvaluationLineContract,
+    GuidedTakeContract, VoiceLabStoragePaths,
 };
 use super::voice_lab_recording::get_voice_lab_guided_recording_state;
 
@@ -29,6 +33,13 @@ struct TrainingCoverageGroup {
     start_line_id: u32,
     end_line_id: u32,
     label: &'static str,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VoiceLabCoverageGuidance {
+    pub start_line_id: u32,
+    pub end_line_id: u32,
+    pub label: &'static str,
 }
 
 const TRAINING_COVERAGE_GROUPS: &[TrainingCoverageGroup] = &[
@@ -107,6 +118,7 @@ pub struct VoiceLabBuildStatus {
     pub accepted_take_count: usize,
     pub accepted_duration_ms: u64,
     pub minimum_duration_ms: u64,
+    pub missing_coverage: Option<VoiceLabCoverageGuidance>,
     pub can_build: bool,
     pub evaluation_ready: bool,
     pub evaluation_samples: Vec<VoiceLabEvaluationSample>,
@@ -391,6 +403,11 @@ fn current_status() -> VoiceLabBuildStatus {
         accepted_take_count: takes.len(),
         accepted_duration_ms: duration_ms,
         minimum_duration_ms: MIN_TRAINING_SPEECH_MS,
+        missing_coverage: missing_coverage.map(|group| VoiceLabCoverageGuidance {
+            start_line_id: group.start_line_id,
+            end_line_id: group.end_line_id,
+            label: group.label,
+        }),
         can_build: !snapshot.active
             && !recording_active
             && duration_ms >= MIN_TRAINING_SPEECH_MS
@@ -630,15 +647,10 @@ pub fn cancel_voice_lab_build() -> VoiceLabBuildActionResult {
     result(true, "cancelled", "VoiceLab creation stopped. Your accepted recordings were kept.")
 }
 
-// --- Built-in voices (#D-034): provision a zero-shot profile from pinned
-// reference assets plus the shared pretrained V2ProPlus weights, reusing the
-// existing approved-profile contract untouched.
-
-const BUILTIN_VOICE_IDS: &[&str] = &["MaleVoice", "FemaleVoice"];
 const BUILTIN_GPT_WEIGHT: &str = "GPTSoVITS/Source/GPT_SoVITS/pretrained_models/s1v3.ckpt";
 const BUILTIN_SOVITS_WEIGHT: &str = "GPTSoVITS/Source/GPT_SoVITS/pretrained_models/v2Pro/s2Gv2ProPlus.pth";
 
-fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
+fn wav_duration_ms(path: &Path) -> Result<u64, String> {
     let bytes = fs::read(path).map_err(|_| "builtin_voice:wav_unreadable".to_string())?;
     if bytes.len() < 44 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
         return Err("builtin_voice:wav_header_invalid".to_string());
@@ -657,7 +669,7 @@ fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
         }
         if id == b"data" {
             let remaining = bytes.len() - offset - 8;
-            data_len = (remaining.min(size as usize)) as u32;
+            data_len = remaining.min(size) as u32;
             break;
         }
         offset += 8 + size + (size & 1);
@@ -665,25 +677,25 @@ fn wav_duration_ms(path: &std::path::Path) -> Result<u64, String> {
     if byte_rate == 0 || data_len == 0 {
         return Err("builtin_voice:wav_format_missing".to_string());
     }
-    Ok((data_len as u64 * 1000) / byte_rate as u64)
+    Ok((u64::from(data_len) * 1_000) / u64::from(byte_rate))
 }
 
-fn reference_text_from_source(source_txt: &std::path::Path) -> Result<String, String> {
+fn reference_text_from_source(source_txt: &Path) -> Result<String, String> {
     let body = fs::read_to_string(source_txt)
         .map_err(|_| "builtin_voice:source_text_unreadable".to_string())?;
-    for line in body.lines() {
-        if let Some(rest) = line.strip_prefix("reference_text: ") {
-            return Ok(rest.trim().to_string());
-        }
-    }
-    Err("builtin_voice:reference_text_missing".to_string())
+    body.lines()
+        .find_map(|line| line.strip_prefix("reference_text: "))
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| "builtin_voice:reference_text_missing".to_string())
 }
 
 fn provision_builtin_voice(
-    builtin_dir: &std::path::Path,
-    gpt_weight_src: &std::path::Path,
-    sovits_weight_src: &std::path::Path,
-    target_dir: &std::path::Path,
+    builtin_dir: &Path,
+    gpt_weight_src: &Path,
+    sovits_weight_src: &Path,
+    target_dir: &Path,
     engine_revision: &str,
 ) -> Result<(), String> {
     let src_wav = builtin_dir.join("reference.wav");
@@ -732,9 +744,24 @@ pub fn select_builtin_voice(
     voice_id: String,
     authorized_voice_confirmed: bool,
 ) -> VoiceLabBuildActionResult {
-    if !BUILTIN_VOICE_IDS.contains(&voice_id.as_str()) {
+    if !is_supported_builtin_voice(&voice_id) {
         return result(false, "unknown_builtin_voice", "Choose one of the two built-in voices.");
     }
+    if meeting_blocks_voice_change() {
+        return result(
+            false,
+            "meeting_active",
+            "Stop Meeting translation before changing the Meeting voice.",
+        );
+    }
+    if voice_lab_build_blocks_meeting() {
+        return result(
+            false,
+            "build_active",
+            "Wait for My Voice creation to finish before changing the Meeting voice.",
+        );
+    }
+
     let project_paths = ProjectPaths::discover();
     let storage = VoiceLabStoragePaths::from_project_paths(&project_paths);
     let target = storage.approved_actor_dir.clone();
@@ -753,22 +780,29 @@ pub fn select_builtin_voice(
     )
     .map(|value| value.trim().to_string())
     .unwrap_or_default();
+    if engine_revision != ENGINE_REVISION {
+        return result(
+            false,
+            "builtin_selection_failed",
+            "Built-in Meeting voice assets do not match this TranslateIT build. Repair the installation and try again.",
+        );
+    }
 
-    match provision_builtin_voice(
-        &builtin_dir,
-        &voice_root.join(BUILTIN_GPT_WEIGHT),
-        &voice_root.join(BUILTIN_SOVITS_WEIGHT),
-        &target,
-        &engine_revision,
-    ) {
+    match replace_directory_atomically(&target, |staging| {
+        provision_builtin_voice(
+            &builtin_dir,
+            &voice_root.join(BUILTIN_GPT_WEIGHT),
+            &voice_root.join(BUILTIN_SOVITS_WEIGHT),
+            staging,
+            &engine_revision,
+        )
+    }) {
         Ok(()) => {
-            let label = voice_id
-                .trim_end_matches("Voice")
-                .to_lowercase();
+            let label = voice_id.trim_end_matches("Voice").to_lowercase();
             result(
                 true,
                 "selected",
-                format!("Built-in {} voice selected for Meeting.", label),
+                format!("Built-in {label} voice selected for Meeting."),
             )
         }
         Err(error) => result(false, "builtin_selection_failed", error),
@@ -776,7 +810,8 @@ pub fn select_builtin_voice(
 }
 
 #[tauri::command]
-pub fn approve_voice_lab_candidate() -> VoiceLabBuildActionResult {    if current_voice_lab_build_snapshot().active {
+pub fn approve_voice_lab_candidate() -> VoiceLabBuildActionResult {
+    if current_voice_lab_build_snapshot().active {
         return result(false, "build_active", "Wait for VoiceLab creation to finish before approving My Voice.");
     }
     if evaluation_manifest(&storage()).is_none() {
@@ -850,49 +885,67 @@ mod builtin_voice_tests {
 
     fn tiny_wav(path: &Path) {
         let data = vec![0u8; 320_000];
-        let mut b = Vec::new();
-        b.extend_from_slice(b"RIFF");
-        b.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
-        b.extend_from_slice(b"WAVEfmt ");
-        b.extend_from_slice(&16u32.to_le_bytes());
-        b.extend_from_slice(&1u16.to_le_bytes());
-        b.extend_from_slice(&1u16.to_le_bytes());
-        b.extend_from_slice(&32000u32.to_le_bytes());
-        b.extend_from_slice(&64000u32.to_le_bytes());
-        b.extend_from_slice(&2u16.to_le_bytes());
-        b.extend_from_slice(&16u16.to_le_bytes());
-        b.extend_from_slice(b"data");
-        b.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        b.extend_from_slice(&data);
-        std::fs::write(path, b).unwrap();
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(b"RIFF");
+        bytes.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(b"WAVEfmt ");
+        bytes.extend_from_slice(&16u32.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&1u16.to_le_bytes());
+        bytes.extend_from_slice(&32_000u32.to_le_bytes());
+        bytes.extend_from_slice(&64_000u32.to_le_bytes());
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&16u16.to_le_bytes());
+        bytes.extend_from_slice(b"data");
+        bytes.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        bytes.extend_from_slice(&data);
+        fs::write(path, bytes).unwrap();
     }
 
     #[test]
-    fn provision_writes_actor_and_fails_cleanly_on_missing_assets() {
-        let root = std::env::temp_dir().join(format!("tbv-{}-{}", std::process::id(), std::time::Instant::now().elapsed().as_nanos()));
-        let _ = std::fs::remove_dir_all(&root);
+    fn provision_writes_exact_actor_and_fails_cleanly_on_missing_assets() {
+        let root = std::env::temp_dir().join(format!(
+            "tbv-{}-{}",
+            std::process::id(),
+            std::time::Instant::now().elapsed().as_nanos()
+        ));
+        let _ = fs::remove_dir_all(&root);
         let builtin = root.join("MaleVoice");
-        std::fs::create_dir_all(&builtin).unwrap();
+        fs::create_dir_all(&builtin).unwrap();
         tiny_wav(&builtin.join("reference.wav"));
-        std::fs::write(builtin.join("REFERENCE_SOURCE.txt"), "reference_text: Hello world\n").unwrap();
+        fs::write(
+            builtin.join("REFERENCE_SOURCE.txt"),
+            "reference_text: Hello world\n",
+        )
+        .unwrap();
         let gpt = root.join("gpt.ckpt");
-        std::fs::write(&gpt, b"G").unwrap();
+        fs::write(&gpt, b"G").unwrap();
         let sovits = root.join("sovits.pth");
-        std::fs::write(&sovits, b"S").unwrap();
+        fs::write(&sovits, b"S").unwrap();
         let target = root.join("target");
 
-        provision_builtin_voice(&builtin, &gpt, &sovits, &target, "rev-test").expect("provision ok");
+        provision_builtin_voice(&builtin, &gpt, &sovits, &target, "rev-test")
+            .expect("provision ok");
 
-        let actor = std::fs::read_to_string(target.join("actor.json")).unwrap();
-        assert!(actor.contains("\"builtin_voice\": true"));
-        assert!(actor.contains("Hello world"));
-        assert!(actor.contains("\"reference_duration_ms\": 500"));
+        let actor: serde_json::Value =
+            serde_json::from_slice(&fs::read(target.join("actor.json")).unwrap()).unwrap();
+        assert_eq!(actor["builtin_voice"], true);
+        assert_eq!(actor["reference_text"], "Hello world");
+        assert_eq!(actor["reference_duration_ms"], 5_000);
+        assert_eq!(actor["engine_revision"], "rev-test");
         assert!(target.join("gpt.ckpt").is_file());
         assert!(target.join("sovits.pth").is_file());
 
-        let err = provision_builtin_voice(&root.join("MissingVoice"), &gpt, &sovits, &target, "rev-test").unwrap_err();
+        let err = provision_builtin_voice(
+            &root.join("MissingVoice"),
+            &gpt,
+            &sovits,
+            &target,
+            "rev-test",
+        )
+        .unwrap_err();
         assert!(err.starts_with("builtin_voice:asset_missing:"));
 
-        let _ = std::fs::remove_dir_all(&root);
+        let _ = fs::remove_dir_all(root);
     }
 }
