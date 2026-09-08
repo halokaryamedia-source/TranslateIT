@@ -138,7 +138,7 @@
   }
 
   onMount(() => {
-    void refreshMeetingSetup();
+    void refreshRouteStatus();
   });
 </script>
 
