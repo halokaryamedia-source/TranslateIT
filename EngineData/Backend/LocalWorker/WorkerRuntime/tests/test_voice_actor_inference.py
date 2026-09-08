@@ -151,9 +151,7 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     assert len(validations) == 1
 
 
-def test_meeting_warm_actor_skips_redundant_disk_validation(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_meeting_warm_actor_skips_redundant_disk_validation(tmp_path: Path, monkeypatch) -> None:
     worker = load_worker_module()
     cache = tmp_path / "CacheData"
     cache.mkdir()
