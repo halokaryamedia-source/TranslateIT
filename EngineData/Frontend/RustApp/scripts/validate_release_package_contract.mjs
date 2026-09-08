@@ -20,6 +20,11 @@ const requireMarkers = (body, label, markers) => {
 const forbidMarkers = (body, label, markers) => {
   for (const marker of markers) if (body.includes(marker)) fail(`${label} forbidden marker present: ${marker}`);
 };
+const compareExact = (actual, expected, label) => {
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    fail(`${label} drifted: actual=${JSON.stringify(actual)} expected=${JSON.stringify(expected)}`);
+  }
+};
 
 const paths = {
   package: join(appRoot, "package.json"),
@@ -49,6 +54,27 @@ const build = readText(paths.build);
 const builder = readText(paths.builder);
 const hook = readText(paths.hook);
 const helper = readText(paths.helper);
+
+const canonicalPayloadRoots = [
+  "EngineData/Backend/LocalWorker/PythonRuntime",
+  "EngineData/Backend/RuntimeAssets/ASR/ModelData",
+  "EngineData/Backend/RuntimeAssets/Translation/ModelData",
+  "EngineData/Backend/RuntimeAssets/Voice/BuiltInVoices",
+  "EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS",
+  "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package",
+];
+const builderRootsMatch = builder.match(/PAYLOAD_ROOTS\s*=\s*\(([\s\S]*?)\)\s*\nREQUIRED_FILES/);
+if (!builderRootsMatch) fail("payload builder PAYLOAD_ROOTS block is missing or unparsable.");
+else {
+  const roots = [...builderRootsMatch[1].matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+  compareExact(roots, canonicalPayloadRoots, "payload builder root closure");
+}
+const helperRootsMatch = helper.match(/\$PayloadRoots=@\(([\s\S]*?)\)\s*\n/);
+if (!helperRootsMatch) fail("installer helper PayloadRoots block is missing or unparsable.");
+else {
+  const roots = [...helperRootsMatch[1].matchAll(/'([^']+)'/g)].map((match) => match[1].replaceAll("\\", "/"));
+  compareExact(roots, canonicalPayloadRoots, "installer helper root closure");
+}
 
 const expectedResources = {
   "../../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py": "EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
@@ -95,7 +121,6 @@ requireMarkers(builder, "payload builder", [
   "TRANSLATEIT_PAYLOAD_CONTRACT.json",
   'TRANSFORMERS_VERSION = "4.57.6"',
   'TOKENIZERS_VERSION = "0.22.2"',
-  '"EngineData/Backend/RuntimeAssets/Voice/BuiltInVoices"',
   "validate_no_filesystem_indirection",
   "is_filesystem_indirection",
   "is_junction",
@@ -116,7 +141,6 @@ requireMarkers(helper, "installer helper", [
   "[ValidateSet('Verify','Install')]", "Get-FileHash -Algorithm SHA256", "Read-PayloadContract", "Ensure-FreeSpace", ".translateit-r3-stage", ".translateit-r3-backup",
   "Rollback-Payload", "Read-PythonMetadata", "pnputil.exe", "VBCABLE_Setup_x64.exe", "@('-i','-h')", "exit 3010",
   "ExpectedInstalledRuntimeSchema", "preserve_system_driver", "preserve_app_local_user_data",
-  "EngineData\\Backend\\RuntimeAssets\\Voice\\BuiltInVoices",
   "BuiltInVoices\\MaleVoice\\reference.wav",
   "BuiltInVoices\\FemaleVoice\\reference.wav",
   "BuiltInVoices\\SOURCES.json",
@@ -147,4 +171,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, symmetric uninstall cleanup, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, user-data and system-driver preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: exact builder/installer payload-root closure, version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, symmetric uninstall cleanup, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, user-data and system-driver preservation policy, and small Tauri resource closure are aligned.");
