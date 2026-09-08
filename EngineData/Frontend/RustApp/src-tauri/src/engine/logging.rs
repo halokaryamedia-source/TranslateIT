@@ -185,6 +185,12 @@ fn secret_span_len(tokens: &[&str], index: usize) -> Option<usize> {
             let prefix = format!("{key}{separator}");
             if let Some(value) = current.strip_prefix(&prefix) {
                 if value.is_empty() {
+                    if key == "authorization" && index + 1 < tokens.len() {
+                        let next = trimmed_log_token(tokens[index + 1]).to_ascii_lowercase();
+                        if next == "bearer" {
+                            return Some((tokens.len() - index).min(3));
+                        }
+                    }
                     return Some(if index + 1 < tokens.len() { 2 } else { 1 });
                 }
                 if key == "authorization" && value == "bearer" {
