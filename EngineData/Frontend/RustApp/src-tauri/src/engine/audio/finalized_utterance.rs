@@ -375,18 +375,19 @@ pub fn wait_take_finalized_outbound_utterance(
     let mut guard = sync.state.lock().ok()?;
 
     loop {
+        // A stale consumer must never clear producer state owned by a newer
+        // generation. Confirm ownership first; only the matching producer may be
+        // discarded after its own runtime authority has been revoked.
+        if guard.as_ref().and_then(|state| state.generation) != Some(generation) {
+            return None;
+        }
         if !runtime_generation_is_authoritative(generation) {
             *guard = None;
             sync.ready.notify_all();
             return None;
         }
 
-        let Some(state) = guard.as_mut() else {
-            return None;
-        };
-        if state.generation != Some(generation) {
-            return None;
-        }
+        let state = guard.as_mut()?;
         if let Some(utterance) = state.pending.pop_front() {
             return Some(utterance);
         }
@@ -728,6 +729,39 @@ mod tests {
 
         clear_finalized_incoming_utterance_producer();
         clear_finalized_meeting_sequence();
+    }
+
+    #[test]
+    fn preroll_bound_and_resample_math_are_deterministic() {
+        let profile = runtime_vad_profile();
+        let mut state = FinalizedProducerState {
+            session_id: "pure-contract".to_string(),
+            generation: None,
+            lane: LANE_INCOMING,
+            sample_rate_hz: 16_000,
+            profile,
+            pre_roll: VecDeque::new(),
+            in_utterance: false,
+            current_samples: Vec::new(),
+            speech_samples: 0,
+            trailing_silence_samples: 0,
+            overflowed: false,
+            next_utterance_id: 1,
+            pending: VecDeque::new(),
+        };
+        let max_pre_roll = samples_for_duration(
+            state.sample_rate_hz,
+            state.profile.pre_roll_audio_ms,
+        );
+        append_pre_roll(&mut state, &vec![0.0; max_pre_roll.saturating_add(16_000)]);
+        assert_eq!(state.pre_roll.len(), max_pre_roll);
+
+        let resampled = resample_linear(&[0.0, 0.25, -0.25, 0.0], 8_000, 16_000);
+        assert_eq!(resampled.len(), 8);
+        assert!(resampled.iter().all(|sample| (-1.0..=1.0).contains(sample)));
+        assert_eq!(safe_sample(f32::NAN), 0.0);
+        assert_eq!(safe_sample(f32::INFINITY), 0.0);
+        assert_eq!(safe_sample(2.0), 1.0);
     }
 
     fn silence_of(rate: u32, ms: u32) -> Vec<f32> {

@@ -3,9 +3,11 @@ use std::time::Instant;
 
 use super::finalized_utterance::{
     clear_finalized_incoming_utterance_producer, clear_finalized_meeting_sequence,
-    evicted_pending_utterance_count, observe_finalized_incoming_f32_samples,
+    clear_finalized_outbound_utterance_producer, evicted_pending_utterance_count,
+    observe_finalized_incoming_f32_samples, observe_finalized_outbound_f32_samples,
     reset_finalized_incoming_utterance_producer, reset_finalized_meeting_sequence,
-    try_take_finalized_incoming_utterance, FinalizedMeetingUtterance,
+    reset_finalized_outbound_utterance_producer, try_take_finalized_incoming_utterance,
+    wait_take_finalized_outbound_utterance, FinalizedMeetingUtterance,
 };
 use super::live_audio_buffer::{
     append_live_f32_samples, clear_live_audio_buffer, live_audio_buffer_status,
@@ -15,6 +17,10 @@ use super::live_segment_writer::{
     write_finalized_incoming_utterance_wav, write_finalized_outbound_utterance_wav,
 };
 use super::{duration_ms, AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
+use crate::engine::runtime_state::{
+    begin_application_meeting_session, clear_runtime_session_state,
+    revoke_runtime_session_authority,
+};
 
 static AUDIO_CONTRACT_TEST_SERIAL: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -27,17 +33,41 @@ fn audio_test_guard() -> MutexGuard<'static, ()> {
 
 fn clear_audio_contract_state() {
     let _ = clear_live_audio_buffer();
+    clear_finalized_outbound_utterance_producer();
     clear_finalized_incoming_utterance_producer();
     clear_finalized_meeting_sequence();
+    let _ = clear_runtime_session_state();
+}
+
+fn speech_of(rate: u32, ms: u32) -> Vec<f32> {
+    vec![0.10_f32; rate as usize * ms as usize / 1_000]
+}
+
+fn silence_of(rate: u32, ms: u32) -> Vec<f32> {
+    vec![0.0_f32; rate as usize * ms as usize / 1_000]
 }
 
 fn finalize_incoming_fixture() {
-    let speech_samples = (TARGET_SAMPLE_RATE_HZ as usize * 400) / 1_000;
-    let silence_samples = (TARGET_SAMPLE_RATE_HZ as usize * 400) / 1_000;
-    let speech = vec![0.10_f32; speech_samples];
-    let silence = vec![0.0_f32; silence_samples];
+    let speech = speech_of(TARGET_SAMPLE_RATE_HZ, 400);
+    let silence = silence_of(TARGET_SAMPLE_RATE_HZ, 400);
     observe_finalized_incoming_f32_samples(&speech, TARGET_SAMPLE_RATE_HZ, 1);
     observe_finalized_incoming_f32_samples(&silence, TARGET_SAMPLE_RATE_HZ, 1);
+}
+
+fn finalize_outbound_fixture() {
+    let speech = speech_of(TARGET_SAMPLE_RATE_HZ, 400);
+    let silence = silence_of(TARGET_SAMPLE_RATE_HZ, 400);
+    observe_finalized_outbound_f32_samples(&speech, TARGET_SAMPLE_RATE_HZ, 1);
+    observe_finalized_outbound_f32_samples(&silence, TARGET_SAMPLE_RATE_HZ, 1);
+}
+
+fn begin_meeting_generation() -> u64 {
+    let report = begin_application_meeting_session();
+    assert!(report.blocker.is_empty(), "{}", report.blocker);
+    report
+        .snapshot
+        .expect("Meeting authority claim should expose a runtime snapshot")
+        .generation
 }
 
 fn utterance_fixture(
@@ -216,6 +246,103 @@ fn finalized_writer_rejects_lane_and_target_format_violations_before_staging() {
         report.blocker,
         "finalized_utterance_writer:sample_count_out_of_range"
     );
+
+    clear_audio_contract_state();
+}
+
+#[test]
+fn stale_outbound_waiter_preserves_newer_generation_and_revocation_drops_matching_pending() {
+    let _serial = audio_test_guard();
+    clear_audio_contract_state();
+
+    let stale_generation = begin_meeting_generation();
+    let _ = clear_runtime_session_state();
+    let current_generation = begin_meeting_generation();
+    assert_ne!(stale_generation, current_generation);
+
+    let session_id = "audio-contract-outbound-generation";
+    reset_finalized_meeting_sequence(session_id);
+    reset_finalized_outbound_utterance_producer(
+        session_id,
+        current_generation,
+        TARGET_SAMPLE_RATE_HZ,
+    );
+    finalize_outbound_fixture();
+
+    assert!(
+        wait_take_finalized_outbound_utterance(stale_generation).is_none(),
+        "a stale consumer must be rejected without touching a newer producer"
+    );
+    let current = wait_take_finalized_outbound_utterance(current_generation)
+        .expect("newer authoritative producer must retain its pending utterance");
+    assert_eq!(current.sequence, 1);
+    assert_eq!(current.lane, "you");
+    assert_eq!(current.generation, Some(current_generation));
+    assert_eq!(current.frame.sample_rate_hz, TARGET_SAMPLE_RATE_HZ);
+    assert_eq!(current.frame.channels, TARGET_CHANNELS);
+
+    finalize_outbound_fixture();
+    let _ = revoke_runtime_session_authority(
+        current_generation,
+        "audio contract revokes outbound authority before pending cleanup",
+    );
+    assert!(
+        wait_take_finalized_outbound_utterance(current_generation).is_none(),
+        "matching producer work must be discarded once its generation loses authority"
+    );
+
+    clear_audio_contract_state();
+}
+
+#[test]
+fn finalized_source_rate_transition_resets_old_preroll_and_resamples_to_target() {
+    let _serial = audio_test_guard();
+    clear_audio_contract_state();
+
+    let transition_session = "audio-contract-rate-transition";
+    reset_finalized_meeting_sequence(transition_session);
+    reset_finalized_incoming_utterance_producer(transition_session, 8_000);
+
+    // Old-rate silence becomes pre-roll. Switching to 16 kHz must clear that
+    // pre-roll and the old boundary state before accepting the new-rate speech.
+    observe_finalized_incoming_f32_samples(&silence_of(8_000, 200), 8_000, 1);
+    observe_finalized_incoming_f32_samples(&speech_of(16_000, 400), 16_000, 1);
+    observe_finalized_incoming_f32_samples(&silence_of(16_000, 400), 16_000, 1);
+
+    let transitioned = try_take_finalized_incoming_utterance(transition_session)
+        .expect("new-rate speech should finalize after the source-rate reset");
+    assert_eq!(transitioned.frame.sample_rate_hz, TARGET_SAMPLE_RATE_HZ);
+    assert_eq!(transitioned.frame.channels, TARGET_CHANNELS);
+    assert_eq!(
+        transitioned.frame.samples.len(),
+        12_800,
+        "old 8 kHz pre-roll must not leak into the 16 kHz utterance"
+    );
+    assert!(transitioned
+        .frame
+        .samples
+        .iter()
+        .all(|sample| sample.is_finite() && (-1.0..=1.0).contains(sample)));
+
+    clear_finalized_incoming_utterance_producer();
+    clear_finalized_meeting_sequence();
+
+    let resample_session = "audio-contract-resample";
+    reset_finalized_meeting_sequence(resample_session);
+    reset_finalized_incoming_utterance_producer(resample_session, 8_000);
+    observe_finalized_incoming_f32_samples(&speech_of(8_000, 400), 8_000, 1);
+    observe_finalized_incoming_f32_samples(&silence_of(8_000, 400), 8_000, 1);
+
+    let resampled = try_take_finalized_incoming_utterance(resample_session)
+        .expect("8 kHz finalized speech should be resampled to the target format");
+    assert_eq!(resampled.frame.sample_rate_hz, TARGET_SAMPLE_RATE_HZ);
+    assert_eq!(resampled.frame.channels, TARGET_CHANNELS);
+    assert_eq!(resampled.frame.samples.len(), 12_800);
+    assert!(resampled
+        .frame
+        .samples
+        .iter()
+        .all(|sample| sample.is_finite() && (-1.0..=1.0).contains(sample)));
 
     clear_audio_contract_state();
 }
