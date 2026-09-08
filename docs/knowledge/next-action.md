@@ -11,12 +11,13 @@
 - Translation success requires non-empty, complete, EOS-terminated output; standalone failures discard partial output. Provider/model failures are normalized and runtime-cache invalidation is bounded by failure class.
 - Code Health enforces WorkerRuntime Ruff `E4,E7,E9,F,I`, `ruff format --check`, and pytest on Linux and hosted Windows.
 - Safe-close policy is separated from the Svelte composition root and covered by deterministic runtime-policy tests.
+- Source-size budgets now block new oversized TS/Svelte/Rust files and prevent the existing large realtime coordinators from silently growing before their measured refactor baseline exists.
 
 ## Active Boundary
 
 Current proof remains `REMOTE_GITHUB`. Physical microphone/GPU/VB-CABLE/meeting-app reception, semantic quality, real latency, installed-runtime, and clean-machine claims are **not** PASS.
 
-Large Meeting/helper/audio refactors remain deferred until the first target-Windows baseline so later structural changes have a measured behavior reference.
+Remote cleanup is intentionally bounded here. Large Meeting/helper/audio refactors remain deferred until the first target-Windows baseline so later structural changes have a measured behavior reference instead of relying only on hosted source proof.
 
 ## Next Step
 
