@@ -106,7 +106,9 @@ forbidMarkers(builder.toLowerCase(), "payload builder network/bootstrap", ["urll
 requireMarkers(hook, "NSIS lifecycle hook", [
   "@@PAYLOAD_SCHEMA@@", "@@INSTALLED_RUNTIME_SCHEMA@@", "@@APP_VERSION@@", "@@PAYLOAD_SHA256@@", "@@PAYLOAD_EXPANDED_BYTES@@",
   "NSIS_HOOK_PREINSTALL", "NSIS_HOOK_POSTINSTALL", "NSIS_HOOK_PREUNINSTALL", "-Mode Verify", "-Mode Install", "$0 == 3010", "SetRebootFlag true",
-  "RMDir /r \"$INSTDIR\\EngineData\\Backend\\LocalWorker\\PythonRuntime\"", "TRANSLATEIT_INSTALLED_RUNTIME.json",
+  "RMDir /r \"$INSTDIR\\EngineData\\Backend\\LocalWorker\\PythonRuntime\"",
+  "RMDir /r \"$INSTDIR\\EngineData\\Backend\\RuntimeAssets\\Voice\\BuiltInVoices\"",
+  "TRANSLATEIT_INSTALLED_RUNTIME.json",
 ]);
 forbidMarkers(hook.toLowerCase(), "NSIS network/bootstrap", ["inetc::", "nsisdl::", "http://", "https://", "execshell"]);
 
@@ -145,4 +147,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, symmetric uninstall cleanup, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, user-data and system-driver preservation policy, and small Tauri resource closure are aligned.");
