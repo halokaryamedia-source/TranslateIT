@@ -5,7 +5,6 @@ import wave
 from pathlib import Path
 
 import pytest
-
 from test_worker_contract import load_worker_module
 
 
