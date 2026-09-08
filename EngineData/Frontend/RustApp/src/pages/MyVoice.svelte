@@ -6,8 +6,10 @@
     type GuidedRecordingActionResult,
     type GuidedRecordingState,
   } from "../app/bridge/myVoiceApi";
-  import MyVoiceBuild from "../components/my-voice/MyVoiceBuild.svelte";
   import { myVoiceBuildApi } from "../app/bridge/myVoiceBuildApi";
+  import MyVoiceBuild from "../components/my-voice/MyVoiceBuild.svelte";
+
+  type BuiltinVoiceId = "MaleVoice" | "FemaleVoice";
 
   let {
     onNotice,
@@ -24,31 +26,44 @@
   let replaying = $state(false);
   let buildRefreshRevision = $state(0);
   let audio: HTMLAudioElement | null = null;
-  let builtinPendingId = $state<string | null>(null);
+  let audioUrl: string | null = null;
+  let builtinPendingId = $state<BuiltinVoiceId | null>(null);
 
-  async function selectBuiltin(voiceId: "MaleVoice" | "FemaleVoice"): Promise<void> {
+  const currentLine = $derived(recordingState.lines.find((line) => line.line_id === selectedLineId) ?? null);
+  const isRecording = $derived(recordingState.recording_line_id !== null);
+  const pendingLineId = $derived(recordingState.pending_review?.line_id ?? null);
+
+  function builtinLabel(voiceId: BuiltinVoiceId): string {
+    return voiceId === "MaleVoice" ? "Built-in Male" : "Built-in Female";
+  }
+
+  async function selectBuiltin(voiceId: BuiltinVoiceId, confirmed = false): Promise<void> {
     if (busy) return;
-    const confirmed = builtinPendingId === voiceId;
     busy = true;
     try {
       const result = await myVoiceBuildApi.selectBuiltin(voiceId, confirmed);
       if (result.state === "approval_required") {
         builtinPendingId = voiceId;
-        onNotice("Select the same voice again to replace your current Meeting voice.");
+        onNotice(`Confirm before replacing the current Meeting voice with ${builtinLabel(voiceId)}.`);
         return;
       }
       builtinPendingId = null;
-      if (result.ok) buildRefreshRevision++;
-      onNotice(result.message);
+      if (result.ok) {
+        buildRefreshRevision++;
+        onNotice(`${result.message} Open Meeting from the sidebar when you're ready.`);
+      } else {
+        onNotice(result.message);
+      }
     } finally {
       busy = false;
     }
   }
-  let audioUrl: string | null = null;
 
-  const currentLine = $derived(recordingState.lines.find((line) => line.line_id === selectedLineId) ?? null);
-  const isRecording = $derived(recordingState.recording_line_id !== null);
-  const pendingLineId = $derived(recordingState.pending_review?.line_id ?? null);
+  async function confirmPendingBuiltin(): Promise<void> {
+    const voiceId = builtinPendingId;
+    if (!voiceId) return;
+    await selectBuiltin(voiceId, true);
+  }
 
   function chooseDefaultLine(next: GuidedRecordingState): void {
     if (next.recording_line_id !== null) {
@@ -119,8 +134,7 @@
   }
 
   async function refresh(): Promise<void> {
-    const next = await myVoiceApi.getState();
-    applyState(next);
+    applyState(await myVoiceApi.getState());
   }
 
   async function startRecording(): Promise<void> {
@@ -238,18 +252,29 @@
   <header class="ti-page-header">
     <div>
       <h2 class="ti-page-title">Meeting Voice</h2>
-      <p class="ti-page-copy">Choose a ready built-in English voice now, or create My Voice as a personalized replacement.</p>
+      <p class="ti-page-copy">Choose a ready built-in English voice, or create My Voice as an optional personalized replacement.</p>
     </div>
   </header>
 
   <section class="ti-panel mb-6 p-5">
     <span class="ti-kicker">Ready now</span>
     <strong class="mt-2 block text-base font-semibold">Built-in Meeting voices</strong>
-    <p class="mb-0 mt-1.5 max-w-[720px] text-sm leading-6 text-[var(--ti-text-muted)]">Use Meeting immediately with Built-in Male or Female. You can create My Voice later without changing the rest of your Meeting setup.</p>
+    <p class="mb-0 mt-1.5 max-w-[720px] text-sm leading-6 text-[var(--ti-text-muted)]">Built-in Male and Female work without training. You can create My Voice later without changing the rest of your Meeting setup.</p>
     <div class="mt-4 flex flex-wrap gap-3">
-      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("MaleVoice")}>Built-in Male{builtinPendingId === "MaleVoice" ? " — select again to confirm" : ""}</button>
-      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("FemaleVoice")}>Built-in Female{builtinPendingId === "FemaleVoice" ? " — select again to confirm" : ""}</button>
+      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("MaleVoice")}>Built-in Male</button>
+      <button type="button" class="ti-button" disabled={busy} onclick={() => void selectBuiltin("FemaleVoice")}>Built-in Female</button>
     </div>
+
+    {#if builtinPendingId}
+      <div class="mt-4 rounded-[var(--ti-radius-md)] border border-[var(--ti-warning-border)] bg-[var(--ti-warning-surface)] p-4">
+        <strong class="text-sm font-semibold">Replace the current Meeting voice?</strong>
+        <p class="mb-0 mt-1 text-sm leading-5 text-[var(--ti-text-muted)]">{builtinLabel(builtinPendingId)} will replace the voice currently selected for Meeting.</p>
+        <div class="ti-action-row mt-4">
+          <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => { builtinPendingId = null; }}>Cancel</button>
+          <button type="button" class="ti-button" disabled={busy} onclick={() => void confirmPendingBuiltin()}>Replace Voice</button>
+        </div>
+      </div>
+    {/if}
   </section>
 
   <div class="mb-5 border-t border-[var(--ti-border)] pt-5">
@@ -264,7 +289,7 @@
         <div>
           <span class="ti-kicker">My Voice</span>
           <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Record your voice</h3>
-          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone in a quiet room and read each line naturally. If a line feels difficult, skip it and continue with one that feels comfortable.</p>
+          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone in a quiet room and read each line naturally. Skip a difficult line and come back to it later.</p>
         </div>
       </div>
 

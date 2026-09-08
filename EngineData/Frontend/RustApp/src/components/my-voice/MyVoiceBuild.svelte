@@ -35,6 +35,12 @@
   let audio: HTMLAudioElement | null = null;
   let audioUrl: string | null = null;
 
+  const speechProgress = $derived(
+    build.minimum_duration_ms > 0
+      ? Math.min(100, Math.round((build.accepted_duration_ms / build.minimum_duration_ms) * 100))
+      : 100,
+  );
+
   function formatDuration(milliseconds: number): string {
     const seconds = Math.max(0, Math.floor(milliseconds / 1000));
     const minutes = Math.floor(seconds / 60);
@@ -115,10 +121,19 @@
   }
 
   function idleGuidance(): string {
-    if (!build.can_build && build.message.trim()) return build.message;
-    if (!build.can_build) {
-      return "Keep recording clear and varied lines before creating My Voice.";
+    if (build.approved_voice_ready && !build.can_build) {
+      const marker = "Try one accepted line";
+      const markerIndex = build.message.indexOf(marker);
+      if (markerIndex >= 0) {
+        return `Your current Meeting voice is ready. ${build.message.slice(markerIndex)}`;
+      }
+      if (build.accepted_duration_ms < build.minimum_duration_ms) {
+        return `Your current Meeting voice is ready. Keep recording if you want to create My Voice; ${formatDuration(build.minimum_duration_ms)} of usable speech is the minimum recording target.`;
+      }
+      return "Your current Meeting voice is ready. Add more clear and varied recordings if you want to create My Voice again.";
     }
+    if (!build.can_build && build.message.trim()) return build.message;
+    if (!build.can_build) return "Keep recording clear and varied lines before creating My Voice.";
     return "Your accepted recordings are ready.";
   }
 
@@ -208,13 +223,19 @@
       <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use your accepted recordings to create an English meeting voice. You'll hear new preview sentences before you approve it.</p>
     </div>
     {#if build.approved_voice_ready}
-      <span class="flex items-center gap-1.5 text-sm font-semibold text-[var(--ti-success)]"><Check size={15} />My Voice ready</span>
+      <span class="flex items-center gap-1.5 text-sm font-semibold text-[var(--ti-success)]"><Check size={15} />Meeting voice ready</span>
     {/if}
   </div>
 
   <div class="mt-5 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-4 py-3.5">
-    <strong class="text-sm font-semibold">Accepted speech</strong>
-    <p class="mb-0 mt-1 text-xs text-[var(--ti-text-muted)]">{build.accepted_take_count} accepted recordings · {formatDuration(build.accepted_duration_ms)} recorded</p>
+    <div class="flex items-center justify-between gap-4">
+      <strong class="text-sm font-semibold">Accepted speech</strong>
+      <span class="text-xs font-semibold text-[var(--ti-text-muted)]">{formatDuration(build.accepted_duration_ms)} / {formatDuration(build.minimum_duration_ms)}</span>
+    </div>
+    <p class="mb-0 mt-1 text-xs text-[var(--ti-text-muted)]">{build.accepted_take_count} accepted recordings · clear and varied speech matters in addition to duration</p>
+    <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--ti-border)]" aria-label="Accepted speech progress">
+      <div class="h-full rounded-full bg-[var(--ti-accent)]" style={`width:${speechProgress}%`}></div>
+    </div>
   </div>
 
   {#if build.active}

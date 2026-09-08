@@ -8,6 +8,7 @@
     type VirtualMicRouteContractStatus,
   } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
+  import { setupStateNeedsResume } from "../app/runtime/setupFlow";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
 
@@ -34,10 +35,13 @@
   } = $props();
 
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
+  let resumeBusy = $state(false);
+  let resumeError = $state("");
 
   const readiness = $derived(snapshot.readiness);
   const meeting = $derived(snapshot.meeting);
-  const myVoiceReady = $derived(readiness.approvedVoiceReady);
+  const meetingVoiceReady = $derived(readiness.approvedVoiceReady);
+  const setupDeferred = $derived(setupStateNeedsResume(snapshot.settings.meeting_setup_state));
   const runtimeUnavailable = $derived(readiness.level === "unavailable" || meeting.label === "Unavailable");
   const checking = $derived(readiness.level === "checking" && !meeting.hasSession);
   const microphone = $derived(
@@ -59,7 +63,15 @@
   const microphoneUnavailable = $derived(readiness.microphoneStatus === "Unavailable");
   const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking, microphoneUnavailable));
   const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking, runtimeUnavailable));
-  const meetingTone = $derived(runtimeUnavailable ? "danger" : meeting.busy || checking ? "neutral" : meeting.live || readiness.meetingReady ? "good" : "warning");
+  const meetingTone = $derived(
+    runtimeUnavailable
+      ? "danger"
+      : meeting.busy || checking
+        ? "neutral"
+        : meeting.live || readiness.meetingReady
+          ? "good"
+          : "warning",
+  );
 
   const primaryLabel = $derived(
     actionBusy
@@ -71,17 +83,21 @@
   const primaryDisabled = $derived(actionBusy || meeting.busy || (!meeting.canStart && !meeting.canStop));
 
   const readyMessage = $derived(
-    runtimeUnavailable
-      ? "TranslateIT can't reach the local translator right now. Retry the check."
-      : checking || myVoiceReady === null
-        ? "Checking your microphone, Meeting voice, and meeting output..."
-        : myVoiceReady === false
-          ? "Choose a built-in Meeting voice or create My Voice before starting."
-          : readiness.meetingReady
-            ? "Ready to translate. Start when your meeting is open."
-            : meeting.canStart
-              ? "Start Translation will run a quick final translation check before going live."
-              : "Finish the setup items below before starting translation.",
+    resumeError
+      ? resumeError
+      : setupDeferred
+        ? "Meeting setup is paused. Resume setup to finish the required items."
+        : runtimeUnavailable
+          ? "TranslateIT can't reach the local translator right now. Retry the status check."
+          : checking || meetingVoiceReady === null
+            ? "Checking your microphone, Meeting voice, and meeting output..."
+            : meetingVoiceReady === false
+              ? "Choose a built-in Meeting voice or create My Voice before starting."
+              : readiness.meetingReady
+                ? "Ready to translate. Start when your meeting is open."
+                : meeting.canStart
+                  ? "Start Translation will run a final local translation check before going live."
+                  : "Finish the setup items below before starting translation.",
   );
 
   async function refreshRouteStatus(): Promise<void> {
@@ -93,8 +109,32 @@
   }
 
   async function refreshMeetingSetup(): Promise<void> {
+    resumeError = "";
     await onRefresh();
     await refreshRouteStatus();
+  }
+
+  async function resumeSetup(): Promise<void> {
+    if (resumeBusy) return;
+    resumeBusy = true;
+    resumeError = "";
+    const candidate = {
+      ...snapshot.settings,
+      meeting_setup_state: "new",
+      audio: { ...snapshot.settings.audio },
+    };
+    try {
+      const result = await runtimeApi.saveSettings(candidate);
+      if (!result.ok) {
+        resumeError = "Couldn't resume Meeting setup. Try again.";
+        return;
+      }
+      await onRefresh();
+    } catch {
+      resumeError = "Couldn't resume Meeting setup. Try again.";
+    } finally {
+      resumeBusy = false;
+    }
   }
 
   onMount(() => {
@@ -112,7 +152,7 @@
           : "Speak Indonesian. TranslateIT sends English voice to your meeting."}
       </p>
     </div>
-    {#if meeting.busy || runtimeUnavailable || !readiness.meetingReady}
+    {#if meeting.busy || runtimeUnavailable || setupDeferred || !readiness.meetingReady}
       <StatusBadge
         label={meeting.busy ? meeting.label : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
         tone={meetingTone}
@@ -165,11 +205,16 @@
             <AudioLines size={15} strokeWidth={1.8} />
             <span class="ti-field-label">Meeting voice</span>
           </div>
-          <strong class="mt-2 block text-[13px] font-semibold leading-5">{myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking..." : "Not selected"}</strong>
-          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your selected English meeting voice." : "Choose Built-in Male/Female or create My Voice before starting."}</p>
-          {#if !myVoiceReady}
-            <div class="mt-3">
-              <StatusBadge label={myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady === null ? "neutral" : "warning"} />
+          <strong class="mt-2 block text-[13px] font-semibold leading-5">{meetingVoiceReady ? "Selected" : meetingVoiceReady === null ? "Checking..." : "Not selected"}</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">
+            {meetingVoiceReady ? "Your selected English Meeting voice." : "Choose Built-in Male/Female or create My Voice before starting."}
+          </p>
+          {#if !meetingVoiceReady}
+            <div class="mt-3 flex flex-wrap items-center gap-2">
+              <StatusBadge label={meetingVoiceReady === null ? "Checking" : "Setup Needed"} tone={meetingVoiceReady === null ? "neutral" : "warning"} />
+              {#if meetingVoiceReady === false && !setupDeferred}
+                <button type="button" class="ti-button ti-button-secondary min-h-8 px-2.5 text-xs" onclick={onOpenMyVoice}>Choose Voice</button>
+              {/if}
             </div>
           {/if}
         </section>
@@ -182,7 +227,7 @@
           <strong class="mt-2 block break-words text-[13px] font-semibold leading-5">{meetingMicrophoneDevice}</strong>
           <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">
             {readiness.meetingRouteReady
-              ? "Choose this exact microphone in your meeting app."
+              ? "Available on Windows. Make sure your meeting app is using this exact microphone."
               : "Meeting microphone setup is required before you start."}
           </p>
           {#if !readiness.meetingRouteReady}
@@ -192,6 +237,8 @@
                 tone={routeTone}
               />
             </div>
+          {:else}
+            <div class="mt-3"><StatusBadge label="Available" tone="good" /></div>
           {/if}
         </section>
       </div>
@@ -203,7 +250,7 @@
             <span class="ti-field-label">Incoming translation</span>
           </div>
           <strong class="mt-2 block text-[13px] font-semibold leading-5">English → Indonesian text</strong>
-          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">Optional · listens to {meetingSound}</p>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">Optional · listens to {meetingSound} · change in Settings</p>
         </div>
         <StatusBadge label="Optional" tone="neutral" />
       </section>
@@ -212,7 +259,7 @@
     <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
       {#if !activityVisible}
         <div class="flex min-w-0 items-center gap-2.5 text-[12.5px] text-[var(--ti-text-muted)]" aria-live="polite">
-          <span class={`size-1.5 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : readiness.meetingReady ? "bg-[var(--ti-success)]" : checking ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`} aria-hidden="true"></span>
+          <span class={`size-1.5 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : readiness.meetingReady && !setupDeferred ? "bg-[var(--ti-success)]" : checking ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`} aria-hidden="true"></span>
           <span>{readyMessage}</span>
         </div>
       {:else}
@@ -220,16 +267,20 @@
       {/if}
 
       <div class="ti-action-row ml-auto">
-        {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
-          <button type="button" class="ti-button ti-button-secondary" onclick={() => void refreshMeetingSetup()}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
-          {#if !runtimeUnavailable}
-            <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Check Setup</button>
-          {/if}
-        {/if}
-        {#if myVoiceReady === false && !meeting.live && !meeting.busy}
-          <button type="button" class="ti-button min-w-40" onclick={onOpenMyVoice}>Choose Meeting Voice</button>
+        {#if setupDeferred && !meeting.live && !meeting.busy}
+          <button type="button" class="ti-button min-w-40" disabled={resumeBusy} onclick={() => void resumeSetup()}>{resumeBusy ? "Opening Setup..." : "Resume Setup"}</button>
         {:else}
-          <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled || myVoiceReady === null} onclick={onMeetingAction}>{primaryLabel}</button>
+          {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
+            <button type="button" class="ti-button ti-button-secondary" onclick={() => void refreshMeetingSetup()}>{runtimeUnavailable ? "Retry Status" : "Refresh Status"}</button>
+            {#if !runtimeUnavailable}
+              <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Repair Setup</button>
+            {/if}
+          {/if}
+          {#if meetingVoiceReady === false && !meeting.live && !meeting.busy}
+            <button type="button" class="ti-button min-w-40" onclick={onOpenMyVoice}>Choose Meeting Voice</button>
+          {:else}
+            <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled || meetingVoiceReady === null} onclick={onMeetingAction}>{primaryLabel}</button>
+          {/if}
         {/if}
       </div>
     </footer>
