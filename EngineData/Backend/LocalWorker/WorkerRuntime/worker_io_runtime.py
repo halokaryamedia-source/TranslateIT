@@ -150,6 +150,10 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             temperature=common.bounded_float(payload.get("temperature", 0), 0.0, 0.0, 1.0),
             condition_on_previous_text=False,
             vad_filter=bool(payload.get("vad_filter", True)),
+            # Finalized Meeting audio already owns its speech boundary and the
+            # product consumes text only. Avoid decoding timestamp tokens that are
+            # discarded immediately after ASR.
+            without_timestamps=True,
             word_timestamps=False,
         )
         text = common.compact_runtime_text(
