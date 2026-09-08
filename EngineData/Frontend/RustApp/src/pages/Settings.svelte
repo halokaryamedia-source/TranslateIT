@@ -52,7 +52,7 @@
   const meetingResourcesLocked = $derived(snapshot.meeting.hasSession);
   const micTestOwnsResources = $derived(snapshot.meeting.hasSession && !snapshot.meeting.applicationOwned);
   const micTestBlockedByMeeting = $derived(snapshot.meeting.applicationOwned);
-  const meetingResourceLockMessage = "Stop Translation or Mic Test before changing meeting audio or running setup repair.";
+  const meetingResourceLockMessage = "Stop Translation or Mic Test before changing meeting audio or running Repair Setup.";
   const meetingMicrophoneDevice = $derived(
     String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
   );
@@ -238,7 +238,7 @@
             <p class="mb-0 mt-1 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">
               {snapshot.readiness.meetingRouteReady
                 ? "Choose this exact microphone inside your meeting app."
-                : "Meeting microphone isn't ready yet. Run Check Setup before starting Meeting translation."}
+                : "Meeting microphone isn't ready yet. Run Repair Setup before starting Meeting translation."}
             </p>
           </div>
           {#if !snapshot.readiness.meetingRouteReady}
@@ -253,7 +253,7 @@
           <p class="m-0 min-w-0 flex-1 text-[12px] leading-5 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
           <div class="ti-action-row shrink-0">
             <button type="button" class="ti-button ti-button-secondary" disabled={micTestBlockedByMeeting || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording || micTestOwnsResources ? "Stop Mic Test" : "Mic Test"}</button>
-            <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Repairing..." : "Repair Setup"}</button>
           </div>
         </footer>
       </article>
@@ -325,7 +325,7 @@
               <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.translationDisplay}</strong>
             </div>
             <div class="ti-state-card">
-              <span class="ti-field-label">My Voice</span>
+              <span class="ti-field-label">Meeting voice</span>
               <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.voiceDisplay}</strong>
             </div>
           </div>
@@ -341,7 +341,7 @@
             <div class="ti-state-card"><span class="ti-field-label">Total</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.outbound_latency_ms)}</strong></div>
             <div class="ti-state-card"><span class="ti-field-label">ASR</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.asr_ms)}</strong></div>
             <div class="ti-state-card"><span class="ti-field-label">Translation</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.translation_ms)}</strong></div>
-            <div class="ti-state-card"><span class="ti-field-label">My Voice</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.tts_ms)}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">Voice TTS</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.tts_ms)}</strong></div>
             <div class="ti-state-card"><span class="ti-field-label">Delivery</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.delivery_ms)}</strong></div>
           </div>
           <p class="mb-0 mt-3 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">VRAM should be measured with the Windows/NVIDIA GPU monitor during target testing. TranslateIT does not report a PyTorch-only allocator number as whole-product VRAM because ASR uses a separate CTranslate2 CUDA runtime.</p>
