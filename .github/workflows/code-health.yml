@@ -104,7 +104,9 @@ jobs:
           python -m pip install -r "$RUNNER_TEMP/translateit-ci-dev-requirements.txt"
       - run: python -m compileall -q .
       - name: Python static correctness gate
-        run: ruff check . --select E4,E7,E9,F
+        run: ruff check . --select E4,E7,E9,F,I
+      - name: Python formatting gate
+        run: ruff format --check .
       - name: Run Python contract tests
         run: python -m pytest -q
 
@@ -146,7 +148,9 @@ jobs:
           PY
       - run: python -m compileall -q .
       - name: Windows Python static correctness gate
-        run: ruff check . --select E4,E7,E9,F
+        run: ruff check . --select E4,E7,E9,F,I
+      - name: Windows Python formatting gate
+        run: ruff format --check .
       - name: Run Windows Python contract tests
         run: python -m pytest -q
 
