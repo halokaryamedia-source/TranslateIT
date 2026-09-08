@@ -10,11 +10,35 @@ import realtime_local_worker_base as runtime
 _PROVIDER_SENTINEL = "_translateit_milmmt_provider_installed"
 _CONTEXT_POLICY_SENTINEL = "_translateit_translation_context_policy_installed"
 _CONTEXT_POLICY_ORIGINAL = "_translateit_translation_context_policy_original_handle_translate"
+_PRELOAD_POLICY_SENTINEL = "_translateit_translation_preload_policy_installed"
+_PRELOAD_POLICY_ORIGINAL = "_translateit_translation_preload_policy_original_handle_translation_preload"
 
 MAX_PROTOCOL_STAGE_CHARS = 96
 MAX_PROTOCOL_BLOCKER_CHARS = 512
 MAX_PROTOCOL_NOTE_CHARS = 1_000
 MAX_TRANSLATION_OUTPUT_CHARS = runtime.MAX_TRANSLATION_TEXT_CHARS * 2
+
+_TRANSLATION_DOMAIN_PREFIXES = (
+    "translation:",
+    "model:",
+    "dependency:",
+    "cuda:",
+    "worker:",
+)
+_TRANSLATION_NON_INVALIDATING_BLOCKERS = {
+    "translation:empty_text",
+    "translation:text_too_large",
+    "translation:direction_not_supported",
+    "translation:input_too_long_for_model",
+    "translation:output_hit_token_ceiling_without_eos",
+    "translation:output_ended_without_eos",
+    "translation:output_incomplete",
+    "translation:output_too_large",
+    "translation:empty_output",
+    "translation:standalone_chunk_plan_empty",
+    "translation:chunk_count_limit_exceeded",
+    "worker:request_deadline_expired",
+}
 
 
 class _NonFiniteJsonNumber(ValueError):
@@ -26,9 +50,71 @@ if not getattr(runtime, _PROVIDER_SENTINEL, False):
     setattr(runtime, _PROVIDER_SENTINEL, True)
 
 
-def _translation_contract_result(result):
-    if not isinstance(result, dict) or not result.get("ok"):
+def _single_translation_domain_blocker(value: str) -> bool:
+    return bool(value) and value.startswith(_TRANSLATION_DOMAIN_PREFIXES) and all(
+        char.isascii() and (char.isalnum() or char in "_:.-") for char in value
+    )
+
+
+def _safe_translation_domain_blocker(value) -> str:
+    text = runtime.compact_runtime_text(value, MAX_PROTOCOL_BLOCKER_CHARS)
+    if not text:
+        return ""
+    parts = text.split(";")
+    if parts and all(_single_translation_domain_blocker(part) for part in parts):
+        return text
+    return ""
+
+
+def _translation_failure_blocker(result: dict, fallback: str) -> str:
+    raw_blocker = runtime.compact_runtime_text(
+        result.get("blocker", ""), MAX_PROTOCOL_BLOCKER_CHARS
+    )
+    blocker = _safe_translation_domain_blocker(raw_blocker)
+    if blocker:
+        return blocker
+
+    note = runtime.compact_runtime_text(result.get("note", ""), MAX_PROTOCOL_NOTE_CHARS)
+    blocker = _safe_translation_domain_blocker(note)
+    if blocker:
+        return blocker
+
+    if raw_blocker in {"ImportError", "ModuleNotFoundError"}:
+        return "dependency:translation_provider_import_failed"
+    if raw_blocker == "MemoryError":
+        return "translation:provider_memory_exhausted"
+    return fallback
+
+
+def _translation_failure_invalidates_runtime(blocker: str) -> bool:
+    return blocker not in _TRANSLATION_NON_INVALIDATING_BLOCKERS
+
+
+def _translation_failure_contract(result, fallback: str):
+    if not isinstance(result, dict) or result.get("ok"):
         return result
+
+    failed = dict(result)
+    blocker = _translation_failure_blocker(failed, fallback)
+    failed["blocker"] = blocker
+    if "translated_text" in failed:
+        failed["translated_text"] = ""
+    if "note" in failed:
+        note = runtime.compact_runtime_text(failed.get("note", ""), MAX_PROTOCOL_NOTE_CHARS)
+        if note:
+            failed["note"] = note
+        else:
+            failed.pop("note", None)
+    if _translation_failure_invalidates_runtime(blocker):
+        runtime.TRANSLATION_RUNTIME.clear()
+    return failed
+
+
+def _translation_contract_result(result):
+    if not isinstance(result, dict):
+        return result
+    if not result.get("ok"):
+        return _translation_failure_contract(result, "translation:provider_failed")
 
     translated = str(result.get("translated_text", ""))
     if not translated.strip():
@@ -41,7 +127,7 @@ def _translation_contract_result(result):
                 "complete": False,
             }
         )
-        return failed
+        return _translation_failure_contract(failed, "translation:provider_failed")
 
     if result.get("complete") is not True or result.get("finished_with_eos") is not True:
         failed = dict(result)
@@ -54,7 +140,7 @@ def _translation_contract_result(result):
                 "finished_with_eos": bool(result.get("finished_with_eos")),
             }
         )
-        return failed
+        return _translation_failure_contract(failed, "translation:provider_failed")
 
     if len(translated) > MAX_TRANSLATION_OUTPUT_CHARS:
         failed = dict(result)
@@ -67,7 +153,7 @@ def _translation_contract_result(result):
                 "complete": False,
             }
         )
-        return failed
+        return _translation_failure_contract(failed, "translation:provider_failed")
 
     return result
 
@@ -115,10 +201,23 @@ if not getattr(runtime, _CONTEXT_POLICY_SENTINEL, False):
     setattr(runtime, _CONTEXT_POLICY_SENTINEL, True)
 
 
+def _contract_guarded_runtime_preload(payload):
+    original = getattr(runtime, _PRELOAD_POLICY_ORIGINAL)
+    result = original(payload)
+    return _translation_failure_contract(result, "translation:runtime_load_failed")
+
+
+if not getattr(runtime, _PRELOAD_POLICY_SENTINEL, False):
+    setattr(runtime, _PRELOAD_POLICY_ORIGINAL, runtime.handle_translation_preload)
+    runtime.handle_translation_preload = _contract_guarded_runtime_preload
+    setattr(runtime, _PRELOAD_POLICY_SENTINEL, True)
+
+
 def _contract_guarded_translate_request(payload):
     return _translation_contract_result(runtime.handle_translate_request(payload))
 
 
+runtime.HANDLERS["translation_preload"] = runtime.handle_translation_preload
 runtime.HANDLERS["translate"] = _contract_guarded_translate_request
 
 # The old exec-based entrypoint exposed one mutable module namespace. Preserve
@@ -153,6 +252,10 @@ def _call_with_runtime_overrides(callback, *args):
 
 def handle_translate(payload):
     return _call_with_runtime_overrides(runtime.handle_translate, payload)
+
+
+def handle_translation_preload(payload):
+    return _call_with_runtime_overrides(runtime.handle_translation_preload, payload)
 
 
 def build_status_payload(payload=None):
