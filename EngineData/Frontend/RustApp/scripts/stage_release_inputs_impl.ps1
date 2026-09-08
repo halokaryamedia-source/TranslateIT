@@ -218,26 +218,14 @@ foreach ($item in $nltkPackages) {
 }
 @('source_kind=nltk_data', 'repository=nltk/nltk_data', "revision=$nltkRevision") + $nltkRecords | Set-Content -LiteralPath (Join-Path $VoiceSource 'NLTK_DATA_SOURCE.txt') -Encoding ascii
 
-Write-Host '[release-stage] Stage integrity-bound FFmpeg n8.1 LGPL executable from the current BtbN release'
-$ffmpegReleaseHeaders = @{
-    'Accept' = 'application/vnd.github+json'
-    'User-Agent' = 'TranslateIT-release-stage'
-    'X-GitHub-Api-Version' = '2022-11-28'
-}
-$ffmpegReleaseApi = 'https://api.github.com/repos/BtbN/FFmpeg-Builds/releases/latest'
-$ffmpegRelease = Invoke-RestMethod -Uri $ffmpegReleaseApi -Headers $ffmpegReleaseHeaders
-$ffmpegAssetName = 'ffmpeg-n8.1-latest-win64-lgpl-8.1.zip'
-$ffmpegMatches = @($ffmpegRelease.assets | Where-Object { $_.name -eq $ffmpegAssetName })
-if ($ffmpegMatches.Count -ne 1) { throw "Expected exactly one BtbN FFmpeg asset named $ffmpegAssetName; found $($ffmpegMatches.Count)." }
-$ffmpegAsset = $ffmpegMatches[0]
-$ffmpegDigest = [string]$ffmpegAsset.digest
-if ($ffmpegDigest -notmatch '^sha256:([0-9a-fA-F]{64})$') { throw "BtbN FFmpeg asset is missing a GitHub SHA-256 digest: $ffmpegDigest" }
-$ffmpegArchiveSha = $Matches[1].ToLowerInvariant()
-$ffmpegDownloadUrl = [string]$ffmpegAsset.browser_download_url
-if (-not $ffmpegDownloadUrl.StartsWith('https://github.com/BtbN/FFmpeg-Builds/releases/download/')) { throw "Unexpected BtbN FFmpeg download URL: $ffmpegDownloadUrl" }
+Write-Host '[release-stage] Stage pinned FFmpeg n8.1 LGPL executable from BtbN'
+$ffmpegReleaseTag = 'autobuild-2026-09-07-15-39'
+$ffmpegAssetName = 'ffmpeg-n8.1.2-51-g7ba069f4f1-win64-lgpl-8.1.zip'
+$ffmpegArchiveSha = '232464b6f9f1d55fa42c1b0e7ae1c9ca5a19272ba61229e8b32a93751055e135'
+$ffmpegDownloadUrl = "https://github.com/BtbN/FFmpeg-Builds/releases/download/$ffmpegReleaseTag/$ffmpegAssetName"
 $ffmpegArchive = Join-Path $Temp 'ffmpeg.zip'
 Invoke-Download $ffmpegDownloadUrl $ffmpegArchive
-Assert-Hash $ffmpegArchive $ffmpegArchiveSha 'FFmpeg archive GitHub digest'
+Assert-Hash $ffmpegArchive $ffmpegArchiveSha 'FFmpeg pinned archive'
 $ffmpegExtract = Join-Path $Temp 'ffmpeg-extract'
 Expand-Archive -LiteralPath $ffmpegArchive -DestinationPath $ffmpegExtract -Force
 $ffmpegExe = Get-ChildItem -LiteralPath $ffmpegExtract -Recurse -File -Filter 'ffmpeg.exe' | Select-Object -First 1
@@ -263,12 +251,7 @@ Copy-Item -LiteralPath $ffmpegLicense.FullName -Destination (Join-Path $VoiceSou
 @"
 source_kind=ffmpeg
 binary_builder=BtbN/FFmpeg-Builds
-builder_release_api=$ffmpegReleaseApi
-builder_release_id=$($ffmpegRelease.id)
-builder_release_tag=$($ffmpegRelease.tag_name)
-builder_release_name=$($ffmpegRelease.name)
-builder_release_published_at=$($ffmpegRelease.published_at)
-asset_id=$($ffmpegAsset.id)
+builder_release_tag=$ffmpegReleaseTag
 archive=$ffmpegAssetName
 archive_sha256=$ffmpegArchiveSha
 download_url=$ffmpegDownloadUrl
@@ -277,7 +260,7 @@ ffmpeg_exe_sha256=$ffmpegExeSha
 ffmpeg_license_sha256=$ffmpegLicenseSha
 license_profile=LGPL-3.0-or-later
 build_profile=win64-lgpl-static
-integrity_source=github_release_asset_digest
+integrity_source=pinned_release_asset_sha256
 "@ | Set-Content -LiteralPath (Join-Path $VoiceSource 'FFMPEG_SOURCE.txt') -Encoding ascii
 
 Write-Host '[release-stage] Stage exact official VB-CABLE Pack45'
