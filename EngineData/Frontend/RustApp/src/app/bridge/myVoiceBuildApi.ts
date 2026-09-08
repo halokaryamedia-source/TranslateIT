@@ -7,6 +7,12 @@ export type MyVoiceEvaluationSample = {
   speaker_similarity: number;
 };
 
+export type MyVoiceCoverageGuidance = {
+  start_line_id: number;
+  end_line_id: number;
+  label: string;
+};
+
 export type MyVoiceBuildStatus = {
   active: boolean;
   generation: number | null;
@@ -15,6 +21,7 @@ export type MyVoiceBuildStatus = {
   accepted_take_count: number;
   accepted_duration_ms: number;
   minimum_duration_ms: number;
+  missing_coverage: MyVoiceCoverageGuidance | null;
   can_build: boolean;
   evaluation_ready: boolean;
   evaluation_samples: MyVoiceEvaluationSample[];
@@ -37,6 +44,7 @@ function unavailableStatus(): MyVoiceBuildStatus {
     accepted_take_count: 0,
     accepted_duration_ms: 0,
     minimum_duration_ms: 60_000,
+    missing_coverage: null,
     can_build: false,
     evaluation_ready: false,
     evaluation_samples: [],
@@ -44,16 +52,20 @@ function unavailableStatus(): MyVoiceBuildStatus {
   };
 }
 
-function unavailableAction(message: string): MyVoiceBuildActionResult {
-  return { ok: false, state: "frontend_bridge_error", message, build: unavailableStatus() };
-}
-
 function productMessage(message: string): string {
   return message.replace(/\bVoiceLab\b/g, "My Voice");
 }
 
 function normalizeStatus(status: MyVoiceBuildStatus): MyVoiceBuildStatus {
-  return { ...status, message: productMessage(status.message) };
+  return {
+    ...status,
+    missing_coverage: status.missing_coverage ?? null,
+    message: productMessage(status.message),
+  };
+}
+
+function unavailableAction(message: string): MyVoiceBuildActionResult {
+  return { ok: false, state: "frontend_bridge_error", message, build: unavailableStatus() };
 }
 
 function normalizeAction(action: MyVoiceBuildActionResult): MyVoiceBuildActionResult {
