@@ -213,9 +213,13 @@ def voice_actor_static_status() -> dict[str, Any]:
         return {"ready": False, "actor_token": "", "blocker": voice_actor_blocker(exc)}
 
 
-def get_voice_actor_runtime() -> dict[str, Any]:
+def get_voice_actor_runtime(package: dict[str, Any] | None = None) -> dict[str, Any]:
     global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
-    package = voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
+    # Callers that already validated the actor package may pass that exact snapshot.
+    # This avoids hashing/reading the same actor package twice on every synthesis
+    # while retaining the post-load revalidation that detects a package changing
+    # during a cold runtime load.
+    package = package or voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
     fingerprint = package["fingerprint"]
     if VOICE_ACTOR_RUNTIME is not None and VOICE_ACTOR_RUNTIME_FINGERPRINT == fingerprint:
         return VOICE_ACTOR_RUNTIME
@@ -287,7 +291,7 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         if expected and token != expected:
             clear_voice_actor_runtime()
             raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
-        runtime = get_voice_actor_runtime()
+        runtime = get_voice_actor_runtime(package)
         runtime_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
         if expected and runtime_token != expected:
             clear_voice_actor_runtime()

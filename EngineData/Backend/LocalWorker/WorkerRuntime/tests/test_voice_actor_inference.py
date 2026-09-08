@@ -114,15 +114,21 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
     fingerprint = (("actor.json", 1, 1),)
+    validations: list[Path] = []
+
+    def validate_actor(root: Path):
+        validations.append(root)
+        return {"fingerprint": fingerprint}
+
     monkeypatch.setattr(
         worker.io_runtime.voice_actor_provider,
         "validate_actor_package",
-        lambda _root: {"fingerprint": fingerprint},
+        validate_actor,
     )
     monkeypatch.setattr(
         worker.io_runtime,
         "get_voice_actor_runtime",
-        lambda: {
+        lambda _package=None: {
             "device": "cpu",
             "reference_cached": True,
             "fingerprint": fingerprint,
@@ -146,6 +152,7 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     assert result["voice_id"] == "MyVoice"
     assert result["sample_rate"] == 32_000
     assert Path(result["output_path"]) == output
+    assert len(validations) == 1
 
 
 def test_voice_actor_failure_removes_stale_output_and_never_falls_back(
@@ -159,7 +166,7 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(
     monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
 
-    def unavailable():
+    def unavailable(_package=None):
         raise worker.io_runtime.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
 
     monkeypatch.setattr(worker.io_runtime, "get_voice_actor_runtime", unavailable)

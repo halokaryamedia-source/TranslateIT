@@ -1,6 +1,6 @@
 use serde::Serialize;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::PathBuf;
 
 use super::finalized_utterance::FinalizedMeetingUtterance;
@@ -240,7 +240,6 @@ pub(crate) fn write_pcm16_wav(
     }
     let temp_path = path.with_extension("wav.tmp");
     let write_result = (|| -> io::Result<()> {
-        let mut file = fs::File::create(&temp_path)?;
         let bits_per_sample = 16u16;
         let bytes_per_sample = bits_per_sample / 8;
         let block_align = channels * bytes_per_sample;
@@ -248,26 +247,30 @@ pub(crate) fn write_pcm16_wav(
         let data_size = (samples.len() * usize::from(bytes_per_sample)) as u32;
         let riff_size = 36u32.saturating_add(data_size);
 
-        file.write_all(b"RIFF")?;
-        file.write_all(&riff_size.to_le_bytes())?;
-        file.write_all(b"WAVE")?;
-        file.write_all(b"fmt ")?;
-        file.write_all(&16u32.to_le_bytes())?;
-        file.write_all(&1u16.to_le_bytes())?;
-        file.write_all(&channels.to_le_bytes())?;
-        file.write_all(&sample_rate_hz.to_le_bytes())?;
-        file.write_all(&byte_rate.to_le_bytes())?;
-        file.write_all(&block_align.to_le_bytes())?;
-        file.write_all(&bits_per_sample.to_le_bytes())?;
-        file.write_all(b"data")?;
-        file.write_all(&data_size.to_le_bytes())?;
+        // Build the bounded PCM16 payload in memory and promote it with one file
+        // write. The previous implementation issued one unbuffered write_all call
+        // per two-byte sample, which put thousands of tiny writes on the finalized
+        // utterance critical path before ASR could begin.
+        let mut wav = Vec::with_capacity(44usize.saturating_add(data_size as usize));
+        wav.extend_from_slice(b"RIFF");
+        wav.extend_from_slice(&riff_size.to_le_bytes());
+        wav.extend_from_slice(b"WAVE");
+        wav.extend_from_slice(b"fmt ");
+        wav.extend_from_slice(&16u32.to_le_bytes());
+        wav.extend_from_slice(&1u16.to_le_bytes());
+        wav.extend_from_slice(&channels.to_le_bytes());
+        wav.extend_from_slice(&sample_rate_hz.to_le_bytes());
+        wav.extend_from_slice(&byte_rate.to_le_bytes());
+        wav.extend_from_slice(&block_align.to_le_bytes());
+        wav.extend_from_slice(&bits_per_sample.to_le_bytes());
+        wav.extend_from_slice(b"data");
+        wav.extend_from_slice(&data_size.to_le_bytes());
 
         for sample in samples {
             let value = (safe_sample(*sample) * i16::MAX as f32).round() as i16;
-            file.write_all(&value.to_le_bytes())?;
+            wav.extend_from_slice(&value.to_le_bytes());
         }
-        file.flush()?;
-        drop(file);
+        fs::write(&temp_path, &wav)?;
 
         match fs::rename(&temp_path, path) {
             Ok(()) => Ok(()),
@@ -310,6 +313,25 @@ mod tests {
             "translateit-{label}-{}-{nonce}",
             std::process::id()
         ))
+    }
+
+    #[test]
+    fn pcm16_writer_emits_canonical_riff_payload() {
+        let root = unique_test_root("wav-canonical");
+        fs::create_dir_all(&root).expect("create test root");
+        let destination = root.join("sample.wav");
+
+        write_pcm16_wav(&destination, TARGET_SAMPLE_RATE_HZ, 1, &[0.25, -0.25])
+            .expect("write canonical wav");
+        let bytes = fs::read(&destination).expect("read canonical wav");
+        assert_eq!(&bytes[0..4], b"RIFF");
+        assert_eq!(&bytes[8..12], b"WAVE");
+        assert_eq!(&bytes[36..40], b"data");
+        assert_eq!(u32::from_le_bytes(bytes[40..44].try_into().unwrap()), 4);
+        assert_eq!(bytes.len(), 48);
+        assert_eq!(&bytes[44..48], &[0x00, 0x20, 0x00, 0xE0]);
+
+        fs::remove_dir_all(root).expect("remove test root");
     }
 
     #[test]
