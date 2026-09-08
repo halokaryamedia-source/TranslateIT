@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import importlib.util
 import sys
 import types
@@ -8,6 +9,7 @@ from pathlib import Path
 WORKER_ROOT = Path(__file__).resolve().parents[1]
 WORKER_PATH = WORKER_ROOT / "realtime_local_worker.py"
 ENVELOPE_PATH = WORKER_ROOT / "translation_envelope.py"
+PROVIDER_PATH = WORKER_ROOT / "milmmt_translation_provider.py"
 
 
 def load_module(name: str, path: Path):
@@ -56,7 +58,7 @@ def test_standalone_plan_always_uses_semantic_units_and_preserves_paragraphs() -
             "I did not approve 1800 dollars, not 2100 dollars.",
             "Can you send the corrected file?",
         ],
-        ["The Clockwork project is ready.", "Younes will review it tomorrow."],
+        ["The Clockwork project is ready. Younes will review it tomorrow."],
     ]
 
 
@@ -70,6 +72,25 @@ def test_standalone_plan_token_splits_only_an_oversized_semantic_unit() -> None:
             "Short sentence.",
         ]
     ]
+
+
+def test_milmmt_generation_explicitly_enables_kv_cache() -> None:
+    tree = ast.parse(PROVIDER_PATH.read_text(encoding="utf-8"))
+    generate_calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "generate"
+    ]
+    assert generate_calls, "MiLMMT provider must own an explicit model.generate call"
+    assert any(
+        keyword.arg == "use_cache"
+        and isinstance(keyword.value, ast.Constant)
+        and keyword.value.value is True
+        for call in generate_calls
+        for keyword in call.keywords
+    ), "MiLMMT deterministic inference must explicitly enable KV cache"
 
 
 def test_translation_runtime_reuses_one_loaded_milmmt_model_for_both_directions(

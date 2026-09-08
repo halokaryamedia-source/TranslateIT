@@ -324,6 +324,12 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 max_new_tokens=generation_budget,
                 do_sample=False,
                 return_dict_in_generate=True,
+                # MiLMMT ships with use_cache=false in its checkpoint config even
+                # though Gemma3 supports KV caching and its hybrid cache. Override
+                # that training/checkpoint setting for deterministic inference so
+                # autoregressive decoding reuses past key/value states instead of
+                # recomputing the full prompt for every generated token.
+                use_cache=True,
             )
         completion = _continuation(generated, prompt_tokens, tokenizer, model, generation_budget)
         if not completion["complete"]:
