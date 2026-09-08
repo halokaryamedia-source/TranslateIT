@@ -262,9 +262,7 @@ def training_takes(dataset_dir: Path, manifest: dict[str, Any]) -> list[dict[str
 
 
 def select_reference(takes: list[dict[str, Any]]) -> dict[str, Any]:
-    eligible = [
-        x for x in takes if REFERENCE_MIN_MS <= int(x["duration_ms"]) <= REFERENCE_MAX_MS
-    ]
+    eligible = [x for x in takes if REFERENCE_MIN_MS <= int(x["duration_ms"]) <= REFERENCE_MAX_MS]
     if not eligible:
         raise VoiceLabProviderError("reference_take_3_to_10_seconds_required")
     return min(
@@ -814,9 +812,7 @@ def load_voice_actor_runtime(source_root: Path, actor_dir: Path) -> dict[str, An
     return runtime
 
 
-def synthesize_voice_actor(
-    runtime: dict[str, Any], text: str, output_path: Path
-) -> dict[str, Any]:
+def synthesize_voice_actor(runtime: dict[str, Any], text: str, output_path: Path) -> dict[str, Any]:
     tts = runtime.get("tts")
     reference_wav = runtime.get("reference_wav")
     reference_text = str(runtime.get("reference_text", "")).strip()

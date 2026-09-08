@@ -163,9 +163,7 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(
         raise worker.io_runtime.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
 
     monkeypatch.setattr(worker.io_runtime, "get_voice_actor_runtime", unavailable)
-    result = worker.handle_voice_actor_synthesize(
-        {"text": "Hello.", "output_path": str(output)}
-    )
+    result = worker.handle_voice_actor_synthesize({"text": "Hello.", "output_path": str(output)})
     assert result["ok"] is False
     assert result["blocker"] == "voice_actor:approved_actor_missing"
     assert not output.exists()
