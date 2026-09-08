@@ -4,6 +4,7 @@ import {
   type MeetingSessionActionResult,
   type MeetingSessionStatus,
 } from "./runtimeApi";
+import { resolveMeetingVoiceGate } from "../runtime/meetingVoiceGate";
 import { defaultSettings, compact, errorMessage } from "../shared/state";
 import { APPLICATION_MEETING_OWNER_ID } from "../shared/types";
 import type {
@@ -430,8 +431,12 @@ export function mapProductReadiness(input: {
   const voiceReady = microphoneReady && providerReady;
   const meetingRouteReady = meeting.meetingRouteReady;
   const approvedVoiceReady = typeof input.approvedVoiceReady === "boolean" ? input.approvedVoiceReady : null;
-  const approvedVoiceConfirmed = approvedVoiceReady === true;
-  const meetingReady = productMeeting.live || (meeting.readyForStart && approvedVoiceConfirmed);
+  const voiceGate = resolveMeetingVoiceGate({
+    live: productMeeting.live,
+    preflightReady: meeting.readyForStart,
+    selectedVoiceReady: approvedVoiceReady,
+  });
+  const meetingReady = voiceGate.meetingReady;
   const recording = productMeeting.captureActive;
   const canRecordVoice = voiceReady && !recording && !productMeeting.hasSession;
   const blockers = collectBlockers({
@@ -459,36 +464,32 @@ export function mapProductReadiness(input: {
     ? "TranslateIT is unavailable right now. Try the status check again before using translation."
     : productMeeting.live
       ? "Translation is live. Stop the Meeting session when you are finished."
-      : meeting.readyForStart && approvedVoiceReady === null
-        ? "Checking the selected Meeting voice before starting."
-        : meeting.readyForStart && !approvedVoiceConfirmed
-          ? "Choose a Meeting voice before starting Meeting translation."
-          : meeting.readyForStart
-            ? "Meeting Translation is ready to start."
-            : productMeeting.canStart
-              ? "Start Translation will run a quick final translation check before going live."
-              : textReady
-                ? "Text translation is available. Meeting setup still needs attention."
-                : textDirection === "unsupported"
-                  ? "Choose Indonesian → English or English → Indonesian for Text translation."
-                  : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
+      : voiceGate.nextAction
+        ? voiceGate.nextAction
+        : meeting.readyForStart
+          ? "Meeting Translation is ready to start."
+          : productMeeting.canStart
+            ? "Start Translation will run a quick final translation check before going live."
+            : textReady
+              ? "Text translation is available. Meeting setup still needs attention."
+              : textDirection === "unsupported"
+                ? "Choose Indonesian → English or English → Indonesian for Text translation."
+                : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
   const summary = runtimeUnavailable
     ? "TranslateIT is unavailable right now. Try the status check again."
     : productMeeting.live
       ? "Meeting Translation is live."
-      : meeting.readyForStart && approvedVoiceReady === null
-        ? "Meeting Translation is checking the selected Meeting voice."
-        : meeting.readyForStart && !approvedVoiceConfirmed
-          ? "Choose a Meeting voice before starting Meeting Translation."
-          : meeting.readyForStart
-            ? "Meeting Translation is ready."
-            : productMeeting.canStart
-              ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
-              : textReady
-                ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
-                : hasRuntimeEvidence
-                  ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
-                  : "Product readiness is still checking.";
+      : voiceGate.summary
+        ? voiceGate.summary
+        : meeting.readyForStart
+          ? "Meeting Translation is ready."
+          : productMeeting.canStart
+            ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
+            : textReady
+              ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
+              : hasRuntimeEvidence
+                ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
+                : "Product readiness is still checking.";
 
   return {
     level,
@@ -551,13 +552,11 @@ export function mapProductReadiness(input: {
         ? "Live"
         : productMeeting.busy
           ? productMeeting.label
-          : meeting.readyForStart && approvedVoiceConfirmed
-            ? "Ready"
-            : meeting.readyForStart && approvedVoiceReady === null
+          : meeting.readyForStart
+            ? voiceGate.status
+            : level === "checking"
               ? "Checking"
-              : level === "checking"
-                ? "Checking"
-                : "Setup Needed",
+              : "Setup Needed",
     runtimeStatus: runtimeUnavailable
       ? "Unavailable"
       : productMeeting.lifecycle !== "idle"
