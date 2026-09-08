@@ -4,15 +4,11 @@ use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
 
 fn log_event(message: impl Into<String>) {
-    let message = message.into();
-    println!("[TranslateIT Rust Trace] {message}");
+    let event = RuntimeLogEvent::info("startup", message);
+    println!("[TranslateIT Rust Trace] {}", event.message);
     let project_paths = ProjectPaths::discover();
     let log_dir = std::path::PathBuf::from(project_paths.user_log_dir);
-    let _ = write_jsonl_event(
-        &log_dir,
-        "rust_runtime_latest.jsonl",
-        &RuntimeLogEvent::info("startup", message),
-    );
+    let _ = write_jsonl_event(&log_dir, "rust_runtime_latest.jsonl", &event);
 }
 
 pub fn trace_command_start(command: &str, detail: impl Into<String>) -> Instant {

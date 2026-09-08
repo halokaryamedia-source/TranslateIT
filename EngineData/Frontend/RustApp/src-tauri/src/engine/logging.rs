@@ -143,25 +143,78 @@ fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
     output
 }
 
-fn redact_log_value(value: &str) -> String {
-    value
-        .split_whitespace()
-        .map(redact_log_token)
-        .collect::<Vec<_>>()
-        .join(" ")
-}
-
-fn redact_log_token(token: &str) -> String {
-    let trimmed = token.trim_matches(|character: char| {
+fn trimmed_log_token(token: &str) -> &str {
+    token.trim_matches(|character: char| {
         matches!(
             character,
             ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"'
         ) || character == char::from(39)
-    });
-    let lowercase = trimmed.to_ascii_lowercase();
-    if looks_like_secret(&lowercase) {
-        return REDACTED_SECRET.to_string();
+    })
+}
+
+fn secret_span_len(tokens: &[&str], index: usize) -> Option<usize> {
+    let current = trimmed_log_token(tokens[index]).to_ascii_lowercase();
+    if current == "bearer" {
+        return Some(if index + 1 < tokens.len() { 2 } else { 1 });
     }
+
+    for key in [
+        "token",
+        "api_key",
+        "api-key",
+        "apikey",
+        "secret",
+        "password",
+        "authorization",
+    ] {
+        if current == key {
+            if index + 1 >= tokens.len() {
+                return Some(1);
+            }
+            let next = trimmed_log_token(tokens[index + 1]).to_ascii_lowercase();
+            if matches!(next.as_str(), ":" | "=") {
+                return Some((tokens.len() - index).min(3));
+            }
+            if key == "authorization" && next == "bearer" {
+                return Some((tokens.len() - index).min(3));
+            }
+            return Some(2);
+        }
+
+        for separator in [':', '='] {
+            let prefix = format!("{key}{separator}");
+            if let Some(value) = current.strip_prefix(&prefix) {
+                if value.is_empty() {
+                    return Some(if index + 1 < tokens.len() { 2 } else { 1 });
+                }
+                if key == "authorization" && value == "bearer" {
+                    return Some(if index + 1 < tokens.len() { 2 } else { 1 });
+                }
+                return Some(1);
+            }
+        }
+    }
+    None
+}
+
+fn redact_log_value(value: &str) -> String {
+    let tokens = value.split_whitespace().collect::<Vec<_>>();
+    let mut output = Vec::with_capacity(tokens.len());
+    let mut index = 0usize;
+    while index < tokens.len() {
+        if let Some(span) = secret_span_len(&tokens, index) {
+            output.push(REDACTED_SECRET.to_string());
+            index = index.saturating_add(span.max(1));
+            continue;
+        }
+        output.push(redact_log_token(tokens[index]));
+        index += 1;
+    }
+    output.join(" ")
+}
+
+fn redact_log_token(token: &str) -> String {
+    let trimmed = trimmed_log_token(token);
     if looks_like_local_path(trimmed) {
         return REDACTED_PATH.to_string();
     }
@@ -171,22 +224,18 @@ fn redact_log_token(token: &str) -> String {
     token.to_string()
 }
 
-fn looks_like_secret(value: &str) -> bool {
-    value.contains("token=")
-        || value.contains("api_key")
-        || value.contains("apikey")
-        || value.contains("secret=")
-        || value.contains("password=")
-        || value.contains("authorization=")
-        || value.contains("bearer ")
-}
-
 fn looks_like_local_path(value: &str) -> bool {
-    let normalized = value.replace(char::from(92), "/");
+    let candidate = value
+        .split_once('=')
+        .map(|(_, right)| right)
+        .unwrap_or(value)
+        .trim_start_matches("file:///");
+    let normalized = candidate.replace(char::from(92), "/");
     let bytes = normalized.as_bytes();
     let drive_path =
         bytes.len() >= 3 && bytes[1] == b':' && bytes[2] == b'/' && bytes[0].is_ascii_alphabetic();
     drive_path
+        || normalized.starts_with("//")
         || normalized.starts_with("/Users/")
         || normalized.starts_with("/home/")
         || normalized.starts_with("/mnt/")
@@ -221,4 +270,55 @@ fn current_unix_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn diagnostic_log_fields_redact_paths_email_and_inline_secrets() {
+        let value = compact_log_field(
+            r"failed C:\Users\alice\runtime.log alice@example.com token=abc123 password=hunter2",
+            MAX_LOG_MESSAGE_CHARS,
+        );
+        assert!(value.contains(REDACTED_PATH));
+        assert!(value.contains(REDACTED_EMAIL));
+        assert!(value.contains(REDACTED_SECRET));
+        assert!(!value.contains("alice@example.com"));
+        assert!(!value.contains("abc123"));
+        assert!(!value.contains("hunter2"));
+    }
+
+    #[test]
+    fn bearer_credentials_are_redacted_as_a_span() {
+        for raw in [
+            "Bearer abc.def.123",
+            "Authorization: Bearer abc.def.123",
+            "authorization=Bearer abc.def.123",
+        ] {
+            let value = compact_log_field(raw, MAX_LOG_MESSAGE_CHARS);
+            assert!(value.contains(REDACTED_SECRET));
+            assert!(!value.contains("abc.def.123"));
+        }
+    }
+
+    #[test]
+    fn path_like_assignment_and_unc_paths_are_redacted() {
+        for raw in [
+            r"stderr=C:\Users\alice\trace.log",
+            r"\\server\private\trace.log",
+            "/home/alice/trace.log",
+        ] {
+            assert_eq!(compact_log_field(raw, MAX_LOG_MESSAGE_CHARS), REDACTED_PATH);
+        }
+    }
+
+    #[test]
+    fn unsafe_controls_are_removed_and_log_file_names_stay_bounded() {
+        assert_eq!(compact_log_field("safe\u{202e} status", 64), "safe status");
+        assert!(is_safe_log_file_name("rust_runtime_latest.jsonl"));
+        assert!(!is_safe_log_file_name("../runtime.jsonl"));
+        assert!(!is_safe_log_file_name("nested/runtime.jsonl"));
+    }
 }

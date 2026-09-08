@@ -9,6 +9,7 @@
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "../app/bridge/runtimeProductFacade";
+  import { sanitizeDiagnosticText } from "../app/shared/diagnosticPrivacy";
   import { deviceId } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
@@ -64,6 +65,9 @@
 
   const workerDiagnostics = $derived(parseWorkerCapabilities(snapshot.workerStatus));
   const outboundTiming = $derived(snapshot.meetingSession?.outbound?.timing ?? null);
+  const helperDiagnosticMessage = $derived(
+    sanitizeDiagnosticText(snapshot.helper?.message, "Refresh status to check the local worker."),
+  );
 
   function currentDevice(kind: ProductAudioDeviceKind): string {
     return String(kind === "microphone" ? settings.audio.input_device_id ?? "" : settings.audio.output_device_id ?? "");
@@ -302,7 +306,7 @@
             <div class="ti-state-card"><span class="ti-field-label">Execution device</span><strong class="mt-2 block text-[13px]">{snapshot.helper?.cuda_ready ? "CUDA" : snapshot.helper?.degraded_mode ? "CPU / degraded" : "Not verified"}</strong></div>
           </div>
 
-          <p class="mb-0 mt-4 text-[12px] leading-5 text-[var(--ti-text-muted)]">{snapshot.helper?.message ?? "Refresh status to check the local worker."}</p>
+          <p class="mb-0 mt-4 text-[12px] leading-5 text-[var(--ti-text-muted)]">{helperDiagnosticMessage}</p>
 
           <div class="ti-action-row mt-4">
             <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void refreshDiagnostics()}><RefreshCw size={15} /> {diagnosticsLoading || setupBusy ? "Refreshing..." : "Refresh Status"}</button>
