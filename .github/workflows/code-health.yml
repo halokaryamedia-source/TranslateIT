@@ -34,10 +34,6 @@ on:
       - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
       - ".github/workflows/code-health.yml"
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 permissions:
   contents: read
 
@@ -108,6 +104,9 @@ jobs:
     name: Frontend source health
     needs: changes
     if: needs.changes.outputs.frontend == 'true'
+    concurrency:
+      group: code-health-frontend-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -137,6 +136,9 @@ jobs:
     name: Python source and unit health
     needs: changes
     if: needs.changes.outputs.python == 'true'
+    concurrency:
+      group: code-health-python-linux-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:
@@ -182,6 +184,9 @@ jobs:
     name: Windows Python source and unit health
     needs: changes
     if: needs.changes.outputs.python == 'true'
+    concurrency:
+      group: code-health-python-windows-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: windows-latest
     timeout-minutes: 25
     defaults:
@@ -228,6 +233,9 @@ jobs:
     name: Rust source and unit health
     needs: changes
     if: needs.changes.outputs.rust == 'true'
+    concurrency:
+      group: code-health-rust-linux-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
@@ -266,6 +274,9 @@ jobs:
     name: Windows Rust source and unit health
     needs: changes
     if: needs.changes.outputs.rust == 'true'
+    concurrency:
+      group: code-health-rust-windows-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: windows-latest
     timeout-minutes: 45
     defaults:
