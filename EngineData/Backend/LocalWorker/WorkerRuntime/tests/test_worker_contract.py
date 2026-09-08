@@ -141,7 +141,9 @@ def test_worker_status_reports_milmmt_revision_for_both_directions(monkeypatch) 
         assert status["models"][key]["path"] == str(worker.TRANSLATION_MODEL)
 
 
-def test_milmmt_generate_options_are_greedy_deterministic_and_have_no_forced_bos(monkeypatch) -> None:
+def test_milmmt_generate_options_are_greedy_deterministic_and_have_no_forced_bos(
+    monkeypatch,
+) -> None:
     worker = load_worker_module()
     fake_torch = types.SimpleNamespace(inference_mode=_FakeInferenceMode)
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
@@ -245,12 +247,22 @@ def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -
     monkeypatch.setattr(
         common,
         "torch_status",
-        lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
     )
     monkeypatch.setattr(
         common,
         "ctranslate2_status",
-        lambda: {"import_ready": True, "cuda_probe_ok": True, "cuda_available": False, "blocker": ""},
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
     )
     gpu = worker.probe_gpu_runtime({})
     assert gpu["cuda_capability_known"] is True

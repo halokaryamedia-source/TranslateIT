@@ -11,7 +11,9 @@ _PROVIDER_SENTINEL = "_translateit_milmmt_provider_installed"
 _CONTEXT_POLICY_SENTINEL = "_translateit_translation_context_policy_installed"
 _CONTEXT_POLICY_ORIGINAL = "_translateit_translation_context_policy_original_handle_translate"
 _PRELOAD_POLICY_SENTINEL = "_translateit_translation_preload_policy_installed"
-_PRELOAD_POLICY_ORIGINAL = "_translateit_translation_preload_policy_original_handle_translation_preload"
+_PRELOAD_POLICY_ORIGINAL = (
+    "_translateit_translation_preload_policy_original_handle_translation_preload"
+)
 
 MAX_PROTOCOL_STAGE_CHARS = 96
 MAX_PROTOCOL_BLOCKER_CHARS = 512
@@ -51,8 +53,10 @@ if not getattr(runtime, _PROVIDER_SENTINEL, False):
 
 
 def _single_translation_domain_blocker(value: str) -> bool:
-    return bool(value) and value.startswith(_TRANSLATION_DOMAIN_PREFIXES) and all(
-        char.isascii() and (char.isalnum() or char in "_:.-") for char in value
+    return (
+        bool(value)
+        and value.startswith(_TRANSLATION_DOMAIN_PREFIXES)
+        and all(char.isascii() and (char.isalnum() or char in "_:.-") for char in value)
     )
 
 
@@ -171,11 +175,7 @@ def _translation_context_authorized(payload: dict) -> bool:
     except (TypeError, ValueError):
         return False
     return (
-        lane == "you"
-        and source == "id"
-        and target == "en"
-        and bool(session_id)
-        and generation > 0
+        lane == "you" and source == "id" and target == "en" and bool(session_id) and generation > 0
     )
 
 
@@ -307,17 +307,13 @@ def _bounded_protocol_response(payload):
         }
     result = dict(payload)
     if "stage" in result:
-        result["stage"] = runtime.compact_runtime_text(
-            result["stage"], MAX_PROTOCOL_STAGE_CHARS
-        )
+        result["stage"] = runtime.compact_runtime_text(result["stage"], MAX_PROTOCOL_STAGE_CHARS)
     if "blocker" in result:
         result["blocker"] = runtime.compact_runtime_text(
             result["blocker"], MAX_PROTOCOL_BLOCKER_CHARS
         )
     if "note" in result:
-        result["note"] = runtime.compact_runtime_text(
-            result["note"], MAX_PROTOCOL_NOTE_CHARS
-        )
+        result["note"] = runtime.compact_runtime_text(result["note"], MAX_PROTOCOL_NOTE_CHARS)
     return result
 
 
@@ -329,9 +325,7 @@ def _respond_protocol(payload) -> None:
 
 def _handler_failure(exc: Exception) -> dict:
     exception_type = "".join(
-        char
-        for char in type(exc).__name__
-        if char.isascii() and (char.isalnum() or char == "_")
+        char for char in type(exc).__name__ if char.isascii() and (char.isalnum() or char == "_")
     )[:96]
     return {
         "ok": False,

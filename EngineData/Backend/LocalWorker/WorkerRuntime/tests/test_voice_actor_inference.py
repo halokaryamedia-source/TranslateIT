@@ -30,7 +30,22 @@ def write_actor(root: Path, revision: str | None = None) -> None:
     (root / "gpt.ckpt").write_bytes(b"gpt")
     (root / "sovits.pth").write_bytes(b"sovits")
     write_reference_wav(root / "reference.wav")
-    (root / "actor.json").write_text(json.dumps({"schema_version": 1, "engine": "gpt-sovits-v2proplus", "engine_revision": revision or "d523079fc05d9a8028d6085bffe4a2757c32abb6", "gpt_weight_file": "gpt.ckpt", "sovits_weight_file": "sovits.pth", "reference_wav_file": "reference.wav", "reference_text": "Tomorrow we will review the final project timeline.", "reference_duration_ms": 4_000, "held_out_evaluation_complete": True}), encoding="utf-8")
+    (root / "actor.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "engine": "gpt-sovits-v2proplus",
+                "engine_revision": revision or "d523079fc05d9a8028d6085bffe4a2757c32abb6",
+                "gpt_weight_file": "gpt.ckpt",
+                "sovits_weight_file": "sovits.pth",
+                "reference_wav_file": "reference.wav",
+                "reference_text": "Tomorrow we will review the final project timeline.",
+                "reference_duration_ms": 4_000,
+                "held_out_evaluation_complete": True,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def test_actor_package_validation_matches_approved_contract(tmp_path: Path) -> None:
@@ -40,7 +55,9 @@ def test_actor_package_validation_matches_approved_contract(tmp_path: Path) -> N
     package = provider.validate_actor_package(actor)
     assert package["reference_duration_ms"] == 4_000
     assert package["gpt_path"] == actor / "gpt.ckpt"
-    assert len(package["fingerprint"]) == 5  # manifest + gpt + sovits + wav identity + wav content hash
+    assert (
+        len(package["fingerprint"]) == 5
+    )  # manifest + gpt + sovits + wav identity + wav content hash
     write_actor(actor, revision="0" * 40)
     with pytest.raises(provider.VoiceLabProviderError, match="actor_engine_contract_mismatch"):
         provider.validate_actor_package(actor)
@@ -61,11 +78,25 @@ def test_worker_reuses_actor_runtime_until_package_identity_changes(monkeypatch)
     worker.clear_voice_actor_runtime()
     current = {"fingerprint": (("actor.json", 1, 1),)}
     loads: list[object] = []
-    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "validate_actor_package", lambda _path: {"fingerprint": current["fingerprint"]})
+    monkeypatch.setattr(
+        worker.io_runtime.voice_actor_provider,
+        "validate_actor_package",
+        lambda _path: {"fingerprint": current["fingerprint"]},
+    )
+
     def load_runtime(_source, _actor):
         loads.append(current["fingerprint"])
-        return {"fingerprint": current["fingerprint"], "device": "cpu", "reference_cached": True}
-    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "load_voice_actor_runtime", load_runtime)
+        return {
+            "fingerprint": current["fingerprint"],
+            "device": "cpu",
+            "reference_cached": True,
+        }
+
+    monkeypatch.setattr(
+        worker.io_runtime.voice_actor_provider,
+        "load_voice_actor_runtime",
+        load_runtime,
+    )
     first = worker.get_voice_actor_runtime()
     second = worker.get_voice_actor_runtime()
     assert first is second
@@ -97,19 +128,29 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
             "fingerprint": fingerprint,
         },
     )
+
     def synthesize(_runtime, _text, output_path):
         output_path.write_bytes(b"R" * 80)
         return {"sample_rate": 32_000, "device": "cpu", "reference_cached": True}
-    monkeypatch.setattr(worker.io_runtime.voice_actor_provider, "synthesize_voice_actor", synthesize)
+
+    monkeypatch.setattr(
+        worker.io_runtime.voice_actor_provider,
+        "synthesize_voice_actor",
+        synthesize,
+    )
     output = cache / "myvoice.wav"
-    result = worker.handle_voice_actor_synthesize({"text": "Hello from My Voice.", "output_path": str(output)})
+    result = worker.handle_voice_actor_synthesize(
+        {"text": "Hello from My Voice.", "output_path": str(output)}
+    )
     assert result["ok"] is True
     assert result["voice_id"] == "MyVoice"
     assert result["sample_rate"] == 32_000
     assert Path(result["output_path"]) == output
 
 
-def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path: Path, monkeypatch) -> None:
+def test_voice_actor_failure_removes_stale_output_and_never_falls_back(
+    tmp_path: Path, monkeypatch
+) -> None:
     worker = load_worker_module()
     cache = tmp_path / "CacheData"
     cache.mkdir()
@@ -117,10 +158,14 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
     output.write_bytes(b"old" * 40)
     monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
+
     def unavailable():
         raise worker.io_runtime.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
+
     monkeypatch.setattr(worker.io_runtime, "get_voice_actor_runtime", unavailable)
-    result = worker.handle_voice_actor_synthesize({"text": "Hello.", "output_path": str(output)})
+    result = worker.handle_voice_actor_synthesize(
+        {"text": "Hello.", "output_path": str(output)}
+    )
     assert result["ok"] is False
     assert result["blocker"] == "voice_actor:approved_actor_missing"
     assert not output.exists()

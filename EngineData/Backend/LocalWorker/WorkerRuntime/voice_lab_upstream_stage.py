@@ -194,7 +194,10 @@ def run_upstream_script(source_root: Path, script: Path, script_args: list[str])
 
 def main() -> int:
     if len(sys.argv) < 3:
-        print("usage: voice_lab_upstream_stage.py <source-root> <script> [args...]", file=sys.stderr)
+        print(
+            "usage: voice_lab_upstream_stage.py <source-root> <script> [args...]",
+            file=sys.stderr,
+        )
         return 2
     run_upstream_script(Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3:])
     return 0

@@ -10,9 +10,21 @@ OUTPUT_TOKEN_MARGIN = 16
 MAX_STANDALONE_TRANSLATION_CHUNKS = 32
 
 _NON_TERMINAL_ABBREVIATIONS = {
-    "dr", "mr", "mrs", "ms", "prof", "sr", "jr", "no", "vs", "e.g", "i.e", "a.m", "p.m",
+    "dr",
+    "mr",
+    "mrs",
+    "ms",
+    "prof",
+    "sr",
+    "jr",
+    "no",
+    "vs",
+    "e.g",
+    "i.e",
+    "a.m",
+    "p.m",
 }
-_CLOSING_SENTENCE_PUNCTUATION = '"\'”’)]}'
+_CLOSING_SENTENCE_PUNCTUATION = "\"'”’)]}"
 
 
 class TranslationEnvelopeError(ValueError):
@@ -39,11 +51,15 @@ def finite_positive_token_limit(value: Any, unreasonable_limit: int) -> int | No
 
 def input_token_limit(tokenizer: Any, model: Any, unreasonable_limit: int) -> int | None:
     candidates: list[int] = []
-    tokenizer_limit = finite_positive_token_limit(getattr(tokenizer, "model_max_length", None), unreasonable_limit)
+    tokenizer_limit = finite_positive_token_limit(
+        getattr(tokenizer, "model_max_length", None), unreasonable_limit
+    )
     if tokenizer_limit is not None:
         candidates.append(tokenizer_limit)
     config = getattr(model, "config", None)
-    model_limit = finite_positive_token_limit(getattr(config, "max_position_embeddings", None), unreasonable_limit)
+    model_limit = finite_positive_token_limit(
+        getattr(config, "max_position_embeddings", None), unreasonable_limit
+    )
     if model_limit is not None:
         candidates.append(model_limit)
     return min(candidates) if candidates else None
@@ -64,19 +80,32 @@ def token_count(tokenizer: Any, text: str) -> int | None:
     return None
 
 
-def generation_cap(tokenizer: Any, model: Any, max_input_tokens: int, unreasonable_limit: int) -> int:
+def generation_cap(
+    tokenizer: Any, model: Any, max_input_tokens: int, unreasonable_limit: int
+) -> int:
     candidates = [MAX_GENERATION_TOKENS, max_input_tokens]
     config = getattr(model, "config", None)
-    model_limit = finite_positive_token_limit(getattr(config, "max_position_embeddings", None), unreasonable_limit)
+    model_limit = finite_positive_token_limit(
+        getattr(config, "max_position_embeddings", None), unreasonable_limit
+    )
     if model_limit is not None:
         candidates.append(model_limit)
-    tokenizer_limit = finite_positive_token_limit(getattr(tokenizer, "model_max_length", None), unreasonable_limit)
+    tokenizer_limit = finite_positive_token_limit(
+        getattr(tokenizer, "model_max_length", None), unreasonable_limit
+    )
     if tokenizer_limit is not None:
         candidates.append(tokenizer_limit)
     return max(1, min(candidates))
 
 
-def adaptive_generation_budget(requested_floor: Any, input_tokens: int, tokenizer: Any, model: Any, max_input_tokens: int, unreasonable_limit: int) -> int:
+def adaptive_generation_budget(
+    requested_floor: Any,
+    input_tokens: int,
+    tokenizer: Any,
+    model: Any,
+    max_input_tokens: int,
+    unreasonable_limit: int,
+) -> int:
     cap = generation_cap(tokenizer, model, max_input_tokens, unreasonable_limit)
     try:
         floor = int(requested_floor)
@@ -197,7 +226,11 @@ def split_paragraph(paragraph: str, tokenizer: Any, max_input_tokens: int) -> li
 
 
 def standalone_plan(source: str, tokenizer: Any, max_input_tokens: int) -> list[list[str]]:
-    paragraphs = [compact_unit(part) for part in re.split(r"\n[ \t]*\n+", clean_source_text(source)) if compact_unit(part)]
+    paragraphs = [
+        compact_unit(part)
+        for part in re.split(r"\n[ \t]*\n+", clean_source_text(source))
+        if compact_unit(part)
+    ]
     if not paragraphs:
         return []
     plan: list[list[str]] = []
@@ -214,4 +247,7 @@ def standalone_plan(source: str, tokenizer: Any, max_input_tokens: int) -> list[
 
 
 def reassemble(paragraph_outputs: list[list[str]]) -> str:
-    return "\n\n".join(" ".join(compact_unit(chunk) for chunk in paragraph if compact_unit(chunk)) for paragraph in paragraph_outputs).strip()
+    return "\n\n".join(
+        " ".join(compact_unit(chunk) for chunk in paragraph if compact_unit(chunk))
+        for paragraph in paragraph_outputs
+    ).strip()

@@ -94,7 +94,11 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
 
 def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     del payload
-    return {"ok": False, "stage": "translation_preload", "blocker": "translation:provider_not_installed"}
+    return {
+        "ok": False,
+        "stage": "translation_preload",
+        "blocker": "translation:provider_not_installed",
+    }
 
 
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
@@ -112,11 +116,17 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
     if "transformers" in joined or "torch" in joined or "translation_model_missing" in joined:
         actions.append("Repair the canonical local translation provider/model assets.")
     if "voice_actor:" in joined:
-        actions.append("Create and approve My Voice in VoiceLab, or repair the installed VoiceLab runtime assets.")
+        actions.append(
+            "Create and approve My Voice in VoiceLab, or repair the installed VoiceLab runtime assets."
+        )
     if "cuda_unavailable" in joined:
-        actions.append("CUDA is optional; known unavailability uses explicit CPU degraded operation.")
+        actions.append(
+            "CUDA is optional; known unavailability uses explicit CPU degraded operation."
+        )
     if "cuda:" in joined:
-        actions.append("Repair the locked CUDA runtime/probe failure; do not mask it with CPU fallback.")
+        actions.append(
+            "Repair the locked CUDA runtime/probe failure; do not mask it with CPU fallback."
+        )
     return list(dict.fromkeys(actions))
 
 
@@ -135,7 +145,9 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
     asr_active_ready = asr_primary_ready or asr_backup_ready
     asr_model_id, asr_model_path = choose_asr_model()
-    asr_grade = "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
+    asr_grade = (
+        "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
+    )
     translation_ready = translation_model_ready(TRANSLATION_MODEL)
     actor = voice_actor_static_status()
     voice_ready = bool(actor["ready"])
@@ -168,13 +180,20 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
     ready = (
-        faster_whisper_ready and transformers_ready and torch_ready and ct2_ready
-        and torch_probe_ok and ct2_probe_ok and asr_active_ready and translation_ready and voice_ready
+        faster_whisper_ready
+        and transformers_ready
+        and torch_ready
+        and ct2_ready
+        and torch_probe_ok
+        and ct2_probe_ok
+        and asr_active_ready
+        and translation_ready
+        and voice_ready
     )
     note = (
         "Worker reports the required outbound AI capabilities available."
-        if ready else
-        "Worker is running, but one or more required outbound AI capabilities are unavailable."
+        if ready
+        else "Worker is running, but one or more required outbound AI capabilities are unavailable."
     )
     if cpu_fallback:
         note += " CUDA capability is unavailable; CPU fallback is explicit degraded operation."
@@ -206,10 +225,26 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
             "ctranslate2": ct2_ready,
         },
         "models": {
-            "asr_primary": {"id": "faster-whisper-large-v3-turbo", "ready": asr_primary_ready, "path": str(ASR_MODEL)},
-            "asr_backup": {"id": "faster-whisper-medium", "ready": asr_backup_ready, "path": str(ASR_BACKUP_MODEL)},
-            "translation_id_en": {"id": "translation-provider", "ready": translation_ready, "path": str(TRANSLATION_MODEL)},
-            "translation_en_id": {"id": "translation-provider", "ready": translation_ready, "path": str(TRANSLATION_MODEL)},
+            "asr_primary": {
+                "id": "faster-whisper-large-v3-turbo",
+                "ready": asr_primary_ready,
+                "path": str(ASR_MODEL),
+            },
+            "asr_backup": {
+                "id": "faster-whisper-medium",
+                "ready": asr_backup_ready,
+                "path": str(ASR_BACKUP_MODEL),
+            },
+            "translation_id_en": {
+                "id": "translation-provider",
+                "ready": translation_ready,
+                "path": str(TRANSLATION_MODEL),
+            },
+            "translation_en_id": {
+                "id": "translation-provider",
+                "ready": translation_ready,
+                "path": str(TRANSLATION_MODEL),
+            },
         },
         "tts": {
             "ready": voice_ready,
@@ -256,12 +291,19 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     }
 
 
-def failed_from_status(stage: str, status: dict[str, Any], extra: dict[str, Any] | None = None) -> dict[str, Any]:
+def failed_from_status(
+    stage: str, status: dict[str, Any], extra: dict[str, Any] | None = None
+) -> dict[str, Any]:
     result = {
-        "ok": False, "stage": stage, "blocker": status.get("blocker", "runtime:not_ready"),
-        "blockers": status.get("blockers", []), "warnings": status.get("warnings", []),
-        "next_actions": status.get("next_actions", []), "note": status.get("note", "Runtime is not ready."),
-        "selected_device": status.get("selected_device"), "selected_compute_type": status.get("selected_compute_type"),
+        "ok": False,
+        "stage": stage,
+        "blocker": status.get("blocker", "runtime:not_ready"),
+        "blockers": status.get("blockers", []),
+        "warnings": status.get("warnings", []),
+        "next_actions": status.get("next_actions", []),
+        "note": status.get("note", "Runtime is not ready."),
+        "selected_device": status.get("selected_device"),
+        "selected_compute_type": status.get("selected_compute_type"),
         "fallback_reason": status.get("fallback_reason"),
     }
     if extra:
@@ -283,7 +325,12 @@ def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
     if not raw_source:
         return {"ok": False, "stage": "translate", "blocker": "translation:empty_text"}
     if len(raw_source) > MAX_TRANSLATION_TEXT_CHARS:
-        return {"ok": False, "stage": "translate", "blocker": "translation:text_too_large", "max_chars": MAX_TRANSLATION_TEXT_CHARS}
+        return {
+            "ok": False,
+            "stage": "translate",
+            "blocker": "translation:text_too_large",
+            "max_chars": MAX_TRANSLATION_TEXT_CHARS,
+        }
     source = normalize_language(payload.get("source_language", "id"), "id")
     target = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source, target)
@@ -297,12 +344,24 @@ def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
         runtime = get_translation_runtime(source, target)
         limit = translation_input_token_limit(runtime["tokenizer"], runtime["model"])
         if limit is None:
-            return {"ok": False, "stage": "translate", "model_id": model_id, "direction_pair": pair,
-                    "blocker": "translation:model_input_limit_unknown", "elapsed_ms": now_ms() - started}
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": "translation:model_input_limit_unknown",
+                "elapsed_ms": now_ms() - started,
+            }
         plan = translation_envelope.standalone_plan(raw_source, runtime["tokenizer"], limit)
         if not plan:
-            return {"ok": False, "stage": "translate", "model_id": model_id, "direction_pair": pair,
-                    "blocker": "translation:standalone_chunk_plan_empty", "elapsed_ms": now_ms() - started}
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": "translation:standalone_chunk_plan_empty",
+                "elapsed_ms": now_ms() - started,
+            }
         chunk_total = sum(len(paragraph) for paragraph in plan)
         outputs: list[list[str]] = []
         input_tokens = generated_tokens = max_budget = 0
@@ -314,20 +373,38 @@ def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
             for chunk in paragraph:
                 chunk_index += 1
                 if request_deadline_expired(payload):
-                    return {"ok": False, "stage": "translate", "model_id": model_id, "direction_pair": pair,
-                            "chunk_index": chunk_index, "chunk_count": chunk_total,
-                            "blocker": "worker:request_deadline_expired", "translated_text": ""}
+                    return {
+                        "ok": False,
+                        "stage": "translate",
+                        "model_id": model_id,
+                        "direction_pair": pair,
+                        "chunk_index": chunk_index,
+                        "chunk_count": chunk_total,
+                        "blocker": "worker:request_deadline_expired",
+                        "translated_text": "",
+                    }
                 request = dict(payload)
                 request["text"] = chunk
                 request["request_kind"] = "standalone_text_chunk"
                 result = handle_translate(request)
                 if not result.get("ok"):
                     failed = dict(result)
-                    failed.update({"translated_text": "", "chunk_index": chunk_index, "chunk_count": chunk_total})
+                    failed.update(
+                        {
+                            "translated_text": "",
+                            "chunk_index": chunk_index,
+                            "chunk_count": chunk_total,
+                        }
+                    )
                     return failed
                 translated = str(result.get("translated_text", "")).strip()
                 if not translated:
-                    return {"ok": False, "stage": "translate", "blocker": "translation:empty_output", "translated_text": ""}
+                    return {
+                        "ok": False,
+                        "stage": "translate",
+                        "blocker": "translation:empty_output",
+                        "translated_text": "",
+                    }
                 translated_paragraph.append(translated)
                 input_tokens += int(result.get("input_tokens") or 0)
                 generated_tokens += int(result.get("generated_tokens") or 0)
@@ -337,22 +414,52 @@ def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
             outputs.append(translated_paragraph)
         translated = translation_envelope.reassemble(outputs)
         if not translated or last is None:
-            return {"ok": False, "stage": "translate", "blocker": "translation:empty_output", "translated_text": ""}
+            return {
+                "ok": False,
+                "stage": "translate",
+                "blocker": "translation:empty_output",
+                "translated_text": "",
+            }
         combined = dict(last)
-        combined.update({"ok": True, "translated_text": translated, "input_tokens": input_tokens,
-                         "generated_tokens": generated_tokens, "generation_budget_tokens": max_budget,
-                         "hit_token_ceiling": hit_ceiling, "chunk_count": chunk_total,
-                         "paragraph_count": len(plan), "paragraph_structure_preserved": True,
-                         "complete": True, "finished_with_eos": True, "elapsed_ms": now_ms() - started,
-                         "blocker": ""})
+        combined.update(
+            {
+                "ok": True,
+                "translated_text": translated,
+                "input_tokens": input_tokens,
+                "generated_tokens": generated_tokens,
+                "generation_budget_tokens": max_budget,
+                "hit_token_ceiling": hit_ceiling,
+                "chunk_count": chunk_total,
+                "paragraph_count": len(plan),
+                "paragraph_structure_preserved": True,
+                "complete": True,
+                "finished_with_eos": True,
+                "elapsed_ms": now_ms() - started,
+                "blocker": "",
+            }
+        )
         return combined
     except translation_envelope.TranslationEnvelopeError as exc:
-        return {"ok": False, "stage": "translate", "model_id": model_id, "direction_pair": pair,
-                "blocker": str(exc), "translated_text": "", "elapsed_ms": now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "translate",
+            "model_id": model_id,
+            "direction_pair": pair,
+            "blocker": str(exc),
+            "translated_text": "",
+            "elapsed_ms": now_ms() - started,
+        }
     except Exception as exc:
-        return {"ok": False, "stage": "translate", "model_id": model_id, "direction_pair": pair,
-                "blocker": type(exc).__name__, "note": str(exc), "translated_text": "",
-                "elapsed_ms": now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "translate",
+            "model_id": model_id,
+            "direction_pair": pair,
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+            "translated_text": "",
+            "elapsed_ms": now_ms() - started,
+        }
 
 
 def handle_translate_request(payload: dict[str, Any]) -> dict[str, Any]:
@@ -386,23 +493,58 @@ def respond(payload: dict[str, Any]) -> None:
 def main() -> int:
     for raw in sys.stdin:
         if len(raw.encode("utf-8", errors="ignore")) > MAX_WORKER_REQUEST_BYTES:
-            respond({"ok": False, "stage": "worker_request", "blocker": "worker:request_too_large", "max_bytes": MAX_WORKER_REQUEST_BYTES})
+            respond(
+                {
+                    "ok": False,
+                    "stage": "worker_request",
+                    "blocker": "worker:request_too_large",
+                    "max_bytes": MAX_WORKER_REQUEST_BYTES,
+                }
+            )
             continue
         try:
             request = json.loads(raw)
             if not isinstance(request, dict):
-                respond({"ok": False, "stage": "worker_request", "blocker": "worker:request_must_be_object"})
+                respond(
+                    {
+                        "ok": False,
+                        "stage": "worker_request",
+                        "blocker": "worker:request_must_be_object",
+                    }
+                )
                 continue
             command = safe_command_name(request.get("command", "status"))
             if request_deadline_expired(request):
-                respond({"ok": False, "stage": command or "worker_request", "blocker": "worker:request_deadline_expired",
-                         "note": "The request reached the worker after its host deadline and was not executed."})
+                respond(
+                    {
+                        "ok": False,
+                        "stage": command or "worker_request",
+                        "blocker": "worker:request_deadline_expired",
+                        "note": (
+                            "The request reached the worker after its host deadline "
+                            "and was not executed."
+                        ),
+                    }
+                )
                 continue
             handler = HANDLERS.get(command)
             if handler is None:
-                respond({"ok": False, "stage": command or "unknown", "blocker": "worker:unknown_command"})
+                respond(
+                    {
+                        "ok": False,
+                        "stage": command or "unknown",
+                        "blocker": "worker:unknown_command",
+                    }
+                )
                 continue
             respond(handler(request))
         except Exception as exc:
-            respond({"ok": False, "stage": "worker_error", "blocker": type(exc).__name__, "note": str(exc)})
+            respond(
+                {
+                    "ok": False,
+                    "stage": "worker_error",
+                    "blocker": type(exc).__name__,
+                    "note": str(exc),
+                }
+            )
     return 0

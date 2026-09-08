@@ -108,9 +108,7 @@ def test_protocol_rejects_oversized_line_before_handler_dispatch(monkeypatch) ->
         raise AssertionError("oversized request reached handler dispatch")
 
     monkeypatch.setitem(worker.runtime.HANDLERS, "ping", must_not_run)
-    oversized = '{"command":"ping","padding":"' + (
-        "x" * worker.MAX_WORKER_REQUEST_BYTES
-    ) + '"}\n'
+    oversized = '{"command":"ping","padding":"' + ("x" * worker.MAX_WORKER_REQUEST_BYTES) + '"}\n'
     stdin = io.StringIO(oversized)
     stdout = io.StringIO()
     monkeypatch.setattr(worker.sys, "stdin", stdin)

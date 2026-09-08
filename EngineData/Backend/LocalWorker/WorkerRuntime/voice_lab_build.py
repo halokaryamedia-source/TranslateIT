@@ -47,7 +47,9 @@ def read_json(path: Path) -> dict[str, Any]:
 
 def atomic_json(path: Path, value: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle, temp_name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent))
+    handle, temp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
     try:
         with os.fdopen(handle, "w", encoding="utf-8", newline="\n") as stream:
             json.dump(value, stream, ensure_ascii=False, indent=2)
@@ -92,7 +94,11 @@ def validate_manifest(dataset_dir: Path) -> dict[str, Any]:
 def validate_take_signal(path: Path) -> None:
     try:
         with wave.open(str(path), "rb") as reader:
-            if reader.getnchannels() != 1 or reader.getsampwidth() != 2 or reader.getframerate() != 32_000:
+            if (
+                reader.getnchannels() != 1
+                or reader.getsampwidth() != 2
+                or reader.getframerate() != 32_000
+            ):
                 raise BuildError(f"noncanonical_take:{path.name}")
             frame_count = reader.getnframes()
             payload = reader.readframes(frame_count)

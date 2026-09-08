@@ -97,22 +97,28 @@ def runtime_text_too_large(value: Any, max_chars: int) -> bool:
 
 def safe_command_name(value: Any) -> str:
     text = str(value or "status").strip().lower()
-    return "".join(
-        ch for ch in text if ch.isascii() and (ch.isalnum() or ch == "_")
-    )[:64]
+    return "".join(ch for ch in text if ch.isascii() and (ch.isalnum() or ch == "_"))[:64]
 
 
 def torch_status() -> dict[str, Any]:
     try:
         import torch
     except Exception as exc:
-        return {"import_ready": False, "cuda_probe_ok": False, "cuda_available": False,
-                "blocker": f"dependency:torch_import_failed:{type(exc).__name__}"}
+        return {
+            "import_ready": False,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"dependency:torch_import_failed:{type(exc).__name__}",
+        }
     try:
         available = bool(torch.cuda.is_available())
     except Exception as exc:
-        return {"import_ready": True, "cuda_probe_ok": False, "cuda_available": False,
-                "blocker": f"cuda:torch_probe_failed:{type(exc).__name__}"}
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"cuda:torch_probe_failed:{type(exc).__name__}",
+        }
     return {"import_ready": True, "cuda_probe_ok": True, "cuda_available": available, "blocker": ""}
 
 
@@ -120,17 +126,29 @@ def ctranslate2_status() -> dict[str, Any]:
     try:
         import ctranslate2
     except Exception as exc:
-        return {"import_ready": False, "cuda_probe_ok": False, "cuda_available": False,
-                "blocker": f"dependency:ctranslate2_import_failed:{type(exc).__name__}"}
+        return {
+            "import_ready": False,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"dependency:ctranslate2_import_failed:{type(exc).__name__}",
+        }
     probe = getattr(ctranslate2, "get_cuda_device_count", None)
     if not callable(probe):
-        return {"import_ready": True, "cuda_probe_ok": False, "cuda_available": False,
-                "blocker": "cuda:ctranslate2_probe_unavailable"}
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": "cuda:ctranslate2_probe_unavailable",
+        }
     try:
         available = int(probe()) > 0
     except Exception as exc:
-        return {"import_ready": True, "cuda_probe_ok": False, "cuda_available": False,
-                "blocker": f"cuda:ctranslate2_probe_failed:{type(exc).__name__}"}
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"cuda:ctranslate2_probe_failed:{type(exc).__name__}",
+        }
     return {"import_ready": True, "cuda_probe_ok": True, "cuda_available": available, "blocker": ""}
 
 
@@ -147,8 +165,16 @@ def probe_gpu_runtime(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     known = torch_ready and torch_probe_ok and ct2_ready and ct2_probe_ok
     cpu_fallback = known and (not torch_cuda or not ct2_cuda)
     selected_device = "cuda" if ct2_cuda else "cpu" if ct2_ready and ct2_probe_ok else "blocked"
-    selected_compute = "int8_float16" if selected_device == "cuda" else "int8" if selected_device == "cpu" else "blocked"
-    selected_translation = "cuda" if torch_cuda else "cpu" if torch_ready and torch_probe_ok else "blocked"
+    selected_compute = (
+        "int8_float16"
+        if selected_device == "cuda"
+        else "int8"
+        if selected_device == "cpu"
+        else "blocked"
+    )
+    selected_translation = (
+        "cuda" if torch_cuda else "cpu" if torch_ready and torch_probe_ok else "blocked"
+    )
     blockers = [b for b in (torch_probe["blocker"], ct2_probe["blocker"]) if b]
     return {
         "torch_import_ready": torch_ready,
@@ -180,7 +206,9 @@ def normalize_language(value: Any, fallback: str) -> str:
 
 
 def direction_pair(source_language: str, target_language: str) -> str:
-    return f"{normalize_language(source_language, 'id')}->{normalize_language(target_language, 'en')}"
+    return (
+        f"{normalize_language(source_language, 'id')}->{normalize_language(target_language, 'en')}"
+    )
 
 
 def translation_runtime_config() -> tuple[str, str]:
@@ -226,15 +254,27 @@ def normalized_token_id_set(value: Any) -> set[int]:
 
 def generation_eos_token_ids(tokenizer: Any, model: Any) -> set[int]:
     ids = normalized_token_id_set(getattr(tokenizer, "eos_token_id", None))
-    ids.update(normalized_token_id_set(getattr(getattr(model, "generation_config", None), "eos_token_id", None)))
-    ids.update(normalized_token_id_set(getattr(getattr(model, "config", None), "eos_token_id", None)))
+    ids.update(
+        normalized_token_id_set(
+            getattr(getattr(model, "generation_config", None), "eos_token_id", None)
+        )
+    )
+    ids.update(
+        normalized_token_id_set(getattr(getattr(model, "config", None), "eos_token_id", None))
+    )
     return ids
 
 
 def generation_pad_token_ids(tokenizer: Any, model: Any) -> set[int]:
     ids = normalized_token_id_set(getattr(tokenizer, "pad_token_id", None))
-    ids.update(normalized_token_id_set(getattr(getattr(model, "generation_config", None), "pad_token_id", None)))
-    ids.update(normalized_token_id_set(getattr(getattr(model, "config", None), "pad_token_id", None)))
+    ids.update(
+        normalized_token_id_set(
+            getattr(getattr(model, "generation_config", None), "pad_token_id", None)
+        )
+    )
+    ids.update(
+        normalized_token_id_set(getattr(getattr(model, "config", None), "pad_token_id", None))
+    )
     return ids
 
 

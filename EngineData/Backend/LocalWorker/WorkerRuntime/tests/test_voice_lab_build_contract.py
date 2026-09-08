@@ -46,7 +46,9 @@ class VoiceLabBuildContractTests(unittest.TestCase):
             for line_id, duration_ms in durations:
                 name = f"take_{line_id:04}.wav"
                 self.write_canonical_wav(root / name, duration_ms)
-                takes.append({"line_id": line_id, "exact_text": f"line {line_id}", "wav_file": name})
+                takes.append(
+                    {"line_id": line_id, "exact_text": f"line {line_id}", "wav_file": name}
+                )
             manifest = {
                 "takes": takes,
                 "held_out_lines": [{"line_id": 1001, "exact_text": "held out sentence"}],
@@ -61,7 +63,13 @@ class VoiceLabBuildContractTests(unittest.TestCase):
             root = Path(raw)
             self.write_canonical_wav(root / "take_0001.wav", 4_000)
             manifest = {
-                "takes": [{"line_id": 1, "exact_text": "same sentence", "wav_file": "take_0001.wav"}],
+                "takes": [
+                    {
+                        "line_id": 1,
+                        "exact_text": "same sentence",
+                        "wav_file": "take_0001.wav",
+                    }
+                ],
                 "held_out_lines": [{"line_id": 1001, "exact_text": "same sentence"}],
             }
             with self.assertRaisesRegex(VoiceLabProviderError, "invalid_held_out_line"):
@@ -77,7 +85,13 @@ class VoiceLabBuildContractTests(unittest.TestCase):
                 writer.setframerate(48_000)
                 writer.writeframes(b"\x00\x00" * 48_000 * 2)
             manifest = {
-                "takes": [{"line_id": 1, "exact_text": "training sentence", "wav_file": path.name}],
+                "takes": [
+                    {
+                        "line_id": 1,
+                        "exact_text": "training sentence",
+                        "wav_file": path.name,
+                    }
+                ],
                 "held_out_lines": [{"line_id": 1001, "exact_text": "held out sentence"}],
             }
             with self.assertRaisesRegex(VoiceLabProviderError, "noncanonical_take"):

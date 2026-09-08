@@ -18,7 +18,9 @@ VOICE_ACTOR_RUNTIME_FINGERPRINT: Any | None = None
 
 
 def has_any(path: Path, patterns: tuple[str, ...]) -> bool:
-    return path.is_dir() and any(any(item.is_file() for item in path.glob(pattern)) for pattern in patterns)
+    return path.is_dir() and any(
+        any(item.is_file() for item in path.glob(pattern)) for pattern in patterns
+    )
 
 
 def asr_model_ready(path: Path) -> bool:
@@ -94,12 +96,19 @@ def handle_asr_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "model_path": str(model_path),
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
-            "fallback_reason": "" if ASR_RUNTIME_DEVICE == "cuda" else "cuda_unavailable_cpu_fallback_active",
+            "fallback_reason": (
+                "" if ASR_RUNTIME_DEVICE == "cuda" else "cuda_unavailable_cpu_fallback_active"
+            ),
             "elapsed_ms": common.now_ms() - started,
         }
     except Exception as exc:
-        return {"ok": False, "stage": "asr_preload", "blocker": type(exc).__name__,
-                "note": str(exc), "elapsed_ms": common.now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "asr_preload",
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+            "elapsed_ms": common.now_ms() - started,
+        }
 
 
 def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
@@ -111,11 +120,26 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             common.ALLOWED_INPUT_ROOTS,
         )
     except Exception as exc:
-        return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc)}
+        return {
+            "ok": False,
+            "stage": "transcribe",
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+        }
     if not audio_path.is_file():
-        return {"ok": False, "stage": "transcribe", "blocker": "asr:audio_file_missing", "audio_path": str(audio_path)}
+        return {
+            "ok": False,
+            "stage": "transcribe",
+            "blocker": "asr:audio_file_missing",
+            "audio_path": str(audio_path),
+        }
     if audio_path.stat().st_size > common.MAX_AUDIO_INPUT_BYTES:
-        return {"ok": False, "stage": "transcribe", "blocker": "asr:audio_file_too_large", "max_bytes": common.MAX_AUDIO_INPUT_BYTES}
+        return {
+            "ok": False,
+            "stage": "transcribe",
+            "blocker": "asr:audio_file_too_large",
+            "max_bytes": common.MAX_AUDIO_INPUT_BYTES,
+        }
     try:
         model = get_asr_runtime(payload)
         segments, info = model.transcribe(
@@ -129,19 +153,29 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             word_timestamps=False,
         )
         text = common.compact_runtime_text(
-            " ".join(segment.text.strip() for segment in segments), common.MAX_TRANSCRIPT_TEXT_CHARS
+            " ".join(segment.text.strip() for segment in segments),
+            common.MAX_TRANSCRIPT_TEXT_CHARS,
         )
         return {
-            "ok": bool(text), "stage": "transcribe", "transcript_text": text,
+            "ok": bool(text),
+            "stage": "transcribe",
+            "transcript_text": text,
             "language": getattr(info, "language", "id"),
             "language_probability": float(getattr(info, "language_probability", 0.0)),
-            "device": ASR_RUNTIME_DEVICE, "compute_type": ASR_RUNTIME_COMPUTE,
-            "model_id": ASR_RUNTIME_MODEL_ID, "elapsed_ms": common.now_ms() - started,
+            "device": ASR_RUNTIME_DEVICE,
+            "compute_type": ASR_RUNTIME_COMPUTE,
+            "model_id": ASR_RUNTIME_MODEL_ID,
+            "elapsed_ms": common.now_ms() - started,
             "blocker": "" if text else "asr:empty_transcript",
         }
     except Exception as exc:
-        return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__,
-                "note": str(exc), "elapsed_ms": common.now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "transcribe",
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+            "elapsed_ms": common.now_ms() - started,
+        }
 
 
 def clear_voice_actor_runtime() -> None:
@@ -186,7 +220,9 @@ def get_voice_actor_runtime() -> dict[str, Any]:
     if VOICE_ACTOR_RUNTIME is not None and VOICE_ACTOR_RUNTIME_FINGERPRINT == fingerprint:
         return VOICE_ACTOR_RUNTIME
     clear_voice_actor_runtime()
-    runtime = voice_actor_provider.load_voice_actor_runtime(common.GPT_SOVITS_SOURCE_ROOT, common.VOICE_ACTOR_ROOT)
+    runtime = voice_actor_provider.load_voice_actor_runtime(
+        common.GPT_SOVITS_SOURCE_ROOT, common.VOICE_ACTOR_ROOT
+    )
     if runtime.get("fingerprint") != fingerprint:
         raise voice_actor_provider.VoiceLabProviderError("actor_changed_during_load")
     latest = voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
@@ -202,27 +238,47 @@ def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
     try:
         runtime = get_voice_actor_runtime()
         token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
-        return {"ok": True, "stage": "voice_actor_preflight", "voice_id": "MyVoice",
-                "language_code": "en", "device": str(runtime.get("device", "unknown")),
-                "reference_cached": bool(runtime.get("reference_cached")), "actor_token": token,
-                "elapsed_ms": common.now_ms() - started, "blocker": ""}
+        return {
+            "ok": True,
+            "stage": "voice_actor_preflight",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "device": str(runtime.get("device", "unknown")),
+            "reference_cached": bool(runtime.get("reference_cached")),
+            "actor_token": token,
+            "elapsed_ms": common.now_ms() - started,
+            "blocker": "",
+        }
     except Exception as exc:
-        return {"ok": False, "stage": "voice_actor_preflight", "voice_id": "MyVoice",
-                "language_code": "en", "actor_token": "", "blocker": voice_actor_blocker(exc),
-                "elapsed_ms": common.now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "voice_actor_preflight",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "actor_token": "",
+            "blocker": voice_actor_blocker(exc),
+            "elapsed_ms": common.now_ms() - started,
+        }
 
 
 def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     started = common.now_ms()
     if common.runtime_text_too_large(payload.get("text", ""), common.MAX_TTS_TEXT_CHARS):
-        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:text_too_large",
-                "max_chars": common.MAX_TTS_TEXT_CHARS}
+        return {
+            "ok": False,
+            "stage": "voice_actor_synthesize",
+            "blocker": "voice_actor:text_too_large",
+            "max_chars": common.MAX_TTS_TEXT_CHARS,
+        }
     text = common.compact_runtime_text(payload.get("text", ""), common.MAX_TTS_TEXT_CHARS)
     if not text:
         return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:empty_text"}
     try:
-        output_path = common.resolve_worker_path(payload.get("output_path", ""),
-            common.CACHE_ROOT / "voice_actor_output.wav", common.ALLOWED_OUTPUT_ROOTS)
+        output_path = common.resolve_worker_path(
+            payload.get("output_path", ""),
+            common.CACHE_ROOT / "voice_actor_output.wav",
+            common.ALLOWED_OUTPUT_ROOTS,
+        )
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.unlink(missing_ok=True)
         expected = common.compact_runtime_text(payload.get("expected_actor_token", ""), 512)
@@ -239,19 +295,32 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         synthesis = voice_actor_provider.synthesize_voice_actor(runtime, text, output_path)
         if not output_path.is_file() or output_path.stat().st_size <= 44:
             raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
-        return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice",
-                "language_code": "en", "device": synthesis["device"],
-                "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"],
-                "actor_token": runtime_token, "output_path": str(output_path),
-                "elapsed_ms": common.now_ms() - started, "blocker": ""}
+        return {
+            "ok": True,
+            "stage": "voice_actor_synthesize",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "device": synthesis["device"],
+            "reference_cached": synthesis["reference_cached"],
+            "sample_rate": synthesis["sample_rate"],
+            "actor_token": runtime_token,
+            "output_path": str(output_path),
+            "elapsed_ms": common.now_ms() - started,
+            "blocker": "",
+        }
     except Exception as exc:
         try:
             output_path.unlink(missing_ok=True)
         except Exception:
             pass
-        return {"ok": False, "stage": "voice_actor_synthesize", "voice_id": "MyVoice",
-                "language_code": "en", "blocker": voice_actor_blocker(exc),
-                "elapsed_ms": common.now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "voice_actor_synthesize",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "blocker": voice_actor_blocker(exc),
+            "elapsed_ms": common.now_ms() - started,
+        }
 
 
 def state_snapshot() -> dict[str, Any]:
@@ -261,5 +330,9 @@ def state_snapshot() -> dict[str, Any]:
         "asr_compute_type": ASR_RUNTIME_COMPUTE,
         "asr_model_id": ASR_RUNTIME_MODEL_ID,
         "voice_actor_loaded": VOICE_ACTOR_RUNTIME is not None,
-        "voice_actor_device": str(VOICE_ACTOR_RUNTIME.get("device", "not_loaded")) if VOICE_ACTOR_RUNTIME else "not_loaded",
+        "voice_actor_device": (
+            str(VOICE_ACTOR_RUNTIME.get("device", "not_loaded"))
+            if VOICE_ACTOR_RUNTIME
+            else "not_loaded"
+        ),
     }

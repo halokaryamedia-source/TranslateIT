@@ -17,9 +17,7 @@ class _FakeInferenceMode:
 
 
 def load_worker_module():
-    spec = importlib.util.spec_from_file_location(
-        "translateit_context_policy_worker", WORKER_PATH
-    )
+    spec = importlib.util.spec_from_file_location("translateit_context_policy_worker", WORKER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

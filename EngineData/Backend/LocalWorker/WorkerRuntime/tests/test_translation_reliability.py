@@ -63,14 +63,18 @@ def test_standalone_plan_always_uses_semantic_units_and_preserves_paragraphs() -
 def test_standalone_plan_token_splits_only_an_oversized_semantic_unit() -> None:
     envelope = load_envelope_module()
     source = "one two three four five six seven eight. Short sentence."
-    assert envelope.standalone_plan(source, CountingTokenizer(), 4) == [[
-        "one two three four",
-        "five six seven eight.",
-        "Short sentence.",
-    ]]
+    assert envelope.standalone_plan(source, CountingTokenizer(), 4) == [
+        [
+            "one two three four",
+            "five six seven eight.",
+            "Short sentence.",
+        ]
+    ]
 
 
-def test_translation_runtime_reuses_one_loaded_milmmt_model_for_both_directions(monkeypatch) -> None:
+def test_translation_runtime_reuses_one_loaded_milmmt_model_for_both_directions(
+    monkeypatch,
+) -> None:
     worker = load_worker_module()
     constructed = {"tokenizer": 0, "model": 0}
 

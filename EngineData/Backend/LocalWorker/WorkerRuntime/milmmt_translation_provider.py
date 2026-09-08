@@ -90,7 +90,9 @@ def _has_model_weights(path: Path) -> bool:
 def translation_model_ready(path: Path) -> bool:
     marker = path / REVISION_MARKER
     try:
-        revision_ok = marker.is_file() and marker.read_text(encoding="utf-8").strip() == MODEL_REVISION
+        revision_ok = (
+            marker.is_file() and marker.read_text(encoding="utf-8").strip() == MODEL_REVISION
+        )
     except OSError:
         revision_ok = False
     tokenizer_ready = (path / "tokenizer.json").is_file() or (path / "tokenizer.model").is_file()
@@ -216,7 +218,9 @@ def _continuation(
         "finished_with_eos": finished,
         "generated_tokens": len(ids),
         "hit_token_ceiling": hit_ceiling,
-        "blocker": "" if finished else (
+        "blocker": ""
+        if finished
+        else (
             "translation:output_hit_token_ceiling_without_eos"
             if hit_ceiling
             else "translation:output_ended_without_eos"
@@ -239,9 +243,7 @@ def _generation_budget(prompt_tokens: int, payload: dict[str, Any]) -> int:
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     host = _host()
     started = host["now_ms"]()
-    if host["runtime_text_too_large"](
-        payload.get("text", ""), host["MAX_TRANSLATION_TEXT_CHARS"]
-    ):
+    if host["runtime_text_too_large"](payload.get("text", ""), host["MAX_TRANSLATION_TEXT_CHARS"]):
         return {
             "ok": False,
             "stage": "translate",
@@ -249,15 +251,9 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "max_chars": host["MAX_TRANSLATION_TEXT_CHARS"],
             "elapsed_ms": host["now_ms"]() - started,
         }
-    text = host["compact_runtime_text"](
-        payload.get("text", ""), host["MAX_TRANSLATION_TEXT_CHARS"]
-    )
-    source_language = host["normalize_language"](
-        payload.get("source_language", "id"), "id"
-    )
-    target_language = host["normalize_language"](
-        payload.get("target_language", "en"), "en"
-    )
+    text = host["compact_runtime_text"](payload.get("text", ""), host["MAX_TRANSLATION_TEXT_CHARS"])
+    source_language = host["normalize_language"](payload.get("source_language", "id"), "id")
+    target_language = host["normalize_language"](payload.get("target_language", "en"), "en")
     pair = host["direction_pair"](source_language, target_language)
     if not text:
         return {
@@ -329,9 +325,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 do_sample=False,
                 return_dict_in_generate=True,
             )
-        completion = _continuation(
-            generated, prompt_tokens, tokenizer, model, generation_budget
-        )
+        completion = _continuation(generated, prompt_tokens, tokenizer, model, generation_budget)
         if not completion["complete"]:
             return {
                 "ok": False,
@@ -365,9 +359,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "device_note": runtime["device_note"],
             "precision": runtime["precision"],
             "translation_gpu_requested": runtime["translation_gpu_requested"],
-            "translation_torch_cuda_available": runtime[
-                "translation_torch_cuda_available"
-            ],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
             "translation_degraded": runtime["translation_degraded"],
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "input_tokens": prompt_tokens,
@@ -398,12 +390,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
 def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     host = _host()
     started = host["now_ms"]()
-    source_language = host["normalize_language"](
-        payload.get("source_language", "id"), "id"
-    )
-    target_language = host["normalize_language"](
-        payload.get("target_language", "en"), "en"
-    )
+    source_language = host["normalize_language"](payload.get("source_language", "id"), "id")
+    target_language = host["normalize_language"](payload.get("target_language", "en"), "en")
     pair = host["direction_pair"](source_language, target_language)
     selected = translation_model_for_direction(source_language, target_language)
     if selected is None:
@@ -443,9 +431,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "device_note": runtime["device_note"],
             "precision": runtime["precision"],
             "translation_gpu_requested": runtime["translation_gpu_requested"],
-            "translation_torch_cuda_available": runtime[
-                "translation_torch_cuda_available"
-            ],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
             "translation_degraded": runtime["translation_degraded"],
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": host["now_ms"]() - started,

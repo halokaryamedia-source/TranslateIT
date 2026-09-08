@@ -66,4 +66,6 @@ def test_specific_model_selection_rejects_manual_asset() -> None:
     except RuntimeError as exc:
         assert "not Hugging Face-acquirable" in str(exc)
     else:
-        raise AssertionError("manual GPT-SoVITS asset must not be promoted to Hugging Face acquisition")
+        raise AssertionError(
+            "manual GPT-SoVITS asset must not be promoted to Hugging Face acquisition"
+        )
