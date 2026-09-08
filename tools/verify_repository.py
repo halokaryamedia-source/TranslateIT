@@ -44,6 +44,7 @@ REQUIRED_PATHS = (
     ".agents/skills/local-ai-runtime-development/SKILL.md",
     ".agents/skills/windows-audio-runtime-development/SKILL.md",
     ".agents/skills/release-packaging-development/SKILL.md",
+    "tools/verify_frontend_runtime_policy_tests.py",
 )
 
 ACTIVE_GOVERNANCE = (
@@ -343,14 +344,11 @@ def check_ci_efficiency_contract(errors: list[str]) -> None:
             fail(errors, f"R3 Release Contract missing release-affecting trigger: {marker}")
 
     package = text("EngineData/Frontend/RustApp/package.json")
-    for marker in (
-        "scripts/tests/close_policy.test.ts",
-        "scripts/tests/setup_flow.test.ts",
-        "scripts/tests/readiness_policy.test.ts",
-        "scripts/tests/diagnostic_privacy.test.ts",
-    ):
-        if marker not in package:
-            fail(errors, f"frontend runtime-policy test is no longer registered: {marker}")
+    if "scripts/tests/*.test.ts" not in package:
+        fail(errors, "frontend runtime-policy tests must use canonical scripts/tests/*.test.ts auto-discovery")
+    repository_verify = text(".github/workflows/repository-verify.yml")
+    if "python tools/verify_frontend_runtime_policy_tests.py" not in repository_verify:
+        fail(errors, "Repository Verify must enforce frontend policy-test auto-discovery coverage")
 
 
 def check_decision_boundary(errors: list[str]) -> None:
@@ -403,7 +401,7 @@ def main() -> int:
     print("- historical DevelopingData: absent from active tree")
     print("- workflow routing: Local only")
     print("- workflow supply chain: immutable/read-only/bounded")
-    print("- CI efficiency: selective source domains + release-only payload triggers")
+    print("- CI efficiency: selective source domains + release-only payload triggers + frontend test auto-discovery")
     return 0
 
 
