@@ -96,6 +96,9 @@ requireMarkers(builder, "payload builder", [
   'TRANSFORMERS_VERSION = "4.57.6"',
   'TOKENIZERS_VERSION = "0.22.2"',
   '"EngineData/Backend/RuntimeAssets/Voice/BuiltInVoices"',
+  "validate_no_filesystem_indirection",
+  "is_filesystem_indirection",
+  "is_junction",
   '"-t7z"', '"-m0=LZMA2"', '"-mx=9"', "find_7zip", "find_tar", "expanded_bytes", "@@APP_VERSION@@", "@@PAYLOAD_EXPANDED_BYTES@@",
 ]);
 forbidMarkers(builder.toLowerCase(), "payload builder network/bootstrap", ["urllib", "requests.get", "invoke-webrequest", "start-bitstransfer", "http://", "https://"]);
@@ -142,4 +145,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, transactional runtime replacement including built-in Meeting voice references, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
