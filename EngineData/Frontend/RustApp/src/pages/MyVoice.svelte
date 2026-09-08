@@ -14,9 +14,11 @@
   let {
     onNotice,
     onRecordingChange,
+    onMeetingVoiceChanged,
   }: {
     onNotice: (message: string) => void;
     onRecordingChange: (recording: boolean) => void;
+    onMeetingVoiceChanged: (message?: string) => void | Promise<void>;
   } = $props();
 
   let recordingState = $state<GuidedRecordingState>({ recording_line_id: null, pending_review: null, lines: [] });
@@ -50,7 +52,7 @@
       builtinPendingId = null;
       if (result.ok) {
         buildRefreshRevision++;
-        onNotice(`${result.message} Open Meeting from the sidebar when you're ready.`);
+        await onMeetingVoiceChanged(result.message);
       } else {
         onNotice(result.message);
       }
@@ -383,5 +385,5 @@
     </aside>
   </div>
 
-  <MyVoiceBuild {onNotice} refreshRevision={buildRefreshRevision} />
+  <MyVoiceBuild {onNotice} {onMeetingVoiceChanged} refreshRevision={buildRefreshRevision} />
 </section>
