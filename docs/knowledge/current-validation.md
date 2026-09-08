@@ -8,23 +8,23 @@ Repository: `halokaryamedia-source/TranslateIT`
 
 **Local-only source authority:** `Local` is the sole active branch for development, governance, CI, proof, continuation, and release-source validation.
 
-Current source claims must be supported by completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. Documentation-only commits may advance `Local` without changing the already-proved source tree; record that distinction explicitly instead of rerunning unrelated source jobs.
+Current source claims must be supported by completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. Later changes in another domain do not rewrite the proof identity of unchanged Rust/Python/frontend source.
 
 ## Verification surfaces
 
 ```text
 Repository Verify
 → governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
-→ anti-regression guards preserve selective Code Health, release-only R3 triggers, and registered frontend policy tests
+→ selective Code Health + release-only R3 trigger anti-regression
+→ every scripts/tests/*.test.ts must be registered in the frontend runtime-policy suite
 
 Code Health
-→ changed-source classifier selects only the relevant frontend, Python, and/or Rust domains
-→ frontend: strict Svelte/TypeScript checking + production Vite build + bridge/source contracts + deterministic runtime-policy tests
-→ policy coverage includes safe-close, compact setup/resume, Meeting-voice readiness/blocker ownership, and diagnostic privacy/redaction
-→ source-size budget prevents new oversized TS/Svelte/Rust ownership and growth of grandfathered coordinators
-→ production npm vulnerability audit
-→ Linux/hosted-Windows Python compile + Ruff + pytest only when WorkerRuntime changes
-→ Linux/hosted-Windows Rust compiler/dead-code + Clippy correctness + unit tests only when Rust changes
+→ changed-source classifier selects only relevant frontend, Python, and/or Rust domains
+→ frontend: Svelte/TypeScript check + production build + runtime-policy/source contracts + npm audit
+→ policy coverage includes safe-close, setup/resume, Meeting-voice gate, diagnostic privacy, and fail-closed Meeting bridge fallback
+→ Linux/hosted-Windows Rust compiler/dead-code + Clippy correctness + unit tests when Rust changes
+→ Linux/hosted-Windows Python compile + Ruff + pytest when WorkerRuntime changes
+→ source-size budgets prevent new oversized ownership and grandfathered coordinator growth
 
 MiLMMT Repository Contract
 → canonical translation provider/repository contract
@@ -33,33 +33,36 @@ WorkerRuntime Lock Consistency
 → Python dependency lock integrity
 
 R3 Release Contract
-→ release-source contract + controlled Windows payload staging/validation/evidence from Local
-→ trigger scope is restricted to actual release/package inputs
-→ builder and installer must expose the exact same canonical payload-root closure
-→ built-in Meeting voice references are part of transactional install/uninstall ownership
-→ payload builder rejects symlink/junction filesystem indirection before archive creation
-→ FFmpeg acquisition remains integrity-bound to the selected BtbN release digest and validated LGPL profile
+→ release-source contract + controlled Windows payload staging/validation/evidence
+→ exact builder/installer payload-root closure
+→ BuiltInVoices transactional install/uninstall ownership
+→ symlink/junction payload-source rejection
+→ integrity-bound FFmpeg/model/runtime staging
 ```
 
-Checks are path-targeted where appropriate. A broader source claim requires the relevant checks for the changed domains; skipped unrelated jobs are intentional and are not evidence for those domains.
+Checks are path-targeted where appropriate. Skipped unrelated jobs are intentional and are not evidence for those domains.
 
-The current settings/source identity `a28ff3921206526fca046ee0c95377703943d6e9` completed REMOTE_GITHUB Code Health: changed-domain detection and frontend proof passed; Linux Rust and hosted-Windows Rust compiler/dead-code, Clippy correctness, and unit tests all passed; unchanged Python jobs were intentionally skipped. This source now recovers the last committed settings backup after the atomic-write crash window and prevents generic settings saves from bypassing active Meeting/Mic-Test audio ownership while still allowing non-audio settings changes.
+Rust operational identity `dd18c27f0557f2816bbeb5a32341d8134e5ae278` completed frontend, Linux Rust, and hosted-Windows Rust Code Health including compiler/dead-code, Clippy, and unit tests; unchanged Python jobs were skipped. Its Rust tree includes settings backup recovery after an interrupted atomic replacement, generic-settings audio ownership locking during Meeting/Mic Test, actionable Text timeout/scheduler-busy failure mapping, and Meeting-voice-neutral outbound failure copy.
 
-Release identity `29eebb61df5e9105c44822e2eb4d2674a1e86444` completed its R3 source contract and Controlled Windows payload proof. Controlled staging, payload validation/optimization, bounded 7z evidence generation, and evidence upload all passed for that exact release source. This establishes the hosted release/package proof only; it does not establish a clean-machine installed application or physical Meeting behavior.
+Frontend bridge identity `78cb55a99f522b34143a8edbe118ae95323048d9` completed the full frontend Code Health surface. Unknown Meeting ownership after a Tauri bridge failure is now represented fail-closed as potentially active until a later authoritative probe proves idle; the policy lives in a pure tested module wired into `runtimeApi`.
+
+Release identity `29eebb61df5e9105c44822e2eb4d2674a1e86444` completed R3 source contract and Controlled Windows payload proof: staging, validation/optimization, bounded 7z evidence generation, and evidence upload all passed for that exact release source.
+
+Repository-governance identity `788aeb623607f29586fde370ca6c302b96abd06f` completed Repository Verify including the generic frontend runtime-policy test registration check.
 
 ## Proof Boundaries
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health establishes Windows-selected Rust/Python source behavior only when those domains change. Frontend policy tests establish deterministic orchestration/privacy policy, not rendered/native or physical-device behavior.
+Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health establishes Windows-selected Rust/Python source behavior only when those domains change. Frontend policy tests establish deterministic orchestration/privacy/fallback policy, not rendered/native or physical-device behavior.
 
-Meeting Voice changes refresh the App-owned snapshot immediately after successful built-in selection or My Voice approval; Meeting mount reuses that snapshot and probes only route-specific status. Diagnostic surfaces share bounded redaction before exposing local paths/credentials. Built-in voice replacement uses staged atomic swap/rollback. These are source-level claims.
+Meeting Voice changes refresh the App-owned snapshot after successful built-in selection or My Voice approval. Diagnostic surfaces share bounded redaction. Built-in voice replacement uses staged atomic swap/rollback. Runtime settings recover a previous-good backup after the atomic-write crash window, and audio preference mutation cannot bypass active runtime ownership through the generic settings command.
 
-Runtime settings are written with a previous-good backup and now recover that backup when startup finds the primary settings file missing or invalid after an interrupted replacement. Audio preference mutation is also rejected while Meeting or Mic Test owns runtime audio, including through the generic settings command; this is source/unit proof, not physical device-rebind proof.
+Text translation distinguishes worker transport timeout and lower-priority scheduler contention from model/language failure. Meeting voice failure copy is valid for both built-in and My Voice actors. A temporarily unavailable Meeting bridge no longer fabricates idle ownership.
 
-Release source contracts keep builder/installer payload roots aligned, require BuiltInVoices to be installed and removed symmetrically, and reject source-tree filesystem indirection. Hosted payload staging has completed successfully for release identity `29eebb61df5e9105c44822e2eb4d2674a1e86444`; that evidence remains bounded to the runner work that actually executed.
+Release source contracts keep builder/installer payload roots aligned, install/remove BuiltInVoices symmetrically, and reject source-tree filesystem indirection. Hosted controlled payload proof for `29eebb61df5e9105c44822e2eb4d2674a1e86444` remains bounded to the runner work that executed.
 
-The source-size budget prevents known oversized coordinators from accumulating more responsibility before a measured baseline exists. No hosted surface establishes physical microphone capture, target GPU practicality, VB-CABLE delivery/reception, meeting-app reception, speaker fidelity, real end-to-end latency, or clean-machine success.
+No hosted surface establishes physical microphone capture, target GPU practicality, VB-CABLE delivery/reception, meeting-app reception, speaker fidelity, real end-to-end latency, installed-runtime success, or clean-machine success.
 
 ### LOCAL_CODE
 
