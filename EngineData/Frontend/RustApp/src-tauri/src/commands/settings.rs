@@ -62,6 +62,11 @@ fn runtime_session_owns_audio_resources() -> bool {
     latest_runtime_session_state().has_active_session
 }
 
+fn audio_preferences_changed(current: &RuntimeSettings, candidate: &RuntimeSettings) -> bool {
+    current.audio.input_device_id != candidate.audio.input_device_id
+        || current.audio.output_device_id != candidate.audio.output_device_id
+}
+
 fn current_device_label(settings: &RuntimeSettings, kind: &str) -> String {
     let selected = if kind == "microphone" {
         settings.audio.input_device_id.as_deref()
@@ -89,7 +94,18 @@ pub fn load_runtime_settings() -> RuntimeSettings {
 #[tauri::command]
 pub fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
     let started = trace_command_start("save_runtime_settings", "saving runtime settings");
-    let result = persist_runtime_settings(settings);
+    let current = engine::load_settings();
+    let candidate = settings.sanitized();
+    let result = if runtime_session_owns_audio_resources()
+        && audio_preferences_changed(&current, &candidate)
+    {
+        CommandResult::blocked(
+            LifecycleState::Blocked,
+            "Stop Translation or Mic Test before changing audio devices. The current audio preferences were kept.",
+        )
+    } else {
+        persist_runtime_settings(candidate)
+    };
     trace_command_end(
         "save_runtime_settings",
         started,
@@ -215,5 +231,28 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
         device_name: device_name.clone(),
         message: format!("{label} set to {device_name}."),
         settings: saved,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::audio_preferences_changed;
+    use crate::engine::settings::RuntimeSettings;
+
+    #[test]
+    fn audio_preference_change_detects_only_audio_drift() {
+        let current = RuntimeSettings::default();
+        let mut language_only = current.clone();
+        language_only.source_language = "en".to_string();
+        language_only.target_language = "id".to_string();
+        assert!(!audio_preferences_changed(&current, &language_only));
+
+        let mut input_change = current.clone();
+        input_change.audio.input_device_id = Some("Another Microphone".to_string());
+        assert!(audio_preferences_changed(&current, &input_change));
+
+        let mut output_change = current.clone();
+        output_change.audio.output_device_id = Some("Another Meeting Sound".to_string());
+        assert!(audio_preferences_changed(&current, &output_change));
     }
 }
