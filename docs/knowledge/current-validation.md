@@ -8,7 +8,7 @@ Repository: `halokaryamedia-source/TranslateIT`
 
 **Local-only source authority:** `Local` is the sole active branch for development, governance, CI, proof, continuation, and release-source validation.
 
-Current source claims require completed checks on the exact source-changing `Local` SHA being discussed. A later documentation-only SHA may record proof without changing the validated source identity.
+Current source claims require completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. A later documentation-only SHA may record proof without changing the validated source identity.
 
 Validated performance source identity: `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf`.
 
@@ -31,7 +31,7 @@ Current source proof establishes:
 
 Older identity `1ccc24246c591451ea7c4dd92356f02dd522d8d6` remains valid for the frontend/CI cleanup claims it proved. Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains the controlled-payload proof; performance hardening did not change controlled payload inputs.
 
-## Verification Surfaces
+## Verification surfaces
 
 ```text
 Repository Verify
