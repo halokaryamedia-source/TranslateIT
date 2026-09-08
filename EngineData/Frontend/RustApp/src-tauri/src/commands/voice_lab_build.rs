@@ -10,7 +10,7 @@ use crate::engine::paths::ProjectPaths;
 
 use super::bridge_paths::{resolve_worker_python_command, worker_root, worker_python_unavailable_message};
 use super::builtin_voice::{
-    is_supported_builtin_voice, meeting_blocks_voice_change, replace_directory_atomically,
+    install_builtin_voice, is_supported_builtin_voice, meeting_blocks_voice_change,
 };
 use super::voice_lab::{
     begin_voice_lab_build, current_voice_lab_build_snapshot, fail_voice_lab_build,
@@ -647,98 +647,6 @@ pub fn cancel_voice_lab_build() -> VoiceLabBuildActionResult {
     result(true, "cancelled", "VoiceLab creation stopped. Your accepted recordings were kept.")
 }
 
-const BUILTIN_GPT_WEIGHT: &str = "GPTSoVITS/Source/GPT_SoVITS/pretrained_models/s1v3.ckpt";
-const BUILTIN_SOVITS_WEIGHT: &str = "GPTSoVITS/Source/GPT_SoVITS/pretrained_models/v2Pro/s2Gv2ProPlus.pth";
-
-fn wav_duration_ms(path: &Path) -> Result<u64, String> {
-    let bytes = fs::read(path).map_err(|_| "builtin_voice:wav_unreadable".to_string())?;
-    if bytes.len() < 44 || &bytes[0..4] != b"RIFF" || &bytes[8..12] != b"WAVE" {
-        return Err("builtin_voice:wav_header_invalid".to_string());
-    }
-    let mut offset = 12usize;
-    let mut byte_rate = 0u32;
-    let mut data_len = 0u32;
-    while offset + 8 <= bytes.len() {
-        let id = &bytes[offset..offset + 4];
-        let size = u32::from_le_bytes(bytes[offset + 4..offset + 8].try_into().unwrap()) as usize;
-        if id == b"fmt " {
-            if offset + 8 + 16 > bytes.len() {
-                return Err("builtin_voice:wav_fmt_truncated".to_string());
-            }
-            byte_rate = u32::from_le_bytes(bytes[offset + 16..offset + 20].try_into().unwrap());
-        }
-        if id == b"data" {
-            let remaining = bytes.len() - offset - 8;
-            data_len = remaining.min(size) as u32;
-            break;
-        }
-        offset += 8 + size + (size & 1);
-    }
-    if byte_rate == 0 || data_len == 0 {
-        return Err("builtin_voice:wav_format_missing".to_string());
-    }
-    Ok((u64::from(data_len) * 1_000) / u64::from(byte_rate))
-}
-
-fn reference_text_from_source(source_txt: &Path) -> Result<String, String> {
-    let body = fs::read_to_string(source_txt)
-        .map_err(|_| "builtin_voice:source_text_unreadable".to_string())?;
-    body.lines()
-        .find_map(|line| line.strip_prefix("reference_text: "))
-        .map(str::trim)
-        .filter(|value| !value.is_empty())
-        .map(str::to_string)
-        .ok_or_else(|| "builtin_voice:reference_text_missing".to_string())
-}
-
-fn provision_builtin_voice(
-    builtin_dir: &Path,
-    gpt_weight_src: &Path,
-    sovits_weight_src: &Path,
-    target_dir: &Path,
-    engine_revision: &str,
-) -> Result<(), String> {
-    let src_wav = builtin_dir.join("reference.wav");
-    let src_source = builtin_dir.join("REFERENCE_SOURCE.txt");
-    for path in [gpt_weight_src, sovits_weight_src, &src_wav, &src_source] {
-        if !path.is_file() {
-            return Err(format!("builtin_voice:asset_missing:{}", path.display()));
-        }
-    }
-    let duration_ms = wav_duration_ms(&src_wav)?;
-    if !(2_000..=15_000).contains(&duration_ms) {
-        return Err(format!("builtin_voice:reference_duration_out_of_range:{duration_ms}"));
-    }
-    let reference_text = reference_text_from_source(&src_source)?;
-
-    fs::create_dir_all(target_dir).map_err(|_| "builtin_voice:target_create_failed".to_string())?;
-    fs::copy(&src_wav, target_dir.join("reference.wav"))
-        .map_err(|_| "builtin_voice:reference_copy_failed".to_string())?;
-    fs::copy(gpt_weight_src, target_dir.join("gpt.ckpt"))
-        .map_err(|_| "builtin_voice:gpt_copy_failed".to_string())?;
-    fs::copy(sovits_weight_src, target_dir.join("sovits.pth"))
-        .map_err(|_| "builtin_voice:sovits_copy_failed".to_string())?;
-
-    let actor = serde_json::json!({
-        "schema_version": 1,
-        "engine": "gpt-sovits-v2proplus",
-        "engine_revision": engine_revision,
-        "gpt_weight_file": "gpt.ckpt",
-        "sovits_weight_file": "sovits.pth",
-        "reference_wav_file": "reference.wav",
-        "reference_text": reference_text,
-        "reference_duration_ms": duration_ms,
-        "held_out_evaluation_complete": true,
-        "builtin_voice": true,
-    });
-    fs::write(
-        target_dir.join("actor.json"),
-        serde_json::to_vec_pretty(&actor).map_err(|_| "builtin_voice:actor_serialize_failed".to_string())?,
-    )
-    .map_err(|_| "builtin_voice:actor_write_failed".to_string())?;
-    Ok(())
-}
-
 #[tauri::command]
 pub fn select_builtin_voice(
     voice_id: String,
@@ -773,30 +681,7 @@ pub fn select_builtin_voice(
         );
     }
 
-    let voice_root = PathBuf::from(project_paths.voice_runtime_dir.clone());
-    let builtin_dir = voice_root.join("BuiltInVoices").join(&voice_id);
-    let engine_revision = fs::read_to_string(
-        voice_root.join("GPTSoVITS/Source/TRANSLATEIT_GPTSOVITS_REVISION.txt"),
-    )
-    .map(|value| value.trim().to_string())
-    .unwrap_or_default();
-    if engine_revision != ENGINE_REVISION {
-        return result(
-            false,
-            "builtin_selection_failed",
-            "Built-in Meeting voice assets do not match this TranslateIT build. Repair the installation and try again.",
-        );
-    }
-
-    match replace_directory_atomically(&target, |staging| {
-        provision_builtin_voice(
-            &builtin_dir,
-            &voice_root.join(BUILTIN_GPT_WEIGHT),
-            &voice_root.join(BUILTIN_SOVITS_WEIGHT),
-            staging,
-            &engine_revision,
-        )
-    }) {
+    match install_builtin_voice(&project_paths, &voice_id, &target, ENGINE_REVISION) {
         Ok(()) => {
             let label = voice_id.trim_end_matches("Voice").to_lowercase();
             result(
@@ -875,77 +760,5 @@ mod p1_recording_coverage_tests {
             .collect::<Vec<_>>();
 
         assert!(missing_training_coverage_group(&takes).is_none());
-    }
-}
-
-#[cfg(test)]
-mod builtin_voice_tests {
-    use super::*;
-    use std::path::Path;
-
-    fn tiny_wav(path: &Path) {
-        let data = vec![0u8; 320_000];
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(b"RIFF");
-        bytes.extend_from_slice(&(36 + data.len() as u32).to_le_bytes());
-        bytes.extend_from_slice(b"WAVEfmt ");
-        bytes.extend_from_slice(&16u32.to_le_bytes());
-        bytes.extend_from_slice(&1u16.to_le_bytes());
-        bytes.extend_from_slice(&1u16.to_le_bytes());
-        bytes.extend_from_slice(&32_000u32.to_le_bytes());
-        bytes.extend_from_slice(&64_000u32.to_le_bytes());
-        bytes.extend_from_slice(&2u16.to_le_bytes());
-        bytes.extend_from_slice(&16u16.to_le_bytes());
-        bytes.extend_from_slice(b"data");
-        bytes.extend_from_slice(&(data.len() as u32).to_le_bytes());
-        bytes.extend_from_slice(&data);
-        fs::write(path, bytes).unwrap();
-    }
-
-    #[test]
-    fn provision_writes_exact_actor_and_fails_cleanly_on_missing_assets() {
-        let root = std::env::temp_dir().join(format!(
-            "tbv-{}-{}",
-            std::process::id(),
-            std::time::Instant::now().elapsed().as_nanos()
-        ));
-        let _ = fs::remove_dir_all(&root);
-        let builtin = root.join("MaleVoice");
-        fs::create_dir_all(&builtin).unwrap();
-        tiny_wav(&builtin.join("reference.wav"));
-        fs::write(
-            builtin.join("REFERENCE_SOURCE.txt"),
-            "reference_text: Hello world\n",
-        )
-        .unwrap();
-        let gpt = root.join("gpt.ckpt");
-        fs::write(&gpt, b"G").unwrap();
-        let sovits = root.join("sovits.pth");
-        fs::write(&sovits, b"S").unwrap();
-        let target = root.join("target");
-
-        provision_builtin_voice(&builtin, &gpt, &sovits, &target, "rev-test")
-            .expect("provision ok");
-
-        let actor: serde_json::Value =
-            serde_json::from_slice(&fs::read(target.join("actor.json")).unwrap()).unwrap();
-        assert_eq!(actor["builtin_voice"], true);
-        assert_eq!(actor["reference_text"], "Hello world");
-        assert_eq!(actor["reference_duration_ms"], 5_000);
-        assert_eq!(actor["engine_revision"], "rev-test");
-        assert!(target.join("gpt.ckpt").is_file());
-        assert!(target.join("sovits.pth").is_file());
-
-        let err = provision_builtin_voice(
-            &root.join("MissingVoice"),
-            &gpt,
-            &sovits,
-            &target,
-            "rev-test",
-        )
-        .unwrap_err();
-        assert!(err.starts_with("builtin_voice:asset_missing:"));
-
-        let _ = fs::remove_dir_all(root);
     }
 }
