@@ -8,7 +8,7 @@ Repository: `halokaryamedia-source/TranslateIT`
 
 **Local-only source authority:** `Local` is the sole active branch for development, governance, CI, proof, continuation, and release-source validation.
 
-Current source claims must be supported by completed checks on the exact source-changing `Local` SHA being discussed. A green check on one source identity does not prove different source content. Documentation-only commits may advance `Local` without changing the already-proved source tree; record that distinction explicitly instead of rerunning unrelated source jobs.
+Current source claims must be supported by completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. Documentation-only commits may advance `Local` without changing the already-proved source tree; record that distinction explicitly instead of rerunning unrelated source jobs.
 
 ## Verification surfaces
 
@@ -22,7 +22,7 @@ Code Health
 → frontend runtime-policy coverage includes safe-close precedence, compact setup checkpoint/resume behavior, and selected Meeting-voice readiness gating
 → source-size budget: new TS/Svelte/Rust files stay within normal ownership bounds; explicitly grandfathered large coordinators cannot silently grow
 → production npm vulnerability audit
-→ Linux Python compile + Ruff E4/E7,E9,F,I static gate + Ruff format check + contract/unit tests when WorkerRuntime changes
+→ Linux Python compile + Ruff E4,E7,E9,F,I static gate + Ruff format check + contract/unit tests when WorkerRuntime changes
 → hosted Windows Python compile + Ruff E4,E7,E9,F,I static gate + Ruff format check + contract/unit tests when WorkerRuntime changes
 → Linux Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests when Rust source/contracts change
 → hosted Windows Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests when Rust source/contracts change
@@ -41,7 +41,7 @@ R3 Release Contract
 
 Checks are path-targeted where appropriate. A broader source claim requires the relevant checks for the changed domains; skipped unrelated jobs are intentional and are not evidence for those domains.
 
-The source-changing identity `72065dace3fd5bdee5502b2ae0717c2454fa274e` has completed REMOTE_GITHUB frontend proof: changed-domain detection, Svelte/TypeScript checking, production frontend build, deterministic frontend policy tests, source-size budget, bridge type safety, command parity, virtual-route contract, and production npm audit all passed. Rust and Python jobs were intentionally skipped because that source change was frontend-only.
+The source-changing identity `f0477777bdaf34afc880f5752ec2652d5be8d98d` has completed REMOTE_GITHUB frontend proof: changed-domain detection, Svelte/TypeScript checking, production frontend build, deterministic frontend policy tests, source-size budget, bridge type safety, command parity, virtual-route contract, and production npm audit all passed. Rust and Python jobs were intentionally skipped because that source change was frontend-only. The selected Meeting-voice gate now also owns blocker `meeting_voice:not_selected` when preflight is otherwise ready but no Meeting voice is selected.
 
 ## Proof Boundaries
 
@@ -49,7 +49,7 @@ The source-changing identity `72065dace3fd5bdee5502b2ae0717c2454fa274e` has comp
 
 Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish Windows-selected Rust/Python source behavior when those domains change; frontend-only changes do not spend hosted Windows Rust/Python runners merely to repeat unchanged proof. Frontend runtime-policy tests establish deterministic policy behavior such as safe-close precedence, setup resume mapping, and Meeting-voice readiness gating, but not rendered/native behavior.
 
-Meeting Voice changes now refresh the application product snapshot immediately after successful built-in selection or My Voice approval. Meeting page mount reuses the App-owned product snapshot and probes only the Meeting microphone route instead of immediately repeating the full product snapshot. These are source-level orchestration claims, not physical audio proof.
+Meeting Voice changes refresh the application product snapshot immediately after successful built-in selection or My Voice approval. Meeting page mount reuses the App-owned product snapshot and probes only the Meeting microphone route instead of immediately repeating the full product snapshot. These are source-level orchestration claims, not physical audio proof.
 
 The source-size budget prevents known oversized coordinators from accumulating more responsibility before they can be decomposed against a measured baseline. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
 
