@@ -167,6 +167,10 @@
     setupSettings = nextSettings;
   }
 
+  async function syncMeetingVoice(message?: string): Promise<void> {
+    await refreshSnapshot(message ?? "Meeting voice updated.");
+  }
+
   async function finishFirstSetup(next: RuntimeSettings): Promise<void> {
     setupSettings = cloneSettings(next);
     setupRequired = false;
@@ -177,7 +181,7 @@
   async function openMyVoiceFromSetup(next: RuntimeSettings): Promise<void> {
     setupSettings = cloneSettings(next);
     setupRequired = false;
-    await refreshSnapshot("Create My Voice before starting Meeting translation.", next);
+    await refreshSnapshot("Choose a Meeting voice before starting translation.", next);
     route = "my-voice";
   }
 
@@ -246,7 +250,7 @@
   async function toggleMicTest(): Promise<void> {
     if (micTestBusy || !snapshot) return;
     if (myVoiceRecording) {
-      setNotice("Stop the My Voice recording before using Mic Test.");
+      setNotice("Stop the current My Voice recording before using Mic Test.");
       return;
     }
     if (snapshot.meeting.applicationOwned) {
@@ -511,7 +515,7 @@
             {meetingTurns}
             actionBusy={meetingActionBusy}
             onMeetingAction={handleMeetingAction}
-            onRefresh={() => refreshSnapshot("Setup checked.")}
+            onRefresh={() => refreshSnapshot("Status refreshed.")}
             onFixSetup={fixSetup}
             onOpenMyVoice={() => navigate("my-voice")}
           />
@@ -525,6 +529,7 @@
         {:else if route === "my-voice"}
           <MyVoice
             onNotice={setNotice}
+            onMeetingVoiceChanged={syncMeetingVoice}
             onRecordingChange={(recording) => { myVoiceRecording = recording; }}
           />
         {:else}
