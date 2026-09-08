@@ -25,6 +25,7 @@
     accepted_take_count: 0,
     accepted_duration_ms: 0,
     minimum_duration_ms: 60_000,
+    missing_coverage: null,
     can_build: false,
     evaluation_ready: false,
     evaluation_samples: [],
@@ -122,17 +123,23 @@
     return "My Voice is being created.";
   }
 
+  function coverageGuidance(): string | null {
+    const coverage = build.missing_coverage;
+    if (!coverage || build.accepted_duration_ms < build.minimum_duration_ms) return null;
+    return `Try one accepted line from Lines ${coverage.start_line_id}–${coverage.end_line_id} for ${coverage.label}.`;
+  }
+
   function idleGuidance(): string {
+    const coverage = coverageGuidance();
     if (build.approved_voice_ready && !build.can_build) {
-      const marker = "Try one accepted line";
-      const markerIndex = build.message.indexOf(marker);
-      if (markerIndex >= 0) {
-        return `Your current Meeting voice is ready. ${build.message.slice(markerIndex)}`;
-      }
       if (build.accepted_duration_ms < build.minimum_duration_ms) {
         return `Your current Meeting voice is ready. Keep recording if you want to create My Voice; ${formatDuration(build.minimum_duration_ms)} of usable speech is the minimum recording target.`;
       }
+      if (coverage) return `Your current Meeting voice is ready. ${coverage}`;
       return "Your current Meeting voice is ready. Add more clear and varied recordings if you want to create My Voice again.";
+    }
+    if (!build.can_build && coverage) {
+      return `Add a little more recording variety before creating My Voice. ${coverage}`;
     }
     if (!build.can_build && build.message.trim()) return build.message;
     if (!build.can_build) return "Keep recording clear and varied lines before creating My Voice.";
