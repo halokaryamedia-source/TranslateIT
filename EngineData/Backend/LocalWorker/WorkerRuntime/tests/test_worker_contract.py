@@ -53,7 +53,7 @@ def _install_fake_generate_runtime(worker, sequences) -> dict:
 
         def generate(self, **kwargs):
             captured.update(kwargs)
-            return types.SimpleNamespace(sequences=[list(sequence) for sequence in sequences])
+            return [list(sequence) for sequence in sequences]
 
     worker.TRANSLATION_RUNTIME["id->en"] = {
         "tokenizer": FakeTokenizer(),
@@ -158,7 +158,8 @@ def test_milmmt_generate_options_are_greedy_deterministic_and_have_no_forced_bos
     assert result["translated_text"] == "halo dunia"
     assert captured["max_new_tokens"] == milmmt_translation_provider.MAX_NEW_TOKENS
     assert captured["do_sample"] is False
-    assert captured["return_dict_in_generate"] is True
+    assert captured["use_cache"] is True
+    assert "return_dict_in_generate" not in captured
     assert "forced_bos_token_id" not in captured
 
 
@@ -241,8 +242,6 @@ def test_newline_protocol_rejects_already_expired_request() -> None:
 
 def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -> None:
     worker = load_worker_module()
-    # probe_gpu_runtime resolves torch/ctranslate2 probes from
-    # worker_runtime_common globals, so patch there (post-split layout).
     common = worker.io_runtime.common
     monkeypatch.setattr(
         common,
