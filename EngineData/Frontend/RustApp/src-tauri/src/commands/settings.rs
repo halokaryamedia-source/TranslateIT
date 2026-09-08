@@ -100,7 +100,7 @@ pub fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
         && audio_preferences_changed(&current, &candidate)
     {
         CommandResult::blocked(
-            LifecycleState::Blocked,
+            LifecycleState::Error,
             "Stop Translation or Mic Test before changing audio devices. The current audio preferences were kept.",
         )
     } else {
