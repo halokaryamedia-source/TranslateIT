@@ -8,6 +8,7 @@
     "dev:app": "tauri dev",
     "build:frontend": "vite build",
     "typecheck": "svelte-check --tsconfig ./tsconfig.json",
+    "test:frontend-runtime": "node --experimental-strip-types --test scripts/tests/close_policy.test.ts",
     "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
     "check:tauri-rust-local": "node scripts/run_local_tauri_compile_check.mjs",
     "preflight:release-payload": "node scripts/validate_release_model_revisions.mjs && node scripts/validate_release_payload.mjs",
@@ -15,7 +16,7 @@
     "validate:bridge-types": "node scripts/validate_bridge_type_safety.mjs",
     "validate:virtual-route": "node scripts/validate_virtual_route_contract.mjs",
     "validate:source-contracts": "npm run validate:command-parity && npm run validate:bridge-types && npm run validate:virtual-route && npm run check:rust && npm run preflight:tauri-package",
-    "validate:quick": "npm run validate:source-contracts && npm run typecheck",
+    "validate:quick": "npm run validate:source-contracts && npm run typecheck && npm run test:frontend-runtime",
     "validate:command-parity": "node scripts/validate_command_parity.mjs"
   },
   "dependencies": {

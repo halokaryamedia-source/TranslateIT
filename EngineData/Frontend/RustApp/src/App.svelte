@@ -13,6 +13,11 @@
   } from "./app/bridge/runtimeProductFacade";
   import { myVoiceApi } from "./app/bridge/myVoiceApi";
   import { myVoiceBuildApi } from "./app/bridge/myVoiceBuildApi";
+  import {
+    resolveClosePolicy,
+    type CloseDialogAction,
+    type CloseVerdict,
+  } from "./app/runtime/closePolicy";
   import { cloneSettings, compact, defaultSettings } from "./app/shared/state";
   import type {
     AppRoute,
@@ -29,7 +34,6 @@
   import Text from "./pages/Text.svelte";
 
   const MEETING_REFRESH_MS = 1200;
-  type CloseDialogAction = "stop" | "retry" | null;
 
   let booting = $state(true);
   let setupRequired = $state(false);
@@ -328,76 +332,22 @@
     await getCurrentWindow().destroy();
   }
 
-  type CloseVerdict =
-    | { kind: "dialog"; title: string; message: string; action: CloseDialogAction }
-    | { kind: "destroy" }
-    | { kind: "stop-and-close" };
-
-  function closeDialog(title: string, message: string, action: CloseDialogAction): CloseVerdict {
-    return { kind: "dialog", title, message, action };
-  }
-
   async function resolveCloseVerdict(): Promise<CloseVerdict> {
     const myVoice = await myVoiceApi.getState();
-    if (myVoice.recording_line_id !== null) {
-      return closeDialog(
-        "Voice recording is still running",
-        "Stop the current My Voice recording before closing TranslateIT so the take can be reviewed safely.",
-        null,
-      );
-    }
-    if (myVoice.pending_review) {
-      return closeDialog(
-        "Review the current voice take",
-        "Accept or retry the current My Voice take before closing TranslateIT.",
-        null,
-      );
-    }
-
     const build = await myVoiceBuildApi.getStatus();
-    if (build.phase === "unavailable") {
-      return closeDialog(
-        "Can't check My Voice yet",
-        "TranslateIT can't confirm whether My Voice is still being created. Keep the app open and try again.",
-        "retry",
-      );
-    }
-    if (build.active) {
-      return closeDialog(
-        "My Voice is still being created",
-        "Stop My Voice creation before closing TranslateIT so the training process can end safely.",
-        null,
-      );
-    }
-
     const status = await runtimeApi.getMeetingSessionStatus();
-    if (meetingBridgeUnavailable(status)) {
-      return closeDialog(
-        "Can't check the meeting yet",
-        "TranslateIT can't confirm whether Meeting translation is still active. Keep the app open or try the check again.",
-        "retry",
-      );
-    }
-    if (!status.has_session) return { kind: "destroy" };
-
     const meeting = mapProductMeetingState(status);
-    if (!meeting.applicationOwned) {
-      return closeDialog(
-        "Audio is still in use",
-        "Another TranslateIT action is still using the microphone. Finish that action before closing the app.",
-        null,
-      );
-    }
-    if (meeting.lifecycle === "stopping") {
-      closeAfterExistingStop = true;
-      return closeDialog(
-        "Translation is stopping",
-        "TranslateIT will close after Meeting translation finishes stopping.",
-        null,
-      );
-    }
 
-    return { kind: "stop-and-close" };
+    return resolveClosePolicy({
+      recordingLineId: myVoice.recording_line_id,
+      pendingReview: myVoice.pending_review !== null,
+      buildUnavailable: build.phase === "unavailable",
+      buildActive: build.active,
+      meetingUnavailable: meetingBridgeUnavailable(status),
+      hasMeetingSession: status.has_session,
+      meetingApplicationOwned: meeting.applicationOwned,
+      meetingLifecycle: meeting.lifecycle,
+    });
   }
 
   function applyCloseVerdict(verdict: CloseVerdict): void {
@@ -411,6 +361,11 @@
         "Stop & Close ends Meeting translation safely before closing TranslateIT.",
         "stop",
       );
+      return;
+    }
+    if (verdict.kind === "wait-for-stop") {
+      closeAfterExistingStop = true;
+      showCloseDialog(verdict.title, verdict.message, null);
       return;
     }
     showCloseDialog(verdict.title, verdict.message, verdict.action);
