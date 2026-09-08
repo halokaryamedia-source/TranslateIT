@@ -4,6 +4,7 @@ export type MeetingVoiceGate = {
   state: MeetingVoiceState;
   meetingReady: boolean;
   status: "Ready" | "Setup Needed" | "Checking";
+  blocker: string | null;
   nextAction: string | null;
   summary: string | null;
 };
@@ -20,19 +21,20 @@ export function resolveMeetingVoiceGate(input: {
       : "checking";
 
   if (input.live) {
-    return { state, meetingReady: true, status: "Ready", nextAction: null, summary: null };
+    return { state, meetingReady: true, status: "Ready", blocker: null, nextAction: null, summary: null };
   }
   if (!input.preflightReady) {
-    return { state, meetingReady: false, status: "Setup Needed", nextAction: null, summary: null };
+    return { state, meetingReady: false, status: "Setup Needed", blocker: null, nextAction: null, summary: null };
   }
   if (state === "ready") {
-    return { state, meetingReady: true, status: "Ready", nextAction: null, summary: null };
+    return { state, meetingReady: true, status: "Ready", blocker: null, nextAction: null, summary: null };
   }
   if (state === "checking") {
     return {
       state,
       meetingReady: false,
       status: "Checking",
+      blocker: null,
       nextAction: "Checking the selected Meeting voice before starting.",
       summary: "Meeting Translation is checking the selected Meeting voice.",
     };
@@ -41,6 +43,7 @@ export function resolveMeetingVoiceGate(input: {
     state,
     meetingReady: false,
     status: "Setup Needed",
+    blocker: "meeting_voice:not_selected",
     nextAction: "Choose a Meeting voice before starting Meeting translation.",
     summary: "Choose a Meeting voice before starting Meeting Translation.",
   };
