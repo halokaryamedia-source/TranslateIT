@@ -29,11 +29,14 @@ def _has_true_keyword(calls: list[ast.Call], keyword_name: str) -> bool:
     )
 
 
-def test_milmmt_generation_explicitly_enables_kv_cache() -> None:
+def test_milmmt_generation_uses_cache_without_unused_result_wrapper() -> None:
     generate_calls = _calls(MILMMT_PROVIDER_PATH, "generate")
     assert generate_calls, "MiLMMT provider must own an explicit model.generate call"
     assert _has_true_keyword(generate_calls, "use_cache"), (
         "MiLMMT deterministic inference must explicitly enable KV cache"
+    )
+    assert not _has_true_keyword(generate_calls, "return_dict_in_generate"), (
+        "MiLMMT translation only consumes generated token sequences and should not request an unused result wrapper"
     )
 
 

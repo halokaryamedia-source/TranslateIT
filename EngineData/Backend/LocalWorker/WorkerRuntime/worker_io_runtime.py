@@ -76,8 +76,6 @@ def handle_asr_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "blocker": "dependency:faster_whisper_missing",
             "elapsed_ms": common.now_ms() - started,
         }
-    # The medium backup is only chosen when its own assets are ready, so reaching
-    # this branch means the chosen primary large-v3-turbo assets are absent.
     if not asr_model_ready(model_path):
         return {
             "ok": False,
@@ -150,9 +148,6 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             temperature=common.bounded_float(payload.get("temperature", 0), 0.0, 0.0, 1.0),
             condition_on_previous_text=False,
             vad_filter=bool(payload.get("vad_filter", True)),
-            # Finalized Meeting audio already owns its speech boundary and the
-            # product consumes text only. Avoid decoding timestamp tokens that are
-            # discarded immediately after ASR.
             without_timestamps=True,
             word_timestamps=False,
         )
@@ -219,10 +214,6 @@ def voice_actor_static_status() -> dict[str, Any]:
 
 def get_voice_actor_runtime(package: dict[str, Any] | None = None) -> dict[str, Any]:
     global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
-    # Callers that already validated the actor package may pass that exact snapshot.
-    # This avoids hashing/reading the same actor package twice on every synthesis
-    # while retaining the post-load revalidation that detects a package changing
-    # during a cold runtime load.
     package = package or voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
     fingerprint = package["fingerprint"]
     if VOICE_ACTOR_RUNTIME is not None and VOICE_ACTOR_RUNTIME_FINGERPRINT == fingerprint:
@@ -239,6 +230,29 @@ def get_voice_actor_runtime(package: dict[str, Any] | None = None) -> dict[str, 
     VOICE_ACTOR_RUNTIME = runtime
     VOICE_ACTOR_RUNTIME_FINGERPRINT = fingerprint
     return runtime
+
+
+def get_bound_voice_actor_runtime(expected_token: str) -> tuple[dict[str, Any], str]:
+    expected_token = expected_token.strip()
+    if expected_token and VOICE_ACTOR_RUNTIME is not None:
+        runtime_token = voice_actor_package_token(
+            {"fingerprint": VOICE_ACTOR_RUNTIME.get("fingerprint")}
+        )
+        if runtime_token == expected_token:
+            return VOICE_ACTOR_RUNTIME, runtime_token
+
+    package = voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
+    package_token = voice_actor_package_token(package)
+    if expected_token and package_token != expected_token:
+        clear_voice_actor_runtime()
+        raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
+
+    runtime = get_voice_actor_runtime(package)
+    runtime_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
+    if expected_token and runtime_token != expected_token:
+        clear_voice_actor_runtime()
+        raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
+    return runtime, runtime_token
 
 
 def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +295,7 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     text = common.compact_runtime_text(payload.get("text", ""), common.MAX_TTS_TEXT_CHARS)
     if not text:
         return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:empty_text"}
+    output_path: Path | None = None
     try:
         output_path = common.resolve_worker_path(
             payload.get("output_path", ""),
@@ -290,16 +305,7 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.unlink(missing_ok=True)
         expected = common.compact_runtime_text(payload.get("expected_actor_token", ""), 512)
-        package = voice_actor_provider.validate_actor_package(common.VOICE_ACTOR_ROOT)
-        token = voice_actor_package_token(package)
-        if expected and token != expected:
-            clear_voice_actor_runtime()
-            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
-        runtime = get_voice_actor_runtime(package)
-        runtime_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
-        if expected and runtime_token != expected:
-            clear_voice_actor_runtime()
-            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
+        runtime, runtime_token = get_bound_voice_actor_runtime(expected)
         synthesis = voice_actor_provider.synthesize_voice_actor(runtime, text, output_path)
         if not output_path.is_file() or output_path.stat().st_size <= 44:
             raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
@@ -317,10 +323,11 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
             "blocker": "",
         }
     except Exception as exc:
-        try:
-            output_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        if output_path is not None:
+            try:
+                output_path.unlink(missing_ok=True)
+            except Exception:
+                pass
         return {
             "ok": False,
             "stage": "voice_actor_synthesize",

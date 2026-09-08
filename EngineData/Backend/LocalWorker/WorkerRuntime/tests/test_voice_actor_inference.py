@@ -9,8 +9,6 @@ from test_worker_contract import load_worker_module
 
 
 def load_provider_module():
-    # The composed worker module re-exports io_runtime; the provider lives on
-    # that runtime module, not on the worker namespace (post-split layout).
     return load_worker_module().io_runtime.voice_actor_provider
 
 
@@ -55,9 +53,7 @@ def test_actor_package_validation_matches_approved_contract(tmp_path: Path) -> N
     package = provider.validate_actor_package(actor)
     assert package["reference_duration_ms"] == 4_000
     assert package["gpt_path"] == actor / "gpt.ckpt"
-    assert (
-        len(package["fingerprint"]) == 5
-    )  # manifest + gpt + sovits + wav identity + wav content hash
+    assert len(package["fingerprint"]) == 5
     write_actor(actor, revision="0" * 40)
     with pytest.raises(provider.VoiceLabProviderError, match="actor_engine_contract_mismatch"):
         provider.validate_actor_package(actor)
@@ -155,10 +151,61 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     assert len(validations) == 1
 
 
+def test_meeting_warm_actor_skips_redundant_disk_validation(
+    tmp_path: Path, monkeypatch
+) -> None:
+    worker = load_worker_module()
+    cache = tmp_path / "CacheData"
+    cache.mkdir()
+    monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)
+    monkeypatch.setattr(worker.io_runtime.common, "ALLOWED_OUTPUT_ROOTS", [cache])
+    fingerprint = (("actor.json", 7, 9),)
+    runtime = {
+        "device": "cpu",
+        "reference_cached": True,
+        "fingerprint": fingerprint,
+    }
+    monkeypatch.setattr(worker.io_runtime, "VOICE_ACTOR_RUNTIME", runtime)
+    monkeypatch.setattr(worker.io_runtime, "VOICE_ACTOR_RUNTIME_FINGERPRINT", fingerprint)
+
+    def unexpected_validation(_root):
+        raise AssertionError("warm bound Meeting actor must not revalidate package from disk")
+
+    monkeypatch.setattr(
+        worker.io_runtime.voice_actor_provider,
+        "validate_actor_package",
+        unexpected_validation,
+    )
+
+    def synthesize(received_runtime, _text, output_path):
+        assert received_runtime is runtime
+        output_path.write_bytes(b"R" * 80)
+        return {"sample_rate": 32_000, "device": "cpu", "reference_cached": True}
+
+    monkeypatch.setattr(
+        worker.io_runtime.voice_actor_provider,
+        "synthesize_voice_actor",
+        synthesize,
+    )
+    output = cache / "warm-bound.wav"
+    expected = worker.io_runtime.voice_actor_package_token({"fingerprint": fingerprint})
+    result = worker.handle_voice_actor_synthesize(
+        {
+            "text": "Warm Meeting voice.",
+            "output_path": str(output),
+            "expected_actor_token": expected,
+        }
+    )
+    assert result["ok"] is True
+    assert result["actor_token"] == expected
+    assert Path(result["output_path"]) == output
+
+
 def test_voice_actor_failure_removes_stale_output_and_never_falls_back(
     tmp_path: Path, monkeypatch
 ) -> None:
     worker = load_worker_module()
+    worker.clear_voice_actor_runtime()
     cache = tmp_path / "CacheData"
     cache.mkdir()
     output = cache / "stale.wav"
@@ -195,6 +242,7 @@ def test_static_worker_readiness_requires_approved_actor_and_inference_assets(mo
 
 def test_meeting_actor_token_rejects_mid_session_actor_change(tmp_path: Path, monkeypatch) -> None:
     worker = load_worker_module()
+    worker.clear_voice_actor_runtime()
     cache = tmp_path / "CacheData"
     cache.mkdir()
     monkeypatch.setattr(worker.io_runtime.common, "CACHE_ROOT", cache)

@@ -42,8 +42,6 @@ def build_prompt(
     source_name = language_name(source_language)
     target_name = language_name(target_language)
     lines = [f"Translate this from {source_name} to {target_name}:"]
-    # Rolling conversational context stays inside the official flat format:
-    # repeat the language-labelled pair per prior turn, then the live segment.
     for pair_source, pair_target in context_pairs:
         lines.append(f"{source_name}: {pair_source}")
         lines.append(f"{target_name}: {pair_target}")
@@ -57,7 +55,6 @@ MAX_CONTEXT_PAIR_CHARS = 500
 
 
 def normalize_context_pairs(raw_pairs: object, host: dict) -> "list[tuple[str, str]]":
-    """Cap and sanitize optional rolling context from the session layer."""
     if not isinstance(raw_pairs, list):
         return []
     pairs: "list[tuple[str, str]]" = []
@@ -323,12 +320,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 **inputs,
                 max_new_tokens=generation_budget,
                 do_sample=False,
-                return_dict_in_generate=True,
-                # MiLMMT ships with use_cache=false in its checkpoint config even
-                # though Gemma3 supports KV caching and its hybrid cache. Override
-                # that training/checkpoint setting for deterministic inference so
-                # autoregressive decoding reuses past key/value states instead of
-                # recomputing the full prompt for every generated token.
                 use_cache=True,
             )
         completion = _continuation(generated, prompt_tokens, tokenizer, model, generation_budget)
