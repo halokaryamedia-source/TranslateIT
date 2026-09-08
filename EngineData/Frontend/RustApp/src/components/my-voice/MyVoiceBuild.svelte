@@ -9,9 +9,11 @@
 
   let {
     onNotice,
+    onMeetingVoiceChanged,
     refreshRevision = 0,
   }: {
     onNotice: (message: string) => void;
+    onMeetingVoiceChanged: (message?: string) => void | Promise<void>;
     refreshRevision?: number;
   } = $props();
 
@@ -172,7 +174,11 @@
     stopAudio();
     busy = true;
     try {
-      applyResult(await myVoiceBuildApi.approve());
+      const result = await myVoiceBuildApi.approve();
+      applyResult(result);
+      if (result.ok && result.state === "approved") {
+        await onMeetingVoiceChanged(productMessage(result));
+      }
     } finally {
       busy = false;
     }
