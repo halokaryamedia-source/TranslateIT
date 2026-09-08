@@ -95,6 +95,7 @@ requireMarkers(builder, "payload builder", [
   "TRANSLATEIT_PAYLOAD_CONTRACT.json",
   'TRANSFORMERS_VERSION = "4.57.6"',
   'TOKENIZERS_VERSION = "0.22.2"',
+  '"EngineData/Backend/RuntimeAssets/Voice/BuiltInVoices"',
   '"-t7z"', '"-m0=LZMA2"', '"-mx=9"', "find_7zip", "find_tar", "expanded_bytes", "@@APP_VERSION@@", "@@PAYLOAD_EXPANDED_BYTES@@",
 ]);
 forbidMarkers(builder.toLowerCase(), "payload builder network/bootstrap", ["urllib", "requests.get", "invoke-webrequest", "start-bitstransfer", "http://", "https://"]);
@@ -110,6 +111,10 @@ requireMarkers(helper, "installer helper", [
   "[ValidateSet('Verify','Install')]", "Get-FileHash -Algorithm SHA256", "Read-PayloadContract", "Ensure-FreeSpace", ".translateit-r3-stage", ".translateit-r3-backup",
   "Rollback-Payload", "Read-PythonMetadata", "pnputil.exe", "VBCABLE_Setup_x64.exe", "@('-i','-h')", "exit 3010",
   "ExpectedInstalledRuntimeSchema", "preserve_system_driver", "preserve_app_local_user_data",
+  "EngineData\\Backend\\RuntimeAssets\\Voice\\BuiltInVoices",
+  "BuiltInVoices\\MaleVoice\\reference.wav",
+  "BuiltInVoices\\FemaleVoice\\reference.wav",
+  "BuiltInVoices\\SOURCES.json",
 ]);
 forbidMarkers(helper.toLowerCase(), "installer helper network/bootstrap", ["invoke-webrequest", "start-bitstransfer", "webclient", "http://", "https://", "pip install", "pnputil /delete-driver"]);
 
@@ -137,4 +142,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, transactional runtime replacement, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: version/hash-bound external payload, transactional runtime replacement including built-in Meeting voice references, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, uninstall preservation policy, and small Tauri resource closure are aligned.");
