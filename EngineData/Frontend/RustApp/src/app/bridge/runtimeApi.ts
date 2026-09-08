@@ -301,10 +301,11 @@ function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus
   };
 }
 
-function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
+export function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
   return {
     lifecycle: "unavailable",
-    has_session: false,
+    // Unknown bridge state is potentially owned. Poll/recovery must prove idle.
+    has_session: true,
     authority_active: false,
     session_id: null,
     generation: null,
