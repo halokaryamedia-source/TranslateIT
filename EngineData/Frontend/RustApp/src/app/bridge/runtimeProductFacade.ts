@@ -459,8 +459,10 @@ export function mapProductReadiness(input: {
     ? "TranslateIT is unavailable right now. Try the status check again before using translation."
     : productMeeting.live
       ? "Translation is live. Stop the Meeting session when you are finished."
+      : meeting.readyForStart && approvedVoiceReady === null
+        ? "Checking the selected Meeting voice before starting."
         : meeting.readyForStart && !approvedVoiceConfirmed
-          ? "Create My Voice before starting Meeting translation."
+          ? "Choose a Meeting voice before starting Meeting translation."
           : meeting.readyForStart
             ? "Meeting Translation is ready to start."
             : productMeeting.canStart
@@ -474,17 +476,19 @@ export function mapProductReadiness(input: {
     ? "TranslateIT is unavailable right now. Try the status check again."
     : productMeeting.live
       ? "Meeting Translation is live."
-      : meeting.readyForStart && !approvedVoiceConfirmed
-        ? "My Voice isn't ready yet, so Meeting Translation can't start yet."
-        : meeting.readyForStart
-          ? "Meeting Translation is ready."
-          : productMeeting.canStart
-            ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
-            : textReady
-              ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
-              : hasRuntimeEvidence
-                ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
-                : "Product readiness is still checking.";
+      : meeting.readyForStart && approvedVoiceReady === null
+        ? "Meeting Translation is checking the selected Meeting voice."
+        : meeting.readyForStart && !approvedVoiceConfirmed
+          ? "Choose a Meeting voice before starting Meeting Translation."
+          : meeting.readyForStart
+            ? "Meeting Translation is ready."
+            : productMeeting.canStart
+              ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
+              : textReady
+                ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
+                : hasRuntimeEvidence
+                  ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
+                  : "Product readiness is still checking.";
 
   return {
     level,
@@ -529,8 +533,8 @@ export function mapProductReadiness(input: {
         : modelsReady
           ? "Final local translation check pending"
           : worker.responseAvailable
-          ? "Required outbound model runtime needs setup"
-          : "Worker capability not checked",
+            ? "Required outbound model runtime needs setup"
+            : "Worker capability not checked",
     microphoneStatus: inputUnavailable && meetingUnavailable
       ? "Unavailable"
       : microphoneReady
@@ -547,11 +551,13 @@ export function mapProductReadiness(input: {
         ? "Live"
         : productMeeting.busy
           ? productMeeting.label
-          : meeting.readyForStart
+          : meeting.readyForStart && approvedVoiceConfirmed
             ? "Ready"
-            : level === "checking"
+            : meeting.readyForStart && approvedVoiceReady === null
               ? "Checking"
-              : "Setup Needed",
+              : level === "checking"
+                ? "Checking"
+                : "Setup Needed",
     runtimeStatus: runtimeUnavailable
       ? "Unavailable"
       : productMeeting.lifecycle !== "idle"
