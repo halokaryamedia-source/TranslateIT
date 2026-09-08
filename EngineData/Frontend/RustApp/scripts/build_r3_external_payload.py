@@ -96,6 +96,24 @@ def validate_staged_inputs(repo_root: Path) -> None:
             raise RuntimeError(f"payload marker mismatch: {relative}")
 
 
+def is_filesystem_indirection(path: Path) -> bool:
+    if path.is_symlink():
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(is_junction and is_junction())
+
+
+def validate_no_filesystem_indirection(repo_root: Path) -> None:
+    for relative in PAYLOAD_ROOTS:
+        root = repo_root / relative
+        if is_filesystem_indirection(root):
+            raise RuntimeError(f"payload filesystem indirection is forbidden: {relative}")
+        for path in root.rglob("*"):
+            if is_filesystem_indirection(path):
+                display = path.relative_to(repo_root).as_posix()
+                raise RuntimeError(f"payload filesystem indirection is forbidden: {display}")
+
+
 def write_payload_contract(repo_root: Path, version: str) -> Path:
     path = repo_root / PAYLOAD_CONTRACT
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -295,6 +313,7 @@ def main() -> int:
 
     version = app_version(repo_root)
     validate_staged_inputs(repo_root)
+    validate_no_filesystem_indirection(repo_root)
     write_payload_contract(repo_root, version)
     expanded_bytes = sum(tree_bytes(repo_root / root) for root in PAYLOAD_ROOTS)
     seven_zip = find_7zip()
