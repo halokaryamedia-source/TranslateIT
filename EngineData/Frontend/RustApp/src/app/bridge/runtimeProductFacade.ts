@@ -377,10 +377,12 @@ function collectBlockers(input: {
   textReady: boolean;
   textDirection: TranslationDirection;
   meetingReady: boolean;
+  voiceBlocker: string | null;
 }): string[] {
-  const { helper, worker, inputStatus, meeting, textReady, textDirection, meetingReady } = input;
+  const { helper, worker, inputStatus, meeting, textReady, textDirection, meetingReady, voiceBlocker } = input;
   return unique([
     ...(!meetingReady ? meeting.blockers : []),
+    ...(!meetingReady && voiceBlocker ? [voiceBlocker] : []),
     ...(!textReady && worker.blocker ? [worker.blocker] : []),
     ...(!textReady && textDirection !== "unsupported" ? ["text_translation:selected_direction_not_ready"] : []),
     ...(textDirection === "unsupported" ? ["text_translation:unsupported_direction"] : []),
@@ -447,6 +449,7 @@ export function mapProductReadiness(input: {
     textReady,
     textDirection,
     meetingReady,
+    voiceBlocker: voiceGate.blocker,
   });
 
   const hasRuntimeEvidence = Boolean(helper || worker.responseAvailable || inputStatus || input.meetingSession);
