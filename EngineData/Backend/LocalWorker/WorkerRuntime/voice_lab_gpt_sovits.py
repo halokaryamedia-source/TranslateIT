@@ -24,7 +24,6 @@ VERSION = "v2ProPlus"
 REFERENCE_MIN_MS = 3_000
 REFERENCE_MAX_MS = 10_000
 REFERENCE_TARGET_MS = 5_000
-# Curated quick-build defaults: short books, few candidates, fast iteration.
 SOVITS_EPOCHS = 8
 GPT_EPOCHS = 15
 MAX_TRAINING_CANDIDATES = 3
@@ -38,6 +37,21 @@ MAX_ACTOR_MANIFEST_BYTES = 64 * 1024
 
 class VoiceLabProviderError(RuntimeError):
     pass
+
+
+class _CachedReferenceSpeakerModel:
+    def __init__(self, base: Any, cached_embeddings: list[tuple[Any, Any]]) -> None:
+        self._base = base
+        self._cached_embeddings = cached_embeddings
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._base, name)
+
+    def compute_embedding3(self, audio: Any) -> Any:
+        for cached_audio, cached_embedding in self._cached_embeddings:
+            if audio is cached_audio:
+                return cached_embedding
+        return self._base.compute_embedding3(audio)
 
 
 def require_file(path: Path, label: str) -> None:
@@ -149,8 +163,6 @@ def require_regular_file(path: Path, label: str) -> tuple[int, int]:
 
 
 def wav_sha256(path: Path) -> str:
-    import hashlib
-
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
@@ -356,9 +368,7 @@ def batch_and_half() -> tuple[int, bool]:
 
     if not torch.cuda.is_available():
         return 1, False
-    memory_gb = (
-        torch.cuda.get_device_properties(0).total_memory / (1024**3) + 0.4
-    )  # headroom fudge inherited from upstream webui sizing; revisit after GPU profiling
+    memory_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) + 0.4
     return max(1, int(memory_gb // 2)), True
 
 
@@ -534,6 +544,41 @@ def source_working_directory(source_root: Path) -> Iterator[None]:
         os.chdir(previous)
 
 
+def reference_speaker_embeddings(tts: Any) -> list[tuple[Any, Any]]:
+    if not bool(getattr(tts, "is_v2pro", False)):
+        return []
+    prompt_cache = getattr(tts, "prompt_cache", {})
+    references = prompt_cache.get("refer_spec", []) if isinstance(prompt_cache, dict) else []
+    sv_model = getattr(tts, "sv_model", None)
+    if sv_model is None:
+        return []
+    cached: list[tuple[Any, Any]] = []
+    for entry in references:
+        if not isinstance(entry, tuple) or len(entry) < 2 or entry[1] is None:
+            continue
+        audio = entry[1]
+        cached.append((audio, sv_model.compute_embedding3(audio)))
+    return cached
+
+
+@contextmanager
+def reuse_reference_speaker_embeddings(runtime: dict[str, Any]) -> Iterator[None]:
+    tts = runtime.get("tts")
+    cached = runtime.get("reference_speaker_embeddings")
+    if tts is None or not isinstance(cached, list) or not cached:
+        yield
+        return
+    original = getattr(tts, "sv_model", None)
+    if original is None:
+        yield
+        return
+    tts.sv_model = _CachedReferenceSpeakerModel(original, cached)
+    try:
+        yield
+    finally:
+        tts.sv_model = original
+
+
 def create_tts_runtime(
     source_root: Path,
     assets: dict[str, Path],
@@ -553,8 +598,6 @@ def create_tts_runtime(
     device = "cuda:0" if cuda_available else "cpu"
     with source_working_directory(source_root):
         install_headless_my_utils(source_root)
-        # The GPT-SoVITS import/config path reads process-global env; scope the writes
-        # so the resident worker environment is not permanently mutated.
         saved_environment = {key: os.environ.get(key) for key in ("NLTK_DATA", "version")}
         os.environ["NLTK_DATA"] = str(source_root / "nltk_data")
         os.environ["version"] = VERSION
@@ -579,6 +622,7 @@ def create_tts_runtime(
             )
             tts = TTS(config)
             tts.set_ref_audio(str(reference_wav))
+            cached_embeddings = reference_speaker_embeddings(tts)
         finally:
             for key, value in saved_environment.items():
                 if value is None:
@@ -590,6 +634,7 @@ def create_tts_runtime(
         "device": device,
         "reference_wav": reference_wav,
         "reference_cached": True,
+        "reference_speaker_embeddings": cached_embeddings,
     }
 
 
@@ -818,7 +863,8 @@ def synthesize_voice_actor(runtime: dict[str, Any], text: str, output_path: Path
     reference_text = str(runtime.get("reference_text", "")).strip()
     if tts is None or not isinstance(reference_wav, Path) or not reference_text:
         raise VoiceLabProviderError("voice_actor_runtime_invalid")
-    outputs = list(tts.run(english_tts_inputs(text, reference_wav, reference_text)))
+    with reuse_reference_speaker_embeddings(runtime):
+        outputs = list(tts.run(english_tts_inputs(text, reference_wav, reference_text)))
     if len(outputs) != 1:
         raise VoiceLabProviderError(f"inference_output_count:{len(outputs)}")
     sample_rate, audio = outputs[0]
