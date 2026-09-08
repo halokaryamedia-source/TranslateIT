@@ -194,16 +194,26 @@ fn reset_producer(
         return;
     }
 
+    let profile = runtime_vad_profile();
+    let pre_roll_capacity = samples_for_duration(sample_rate_hz, profile.pre_roll_audio_ms);
+    let initial_utterance_ms = profile
+        .target_chunk_min_ms
+        .max(profile.minimum_speech_duration_ms)
+        .saturating_add(profile.pre_roll_audio_ms);
+    let initial_utterance_capacity = samples_for_duration(sample_rate_hz, initial_utterance_ms);
+
     if let Ok(mut guard) = sync.state.lock() {
         *guard = Some(FinalizedProducerState {
             session_id: session_id.to_string(),
             generation,
             lane,
             sample_rate_hz,
-            profile: runtime_vad_profile(),
-            pre_roll: VecDeque::new(),
+            profile,
+            // Reserve normal working capacity before the audio callback starts so
+            // ordinary speech does not repeatedly grow these buffers in realtime.
+            pre_roll: VecDeque::with_capacity(pre_roll_capacity),
             in_utterance: false,
-            current_samples: Vec::new(),
+            current_samples: Vec::with_capacity(initial_utterance_capacity),
             speech_samples: 0,
             trailing_silence_samples: 0,
             overflowed: false,
@@ -227,6 +237,10 @@ pub fn observe_finalized_outbound_f32_samples(
     source_channels: u16,
 ) {
     observe_f32(outbound_sync(), samples, sample_rate_hz, source_channels);
+}
+
+pub fn observe_finalized_outbound_mono_f32_samples(samples: &[f32], sample_rate_hz: u32) {
+    observe_finalized_mono_samples(outbound_sync(), samples, sample_rate_hz);
 }
 
 pub fn observe_finalized_incoming_f32_samples(
@@ -299,7 +313,12 @@ fn observe_f32(
     sample_rate_hz: u32,
     source_channels: u16,
 ) {
-    observe_finalized_mono_samples(sync, &downmix_f32(samples, source_channels), sample_rate_hz);
+    if source_channels <= 1 {
+        observe_finalized_mono_samples(sync, samples, sample_rate_hz);
+        return;
+    }
+    let mono = downmix_f32(samples, source_channels);
+    observe_finalized_mono_samples(sync, &mono, sample_rate_hz);
 }
 
 fn observe_i16(
@@ -354,15 +373,14 @@ fn observe_finalized_mono_samples(
         reset_current_utterance(state);
     }
 
-    let safe_samples = samples
-        .iter()
-        .map(|sample| safe_sample(*sample))
-        .collect::<Vec<_>>();
-    let evidence = AudioEvidenceReport::from_samples(&safe_samples);
+    // AudioEvidenceReport sanitizes while reading, and ingest_observation sanitizes
+    // only samples that must be retained. Avoid constructing a second safe_samples
+    // Vec for every callback chunk.
+    let evidence = AudioEvidenceReport::from_samples(samples);
     let gate = evaluate_vad_gate(evidence.clone(), &state.profile.gate);
     let speech_like = gate.accepted;
 
-    let queued = ingest_observation(state, &safe_samples, &evidence, speech_like);
+    let queued = ingest_observation(state, samples, &evidence, speech_like);
     if queued {
         sync.ready.notify_one();
     }
@@ -441,7 +459,7 @@ fn ingest_observation(
                 .current_samples
                 .reserve(state.pre_roll.len() + samples.len());
             state.current_samples.extend(state.pre_roll.drain(..));
-            state.current_samples.extend_from_slice(samples);
+            extend_safe_samples(&mut state.current_samples, samples);
             state.speech_samples = samples.len();
             state.trailing_silence_samples = 0;
             state.overflowed = false;
@@ -452,7 +470,7 @@ fn ingest_observation(
     }
 
     if !state.overflowed {
-        state.current_samples.extend_from_slice(samples);
+        extend_safe_samples(&mut state.current_samples, samples);
         if duration_ms(state.current_samples.len(), state.sample_rate_hz)
             > MAX_IN_PROGRESS_UTTERANCE_MS
         {
@@ -596,11 +614,17 @@ fn adaptive_end_silence_ms(profile: &RuntimeVadProfile, evidence: &AudioEvidence
 }
 
 fn append_pre_roll(state: &mut FinalizedProducerState, samples: &[f32]) {
-    state.pre_roll.extend(samples.iter().copied());
+    state
+        .pre_roll
+        .extend(samples.iter().map(|sample| safe_sample(*sample)));
     let max_samples = samples_for_duration(state.sample_rate_hz, state.profile.pre_roll_audio_ms);
     while state.pre_roll.len() > max_samples {
         let _ = state.pre_roll.pop_front();
     }
+}
+
+fn extend_safe_samples(target: &mut Vec<f32>, samples: &[f32]) {
+    target.extend(samples.iter().map(|sample| safe_sample(*sample)));
 }
 
 fn reset_current_utterance(state: &mut FinalizedProducerState) {
@@ -732,7 +756,7 @@ mod tests {
     }
 
     #[test]
-    fn preroll_bound_and_resample_math_are_deterministic() {
+    fn preroll_bound_resample_and_safe_retention_are_deterministic() {
         let profile = runtime_vad_profile();
         let mut state = FinalizedProducerState {
             session_id: "pure-contract".to_string(),
@@ -762,6 +786,10 @@ mod tests {
         assert_eq!(safe_sample(f32::NAN), 0.0);
         assert_eq!(safe_sample(f32::INFINITY), 0.0);
         assert_eq!(safe_sample(2.0), 1.0);
+
+        let mut retained = Vec::new();
+        extend_safe_samples(&mut retained, &[f32::NAN, 2.0, -2.0, 0.25]);
+        assert_eq!(retained, vec![0.0, 1.0, -1.0, 0.25]);
     }
 
     fn silence_of(rate: u32, ms: u32) -> Vec<f32> {

@@ -1,5 +1,6 @@
 use rubato::{FftFixedInOut, Resampler};
 use serde::Serialize;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use super::evidence::AudioEvidenceReport;
@@ -31,12 +32,16 @@ struct ActiveGuidedTake {
 }
 
 static ACTIVE_GUIDED_TAKE: OnceLock<Mutex<Option<ActiveGuidedTake>>> = OnceLock::new();
+static GUIDED_TAKE_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 fn store() -> &'static Mutex<Option<ActiveGuidedTake>> {
     ACTIVE_GUIDED_TAKE.get_or_init(|| Mutex::new(None))
 }
 
 pub fn active_guided_take_line_id() -> Option<u32> {
+    if !GUIDED_TAKE_ACTIVE.load(Ordering::Acquire) {
+        return None;
+    }
     store()
         .lock()
         .ok()
@@ -61,16 +66,24 @@ pub fn arm_guided_take(line_id: u32) -> Result<(), String> {
         source_format_changed: false,
         safety_limit_reached: false,
     });
+    GUIDED_TAKE_ACTIVE.store(true, Ordering::Release);
     Ok(())
 }
 
 pub fn cancel_guided_take() {
+    // Meeting capture calls append_guided_f32 from its audio callback even though
+    // My Voice recording is mutually exclusive with Meeting. Publish the cheap
+    // inactive truth first so normal Meeting callbacks avoid this mutex entirely.
+    GUIDED_TAKE_ACTIVE.store(false, Ordering::Release);
     if let Ok(mut guard) = store().lock() {
         *guard = None;
     }
 }
 
 pub fn append_guided_f32(data: &[f32], rate: u32, channels: u16) {
+    if !GUIDED_TAKE_ACTIVE.load(Ordering::Acquire) {
+        return;
+    }
     append_mono(
         rate,
         channels,
@@ -88,6 +101,7 @@ fn append_mono(rate: u32, channels: u16, samples: impl Iterator<Item = f32>) {
         return;
     };
     let Some(take) = guard.as_mut() else {
+        GUIDED_TAKE_ACTIVE.store(false, Ordering::Release);
         return;
     };
     match (take.sample_rate_hz, take.channels) {
@@ -115,11 +129,15 @@ fn append_mono(rate: u32, channels: u16, samples: impl Iterator<Item = f32>) {
 }
 
 pub fn take_guided_audio() -> Result<(CapturedGuidedTake, GuidedTakeReview), String> {
+    if !GUIDED_TAKE_ACTIVE.load(Ordering::Acquire) {
+        return Err("voice_lab:no_active_guided_capture".to_string());
+    }
     let take = store()
         .lock()
         .map_err(|_| "voice_lab:guided_capture_state_unavailable".to_string())?
         .take()
         .ok_or_else(|| "voice_lab:no_active_guided_capture".to_string())?;
+    GUIDED_TAKE_ACTIVE.store(false, Ordering::Release);
     if take.source_format_changed {
         return Err("voice_lab:microphone_format_changed_during_take".to_string());
     }
@@ -240,7 +258,9 @@ mod tests {
     fn stereo_48khz_take_is_downmixed_and_fft_resampled_to_32khz() {
         let _serial = TEST_SERIAL.lock().expect("guided take test lock");
         cancel_guided_take();
+        assert!(active_guided_take_line_id().is_none());
         arm_guided_take(1).expect("arm guided take");
+        assert_eq!(active_guided_take_line_id(), Some(1));
         let mut stereo = Vec::with_capacity(48_000 * 2);
         for index in 0..48_000 {
             let sample = (TAU * 440.0 * index as f32 / 48_000.0).sin() * 0.2;
@@ -249,6 +269,7 @@ mod tests {
         }
         append_guided_f32(&stereo, 48_000, 2);
         let (captured, review) = take_guided_audio().expect("finalized guided take");
+        assert!(active_guided_take_line_id().is_none());
         assert_eq!(captured.line_id, 1);
         assert_eq!(captured.samples_mono.len(), 32_000);
         assert!(review.duration_ms >= 999 && review.duration_ms <= 1_001);

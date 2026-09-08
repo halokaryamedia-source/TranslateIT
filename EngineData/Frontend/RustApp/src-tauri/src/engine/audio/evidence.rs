@@ -30,53 +30,69 @@ impl AudioEvidenceReport {
         if samples.is_empty() {
             return Self::empty_with_reason("rejected_silence");
         }
+
+        // This function is called from realtime capture/VAD paths. Keep evidence
+        // calculation allocation-free: sanitize samples as they are read instead of
+        // first materializing a second normalized Vec, and retain only the top three
+        // frame energies rather than sorting an allocated frame-energy vector.
         let noise_floor_rms = safe_metric(noise_floor_rms).clamp(0.0, 1.0);
-        let normalized = samples
-            .iter()
-            .map(|sample| safe_sample(*sample))
-            .collect::<Vec<_>>();
-        let len = normalized.len() as f32;
-        let sum_square = normalized.iter().map(|value| value * value).sum::<f32>();
-        let sum_abs = normalized.iter().map(|value| value.abs()).sum::<f32>();
+        let len = samples.len() as f32;
+        let mut sum_square = 0.0_f32;
+        let mut sum_abs = 0.0_f32;
+        let mut peak = 0.0_f32;
+        for sample in samples {
+            let value = safe_sample(*sample);
+            sum_square += value * value;
+            sum_abs += value.abs();
+            peak = peak.max(value.abs());
+        }
+
         let rms = safe_metric((sum_square / len).sqrt()).clamp(0.0, 1.0);
-        let peak = safe_metric(
-            normalized
-                .iter()
-                .map(|value| value.abs())
-                .fold(0.0_f32, f32::max),
-        )
-        .clamp(0.0, 1.0);
+        let peak = safe_metric(peak).clamp(0.0, 1.0);
         let peak_to_rms_ratio = safe_metric(peak / rms.max(0.0001));
         let speech_to_noise_gap = safe_metric(rms - noise_floor_rms);
         let threshold = 0.0025_f32.max(noise_floor_rms * 1.45);
-        let voiced_frame_ratio = safe_ratio(
-            normalized
-                .iter()
-                .filter(|value| value.abs() >= threshold)
-                .count(),
-            normalized.len(),
-        );
-        let zero_crossing_rate = zero_crossing_rate(&normalized);
-        let impulse_edge_ratio = impulse_edge_ratio(&normalized, noise_floor_rms, rms);
-        let (frame_energy_concentration, frame_active_ratio) =
-            frame_metrics(&normalized, noise_floor_rms, rms);
-        let clipping_ratio = safe_ratio(
-            normalized
-                .iter()
-                .filter(|value| value.abs() >= 0.98)
-                .count(),
-            normalized.len(),
-        );
         let active_threshold = 0.006_f32
             .max(noise_floor_rms * 1.45)
             .min(0.012_f32.max(rms * 1.6));
-        let active_frame_ratio = safe_ratio(
-            normalized
-                .iter()
-                .filter(|value| value.abs() >= active_threshold)
-                .count(),
-            normalized.len(),
-        );
+        let edge_threshold = 0.006_f32.max(noise_floor_rms * 1.8).max(rms * 1.7);
+
+        let mut voiced_count = 0usize;
+        let mut clipping_count = 0usize;
+        let mut active_count = 0usize;
+        let mut zero_crossings = 0usize;
+        let mut impulse_edges = 0usize;
+        let mut previous: Option<f32> = None;
+        for sample in samples {
+            let value = safe_sample(*sample);
+            if value.abs() >= threshold {
+                voiced_count += 1;
+            }
+            if value.abs() >= 0.98 {
+                clipping_count += 1;
+            }
+            if value.abs() >= active_threshold {
+                active_count += 1;
+            }
+            if let Some(previous) = previous {
+                if (previous >= 0.0 && value < 0.0) || (previous < 0.0 && value >= 0.0) {
+                    zero_crossings += 1;
+                }
+                if (value - previous).abs() >= edge_threshold {
+                    impulse_edges += 1;
+                }
+            }
+            previous = Some(value);
+        }
+
+        let voiced_frame_ratio = safe_ratio(voiced_count, samples.len());
+        let zero_crossing_rate = safe_ratio(zero_crossings, samples.len().saturating_sub(1));
+        let impulse_edge_ratio = safe_ratio(impulse_edges, samples.len().saturating_sub(1));
+        let (frame_energy_concentration, frame_active_ratio) =
+            frame_metrics(samples, noise_floor_rms, rms);
+        let clipping_ratio = safe_ratio(clipping_count, samples.len());
+        let active_frame_ratio = safe_ratio(active_count, samples.len());
+
         let sensitivity = normalize_sensitivity(sensitivity);
         let (min_peak, min_rms, min_voiced) = sensitivity_thresholds(sensitivity);
         let strong_voiced_speech = sensitivity == "High"
@@ -94,7 +110,7 @@ impl AudioEvidenceReport {
             && !strong_voiced_speech
         {
             "rejected_unconfirmed_speech"
-        } else if normalized.len() >= 640
+        } else if samples.len() >= 640
             && noise_like_impulse(
                 peak_to_rms_ratio,
                 voiced_frame_ratio,
@@ -109,6 +125,7 @@ impl AudioEvidenceReport {
         } else {
             ""
         };
+
         Self {
             reason: reason.to_string(),
             rms,
@@ -189,61 +206,58 @@ fn sensitivity_thresholds(value: &str) -> (f32, f32, f32) {
     }
 }
 
-fn zero_crossing_rate(samples: &[f32]) -> f32 {
-    if samples.len() <= 1 {
-        return 0.0;
-    }
-    let crossings = samples
-        .windows(2)
-        .filter(|pair| (pair[0] >= 0.0 && pair[1] < 0.0) || (pair[0] < 0.0 && pair[1] >= 0.0))
-        .count();
-    safe_ratio(crossings, samples.len() - 1)
-}
-
-fn impulse_edge_ratio(samples: &[f32], noise_floor_rms: f32, rms: f32) -> f32 {
-    if samples.len() <= 1 {
-        return 0.0;
-    }
-    let threshold = 0.006_f32.max(noise_floor_rms * 1.8).max(rms * 1.7);
-    let edges = samples
-        .windows(2)
-        .filter(|pair| (pair[1] - pair[0]).abs() >= threshold)
-        .count();
-    safe_ratio(edges, samples.len() - 1)
-}
-
 fn frame_metrics(samples: &[f32], noise_floor_rms: f32, rms: f32) -> (f32, f32) {
     let frame_size = 320;
     let frame_count = samples.len() / frame_size;
     if frame_count == 0 {
         return (0.0, 0.0);
     }
-    let mut energies = samples[..frame_count * frame_size]
-        .chunks(frame_size)
-        .map(|frame| {
-            safe_metric(frame.iter().map(|value| value * value).sum::<f32>() / frame_size as f32)
-        })
-        .collect::<Vec<_>>();
-    let total_energy = safe_metric(energies.iter().sum::<f32>());
-    let frame_energy_concentration = if total_energy > 0.0 {
-        energies.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        let top_count = energies.len().min(3);
-        safe_metric(energies[energies.len() - top_count..].iter().sum::<f32>() / total_energy)
-            .clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
+
     let active_threshold = ((noise_floor_rms * 1.25).powi(2))
         .max((rms * 0.45).powi(2))
         .max(1e-7);
-    let frame_active_ratio = safe_ratio(
-        energies
-            .iter()
-            .filter(|energy| **energy >= active_threshold)
-            .count(),
-        energies.len(),
-    );
+    let mut total_energy = 0.0_f32;
+    let mut active_frames = 0usize;
+    let mut top_three = [0.0_f32; 3];
+
+    for frame in samples[..frame_count * frame_size].chunks_exact(frame_size) {
+        let energy = safe_metric(
+            frame
+                .iter()
+                .map(|value| {
+                    let safe = safe_sample(*value);
+                    safe * safe
+                })
+                .sum::<f32>()
+                / frame_size as f32,
+        );
+        total_energy = safe_metric(total_energy + energy);
+        if energy >= active_threshold {
+            active_frames += 1;
+        }
+        retain_top_three(&mut top_three, energy);
+    }
+
+    let frame_energy_concentration = if total_energy > 0.0 {
+        safe_metric(top_three.iter().sum::<f32>() / total_energy).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    let frame_active_ratio = safe_ratio(active_frames, frame_count);
     (frame_energy_concentration, frame_active_ratio)
+}
+
+fn retain_top_three(top_three: &mut [f32; 3], value: f32) {
+    if value >= top_three[0] {
+        top_three[2] = top_three[1];
+        top_three[1] = top_three[0];
+        top_three[0] = value;
+    } else if value >= top_three[1] {
+        top_three[2] = top_three[1];
+        top_three[1] = value;
+    } else if value > top_three[2] {
+        top_three[2] = value;
+    }
 }
 
 fn noise_like_impulse(
@@ -264,4 +278,44 @@ fn noise_like_impulse(
             && voiced_ratio <= 0.10)
         || (impulse_edge_ratio >= 0.05 && voiced_ratio <= 0.10 && peak_to_rms_ratio >= 5.5)
         || (zcr <= 0.12 && voiced_ratio <= 0.10 && peak_to_rms_ratio >= 5.0 && active_ratio <= 0.35)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_close(left: f32, right: f32) {
+        assert!((left - right).abs() <= 1e-6, "left={left}, right={right}");
+    }
+
+    #[test]
+    fn evidence_sanitizes_nonfinite_and_out_of_range_samples_without_materializing_a_copy() {
+        let raw = [f32::NAN, 2.0, -2.0, 0.25, -0.10, f32::INFINITY, -0.25, 0.10];
+        let normalized = raw.iter().copied().map(safe_sample).collect::<Vec<_>>();
+        let direct = AudioEvidenceReport::from_samples(&raw);
+        let reference = AudioEvidenceReport::from_samples(&normalized);
+
+        assert_eq!(direct.reason, reference.reason);
+        assert_close(direct.rms, reference.rms);
+        assert_close(direct.peak, reference.peak);
+        assert_close(direct.mean_abs, reference.mean_abs);
+        assert_close(direct.voiced_frame_ratio, reference.voiced_frame_ratio);
+        assert_close(direct.zero_crossing_rate, reference.zero_crossing_rate);
+        assert_close(direct.impulse_edge_ratio, reference.impulse_edge_ratio);
+        assert_close(direct.clipping_ratio, reference.clipping_ratio);
+    }
+
+    #[test]
+    fn top_three_frame_energy_is_bounded_and_deterministic() {
+        let mut samples = vec![0.0_f32; 320 * 5];
+        for (index, amplitude) in [0.1_f32, 0.4, 0.2, 0.8, 0.6].into_iter().enumerate() {
+            for sample in &mut samples[index * 320..(index + 1) * 320] {
+                *sample = amplitude;
+            }
+        }
+        let report = AudioEvidenceReport::from_samples(&samples);
+        assert!((0.0..=1.0).contains(&report.frame_energy_concentration));
+        assert!((0.0..=1.0).contains(&report.frame_active_ratio));
+        assert!(report.frame_energy_concentration > 0.5);
+    }
 }

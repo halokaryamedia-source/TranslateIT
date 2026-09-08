@@ -1,4 +1,5 @@
 use serde::Serialize;
+use std::collections::VecDeque;
 use std::sync::{Mutex, OnceLock};
 
 use super::evidence::AudioEvidenceReport;
@@ -37,7 +38,7 @@ struct LiveAudioWindow {
     sample_rate_hz: u32,
     source_channels: u16,
     max_buffer_samples: usize,
-    samples_mono: Vec<f32>,
+    samples_mono: VecDeque<f32>,
     frames_received: u64,
 }
 
@@ -52,7 +53,10 @@ pub fn reset_live_audio_buffer(
         sample_rate_hz,
         source_channels,
         max_buffer_samples,
-        samples_mono: Vec::with_capacity(max_buffer_samples.min(96_000)),
+        // Allocate the full two-second rolling window before the realtime callback
+        // starts. The callback can then overwrite the bounded queue without growing
+        // a Vec or shifting the retained tail on every trim.
+        samples_mono: VecDeque::with_capacity(max_buffer_samples),
         frames_received: 0,
     };
 
@@ -76,11 +80,20 @@ pub fn clear_live_audio_buffer() -> LiveAudioBufferStatusReport {
 }
 
 pub fn append_live_f32_samples(samples: &[f32], sample_rate_hz: u32, source_channels: u16) {
-    append_mono_samples(
-        &downmix_f32(samples, source_channels),
-        sample_rate_hz,
-        source_channels,
-    );
+    if source_channels <= 1 {
+        append_live_mono_f32_samples(samples, sample_rate_hz, source_channels.max(1));
+        return;
+    }
+    let mono = downmix_f32(samples, source_channels);
+    append_live_mono_f32_samples(&mono, sample_rate_hz, source_channels);
+}
+
+pub fn append_live_mono_f32_samples(
+    samples_mono: &[f32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    append_mono_samples(samples_mono, sample_rate_hz, source_channels.max(1));
 }
 
 pub fn live_audio_buffer_status() -> LiveAudioBufferStatusReport {
@@ -105,11 +118,12 @@ fn append_mono_samples(samples_mono: &[f32], sample_rate_hz: u32, source_channel
     };
 
     if guard.is_none() {
+        let max_buffer_samples = max_buffer_samples(sample_rate_hz);
         *guard = Some(LiveAudioWindow {
             sample_rate_hz,
             source_channels,
-            max_buffer_samples: max_buffer_samples(sample_rate_hz),
-            samples_mono: Vec::new(),
+            max_buffer_samples,
+            samples_mono: VecDeque::with_capacity(max_buffer_samples),
             frames_received: 0,
         });
     }
@@ -122,7 +136,7 @@ fn append_mono_samples(samples_mono: &[f32], sample_rate_hz: u32, source_channel
         window.sample_rate_hz = sample_rate_hz;
         window.source_channels = source_channels;
         window.max_buffer_samples = max_buffer_samples(sample_rate_hz);
-        window.samples_mono.clear();
+        window.samples_mono = VecDeque::with_capacity(window.max_buffer_samples);
         window.frames_received = 0;
     }
 
@@ -131,11 +145,16 @@ fn append_mono_samples(samples_mono: &[f32], sample_rate_hz: u32, source_channel
         .saturating_add(samples_mono.len() as u64);
     window
         .samples_mono
-        .extend(samples_mono.iter().map(|sample| sample.clamp(-1.0, 1.0)));
+        .extend(samples_mono.iter().map(|sample| safe_sample(*sample)));
 
-    if window.samples_mono.len() > window.max_buffer_samples {
-        let excess = window.samples_mono.len() - window.max_buffer_samples;
-        window.samples_mono.drain(0..excess);
+    let excess = window
+        .samples_mono
+        .len()
+        .saturating_sub(window.max_buffer_samples);
+    if excess > 0 {
+        // VecDeque front removal does not memmove the retained tail. The old Vec
+        // drain(0..excess) path did exactly that work inside the audio callback.
+        drop(window.samples_mono.drain(..excess));
     }
 }
 
@@ -149,7 +168,10 @@ fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport
 
     let buffered_samples = window.samples_mono.len();
     let buffered_duration_ms = duration_ms(buffered_samples, window.sample_rate_hz);
-    let evidence = AudioEvidenceReport::from_samples(&window.samples_mono);
+    // Diagnostics/status are allowed to materialize a chronological snapshot. This
+    // keeps that copy out of the realtime callback where latency variance matters.
+    let snapshot = window.samples_mono.iter().copied().collect::<Vec<_>>();
+    let evidence = AudioEvidenceReport::from_samples(&snapshot);
     // Diagnostics must evaluate with the SAME active gate profile the production
     // speech pipeline uses, not a second divergent default threshold set.
     let vad_result = evaluate_vad_gate(evidence.clone(), &runtime_vad_profile().gate);
@@ -216,20 +238,10 @@ fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport
 
 fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
     let channel_count = usize::from(source_channels.max(1));
-    if channel_count == 1 {
-        return samples
-            .iter()
-            .map(|sample| sample.clamp(-1.0, 1.0))
-            .collect();
-    }
-
     samples
         .chunks(channel_count)
         .map(|frame| {
-            let sum = frame
-                .iter()
-                .map(|sample| sample.clamp(-1.0, 1.0))
-                .sum::<f32>();
+            let sum = frame.iter().map(|sample| safe_sample(*sample)).sum::<f32>();
             sum / frame.len().max(1) as f32
         })
         .collect()
@@ -238,6 +250,14 @@ fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
 fn max_buffer_samples(sample_rate_hz: u32) -> usize {
     let safe_rate = sample_rate_hz.max(1);
     ((safe_rate as u64 * MAX_BUFFER_MS as u64) / 1_000) as usize
+}
+
+fn safe_sample(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
 }
 
 fn inactive_status(blocker: &str, note: &str) -> LiveAudioBufferStatusReport {
@@ -268,5 +288,27 @@ fn inactive_status(blocker: &str, note: &str) -> LiveAudioBufferStatusReport {
         vad_result,
         blocker: blocker.to_string(),
         note: note.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rolling_buffer_retains_only_newest_samples_in_chronological_order() {
+        clear_live_audio_buffer();
+        reset_live_audio_buffer(10, 1);
+        let source = (0..30).map(|value| value as f32 / 30.0).collect::<Vec<_>>();
+        append_live_mono_f32_samples(&source, 10, 1);
+
+        let store = LIVE_AUDIO_WINDOW.get_or_init(|| Mutex::new(None));
+        let guard = store.lock().expect("live buffer test lock");
+        let window = guard.as_ref().expect("live buffer active");
+        let retained = window.samples_mono.iter().copied().collect::<Vec<_>>();
+        assert_eq!(retained.len(), 20);
+        assert_eq!(retained, source[10..].to_vec());
+        drop(guard);
+        clear_live_audio_buffer();
     }
 }

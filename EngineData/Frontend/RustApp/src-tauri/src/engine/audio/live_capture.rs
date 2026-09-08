@@ -7,12 +7,12 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::finalized_utterance::{
-    clear_finalized_outbound_utterance_producer, observe_finalized_outbound_f32_samples,
+    clear_finalized_outbound_utterance_producer, observe_finalized_outbound_mono_f32_samples,
     reset_finalized_outbound_utterance_producer,
 };
 use super::guided_take::append_guided_f32;
 use super::live_audio_buffer::{
-    append_live_f32_samples, clear_live_audio_buffer, reset_live_audio_buffer,
+    append_live_mono_f32_samples, clear_live_audio_buffer, reset_live_audio_buffer,
 };
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
@@ -235,34 +235,52 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     }
 }
 
-fn mono_f32_from_i16(samples: &[i16], source_channels: u16) -> Vec<f32> {
-    let converted = samples
-        .iter()
-        .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
-        .collect::<Vec<_>>();
-    downmix_mono(&converted, source_channels)
-}
-
-fn mono_f32_from_u16(samples: &[u16], source_channels: u16) -> Vec<f32> {
-    let converted = samples
-        .iter()
-        .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
-        .collect::<Vec<_>>();
-    downmix_mono(&converted, source_channels)
-}
-
-fn downmix_mono(samples: &[f32], source_channels: u16) -> Vec<f32> {
+fn downmix_f32_into(samples: &[f32], source_channels: u16, output: &mut Vec<f32>) {
+    output.clear();
     let channel_count = usize::from(source_channels.max(1));
-    if channel_count == 1 {
-        return samples.to_vec();
+    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
+    for frame in samples.chunks(channel_count) {
+        let sum = frame.iter().map(|sample| safe_sample(*sample)).sum::<f32>();
+        output.push(sum / frame.len().max(1) as f32);
     }
-    samples
-        .chunks(channel_count)
-        .map(|frame| {
-            let sum = frame.iter().map(|sample| sample.clamp(-1.0, 1.0)).sum::<f32>();
-            sum / frame.len().max(1) as f32
-        })
-        .collect()
+}
+
+fn mono_f32_from_i16_into(samples: &[i16], source_channels: u16, output: &mut Vec<f32>) {
+    output.clear();
+    let channel_count = usize::from(source_channels.max(1));
+    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
+    for frame in samples.chunks(channel_count) {
+        let sum = frame
+            .iter()
+            .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
+            .sum::<f32>();
+        output.push(sum / frame.len().max(1) as f32);
+    }
+}
+
+fn mono_f32_from_u16_into(samples: &[u16], source_channels: u16, output: &mut Vec<f32>) {
+    output.clear();
+    let channel_count = usize::from(source_channels.max(1));
+    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
+    for frame in samples.chunks(channel_count) {
+        let sum = frame
+            .iter()
+            .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
+            .sum::<f32>();
+        output.push(sum / frame.len().max(1) as f32);
+    }
+}
+
+fn publish_runtime_mono(
+    samples_mono: &[f32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+    finalized_outbound_enabled: bool,
+) {
+    append_live_mono_f32_samples(samples_mono, sample_rate_hz, source_channels);
+    if finalized_outbound_enabled {
+        observe_finalized_outbound_mono_f32_samples(samples_mono, sample_rate_hz);
+    }
 }
 
 fn build_stream_for_format(
@@ -271,6 +289,7 @@ fn build_stream_for_format(
     sample_format: cpal::SampleFormat,
     frames_received: Arc<AtomicU64>,
     callback_errors: Arc<Mutex<Vec<String>>>,
+    finalized_outbound_enabled: bool,
 ) -> Result<cpal::Stream, String> {
     let channels = config.channels;
     let sample_rate_hz = config.sample_rate.0;
@@ -279,14 +298,34 @@ fn build_stream_for_format(
         cpal::SampleFormat::F32 => {
             let frames = Arc::clone(&frames_received);
             let errors = Arc::clone(&callback_errors);
+            let mut mono_scratch = Vec::<f32>::new();
             device
                 .build_input_stream(
                     config,
                     move |data: &[f32], _| {
                         record_frames(data.len(), channels, &frames);
-                        append_live_f32_samples(data, sample_rate_hz, channels);
+                        if channels <= 1 {
+                            // The common mono-F32 path needs no conversion buffer.
+                            // Each retaining consumer sanitizes while copying.
+                            publish_runtime_mono(
+                                data,
+                                sample_rate_hz,
+                                channels.max(1),
+                                finalized_outbound_enabled,
+                            );
+                        } else {
+                            downmix_f32_into(data, channels, &mut mono_scratch);
+                            publish_runtime_mono(
+                                &mono_scratch,
+                                sample_rate_hz,
+                                channels,
+                                finalized_outbound_enabled,
+                            );
+                        }
+                        // The guided recorder is normally inactive during Meeting;
+                        // its iterator is lazy and returns before sample work when no
+                        // guided take owns the capture state.
                         append_guided_f32(data, sample_rate_hz, channels);
-                        observe_finalized_outbound_f32_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -296,18 +335,23 @@ fn build_stream_for_format(
         cpal::SampleFormat::I16 => {
             let frames = Arc::clone(&frames_received);
             let errors = Arc::clone(&callback_errors);
+            let mut mono_scratch = Vec::<f32>::new();
             device
                 .build_input_stream(
                     config,
                     move |data: &[i16], _| {
                         record_frames(data.len(), channels, &frames);
-                        // Convert once on the callback thread and share the mono
-                        // signal with every consumer instead of letting each
-                        // consumer repeat the same conversion.
-                        let mono = mono_f32_from_i16(data, channels);
-                        append_live_f32_samples(&mono, sample_rate_hz, 1);
-                        append_guided_f32(&mono, sample_rate_hz, 1);
-                        observe_finalized_outbound_f32_samples(&mono, sample_rate_hz, 1);
+                        // Reuse one callback-owned scratch Vec. Conversion and downmix
+                        // happen in one pass instead of allocating a converted Vec and
+                        // then allocating another mono Vec for every callback.
+                        mono_f32_from_i16_into(data, channels, &mut mono_scratch);
+                        publish_runtime_mono(
+                            &mono_scratch,
+                            sample_rate_hz,
+                            channels,
+                            finalized_outbound_enabled,
+                        );
+                        append_guided_f32(&mono_scratch, sample_rate_hz, 1);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -317,15 +361,20 @@ fn build_stream_for_format(
         cpal::SampleFormat::U16 => {
             let frames = Arc::clone(&frames_received);
             let errors = Arc::clone(&callback_errors);
+            let mut mono_scratch = Vec::<f32>::new();
             device
                 .build_input_stream(
                     config,
                     move |data: &[u16], _| {
                         record_frames(data.len(), channels, &frames);
-                        let mono = mono_f32_from_u16(data, channels);
-                        append_live_f32_samples(&mono, sample_rate_hz, 1);
-                        append_guided_f32(&mono, sample_rate_hz, 1);
-                        observe_finalized_outbound_f32_samples(&mono, sample_rate_hz, 1);
+                        mono_f32_from_u16_into(data, channels, &mut mono_scratch);
+                        publish_runtime_mono(
+                            &mono_scratch,
+                            sample_rate_hz,
+                            channels,
+                            finalized_outbound_enabled,
+                        );
+                        append_guided_f32(&mono_scratch, sample_rate_hz, 1);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -397,6 +446,7 @@ fn run_capture_thread(
         sample_format,
         frames_received,
         callback_errors,
+        finalized_outbound_enabled,
     ) {
         Ok(stream) => stream,
         Err(error) => {
@@ -511,4 +561,39 @@ fn current_unix_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+fn safe_sample(value: f32) -> f32 {
+    if value.is_finite() {
+        value.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn callback_conversion_reuses_scratch_and_downmixes_in_one_pass() {
+        let mut scratch = Vec::new();
+        let stereo_i16 = [i16::MAX, 0, i16::MIN, 0];
+        mono_f32_from_i16_into(&stereo_i16, 2, &mut scratch);
+        assert_eq!(scratch.len(), 2);
+        assert!(scratch[0] > 0.49 && scratch[0] <= 0.5);
+        assert!(scratch[1] >= -0.51 && scratch[1] < -0.49);
+        let first_capacity = scratch.capacity();
+
+        mono_f32_from_i16_into(&[0, 0], 2, &mut scratch);
+        assert_eq!(scratch, vec![0.0]);
+        assert!(scratch.capacity() >= first_capacity);
+
+        mono_f32_from_u16_into(&[0, u16::MAX], 2, &mut scratch);
+        assert_eq!(scratch.len(), 1);
+        assert!(scratch[0].abs() <= 1e-6);
+
+        downmix_f32_into(&[f32::NAN, 1.0, 1.0, -1.0], 2, &mut scratch);
+        assert_eq!(scratch, vec![0.5, 0.0]);
+    }
 }

@@ -3,22 +3,21 @@
 ## Current Status
 
 - `Local` remains the sole active authority for development, governance, CI, proof, continuation, and release-source validation.
-- Architecture remains Tauri 2 + Svelte 5 + Rust + one canonical Python worker; required outbound remains fail-closed and optional incoming remains degradable.
-- Source-cleanup identity `1ccc24246c591451ea7c4dd92356f02dd522d8d6` completed its deterministic source proof.
-- Frontend validation now uses one canonical bridge-contract gate, module reachability, source-size budget, runtime-policy tests, typecheck/build, virtual-route validation, and production dependency audit.
-- `App.svelte` and `runtimeProductFacade.ts` are back under normal source-size budgets; polling, native close, product-state mapping, and product DTO ownership are explicit.
-- Redundant bridge validators and the duplicate frontend test-registration verifier were removed.
-- Remaining oversized-source exceptions are native realtime coordinators only; they are tracked debt rather than templates for new code.
-- R3 release verification remains scoped to actual release/package inputs; controlled payload proof is not rerun for unrelated source cleanup.
+- The previous remote-cleanup freeze was explicitly reopened by the user for REMOTE_GITHUB performance hardening before TARGET_WINDOWS testing.
+- Architecture remains Tauri 2 + Svelte 5 + Rust + one canonical persistent Python worker; required outbound remains fail-closed and optional incoming remains degradable.
+- Realtime microphone source work now targets avoidable callback cost without changing product speech semantics: rolling preview storage is bounded/preallocated, normal callback conversion/downmix reuses scratch storage, finalized-utterance observation avoids per-chunk sanitization copies, audio evidence avoids temporary normalized/frame-energy vectors, and inactive My Voice recording no longer requires a mutex acquisition on every Meeting callback.
+- Existing Meeting timing ownership remains authoritative: speech boundary, finalization, queue, audio preparation, ASR, translation, TTS, delivery, and finalized-to-first-playback latency are already separated in runtime status.
+- The full generation-bound Meeting Start functional check is intentionally retained until TARGET_WINDOWS timing proves it is a material repeat cost. Worker/model residency and temporary-WAV transport are likewise unchanged until real RAM/VRAM/stage timing identifies them as first bottlenecks.
+- `docs/knowledge/operations/target-windows-performance.md` is the canonical repeatable baseline procedure for the remaining hardware-only decisions.
 
 ## Active Boundary
 
-Current proof remains `REMOTE_GITHUB`. Physical microphone/GPU/VB-CABLE/meeting-app reception, semantic quality, real latency, installed-runtime success, speaker fidelity, and clean-machine success are **not** PASS.
+Current proof context is `REMOTE_GITHUB`.
 
-TARGET_WINDOWS is not currently available.
+Source/static/CI can establish the behavior-preserving callback/buffer contracts and repository health. Physical microphone stability, real CPU/RAM/GPU/VRAM cost, CUDA practicality, VB-CABLE/Meeting Microphone reception, actual Start → Live time, end-to-end latency, speaker quality, installed-runtime behavior, and repeated-session hardware behavior remain **TARGET WINDOWS PROOF REQUIRED**.
 
-The repository remains at the **remote-cleanup freeze**. Do not continue restructuring native realtime Meeting/helper/audio coordinators merely to reduce file size. New REMOTE_GITHUB changes should require a concrete failing verifier, reproducible contract defect, security/privacy issue, or other high-value correctness problem with deterministic proof.
+Do not replace the full Start functional check with file/status presence, introduce adaptive model unloading, or replace WAV transport merely because those paths are theoretically expensive. The target baseline must identify the first measured owner before further architecture work.
 
 ## Next Step
 
-When TARGET_WINDOWS becomes available, run the exact then-current `Local`: A2/A3, B1/B2/B5, then C0 → C1 → C4 → C5, recording real C1 stage timing. Use that baseline to decide whether the remaining native realtime coordinator debt should be decomposed; until then, keep `Local` stable and fix only concrete regressions.
+After the exact current `Local` source checks are green, run `docs/knowledge/operations/target-windows-performance.md` on TARGET_WINDOWS using the built-in voice outbound-only baseline first. Return the measured first bottleneck (or no material bottleneck) to development; do not redo the REMOTE_GITHUB callback hardening unless the target evidence points back to audio capture/VAD.
