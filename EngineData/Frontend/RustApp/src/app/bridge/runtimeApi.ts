@@ -1,4 +1,5 @@
 import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
+import { meetingSessionStatusFallback } from "../runtime/meetingBridgeFallback";
 import type {
   AudioDeviceListReport,
   CommandResult,
@@ -298,65 +299,6 @@ function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus
     runtime_claim: "frontend_bridge_unavailable",
     updated_unix_ms: Date.now(),
     note: message,
-  };
-}
-
-export function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
-  return {
-    lifecycle: "unavailable",
-    // Unknown bridge state is potentially owned. Poll/recovery must prove idle.
-    has_session: true,
-    authority_active: false,
-    session_id: null,
-    generation: null,
-    started_unix_ms: null,
-    active_age_ms: null,
-    capture_active: false,
-    owner_id: null,
-    blocker: "frontend_bridge_unavailable",
-    note: message,
-    preflight: {
-      ready_for_start: false,
-      start_eligible: false,
-      functional_outbound_ready: false,
-      functional_outbound_verified_unix_ms: null,
-      microphone_ready: false,
-      models_ready: false,
-      helper_ready: false,
-      provider_ready: false,
-      meeting_route_ready: false,
-      generation_aware_outbound_stages_ready: false,
-      finalized_utterance_source_connected: false,
-      outbound_runtime_connected: false,
-      blockers: ["frontend_bridge_unavailable"],
-      summary: message,
-      runtime_claim: "frontend_bridge_unavailable",
-    },
-    outbound: {
-      generation: null,
-      session_id: null,
-      stage: "unavailable",
-      utterance_sequence: 0,
-      output_active: false,
-      last_stage_ok: false,
-      timing: null,
-      blocker: "frontend_bridge_unavailable",
-      note: message,
-      updated_unix_ms: Date.now(),
-      runtime_claim: "frontend_bridge_unavailable",
-    },
-    incoming: {
-      session_id: null,
-      stage: "unavailable",
-      capture_active: false,
-      suppressed: false,
-      degraded: false,
-      blocker: "frontend_bridge_unavailable",
-      note: message,
-      updated_unix_ms: Date.now(),
-      runtime_claim: "frontend_bridge_unavailable",
-    },
-    runtime_claim: "frontend_bridge_unavailable",
   };
 }
 
