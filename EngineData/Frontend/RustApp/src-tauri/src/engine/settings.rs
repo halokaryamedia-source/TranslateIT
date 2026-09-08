@@ -65,6 +65,11 @@ impl Default for RuntimeSettings {
 impl RuntimeSettings {
     pub fn load_or_default(path: &Path) -> Self {
         if let Some(settings) = read_settings_file(path) {
+            // If the replacement already committed but the process stopped before
+            // cleanup, the valid primary file is authoritative. Remove stale write
+            // artifacts so an older backup cannot become a future recovery source.
+            let _ = fs::remove_file(path.with_extension("json.bak"));
+            let _ = fs::remove_file(path.with_extension("json.tmp"));
             return settings;
         }
 
@@ -212,6 +217,38 @@ mod tests {
         assert_eq!(settings.meeting_setup_checkpoint, 1);
         assert!(settings.audio.input_device_id.is_none());
         assert!(settings.audio.output_device_id.is_none());
+    }
+
+    #[test]
+    fn valid_primary_clears_stale_atomic_write_artifacts() {
+        let path = std::env::temp_dir().join(format!(
+            "translateit_settings_stale_cleanup_{}.json",
+            std::process::id()
+        ));
+        let backup = path.with_extension("json.bak");
+        let temp = path.with_extension("json.tmp");
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&backup);
+        let _ = fs::remove_file(&temp);
+
+        let mut current = RuntimeSettings::default();
+        current.meeting_setup_state = "completed".to_string();
+        current
+            .save_pretty(&path)
+            .expect("current settings should save");
+        fs::write(&backup, r#"{"meeting_setup_state":"new"}"#)
+            .expect("stale backup should be written");
+        fs::write(&temp, r#"{"meeting_setup_state":"deferred"}"#)
+            .expect("stale temp should be written");
+
+        let loaded = RuntimeSettings::load_or_default(&path);
+        assert_eq!(loaded.meeting_setup_state, "completed");
+        assert!(!backup.exists(), "valid primary should retire stale backup");
+        assert!(!temp.exists(), "valid primary should retire stale temp");
+
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&backup);
+        let _ = fs::remove_file(&temp);
     }
 
     #[test]
