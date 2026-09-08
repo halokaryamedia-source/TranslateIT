@@ -17,10 +17,10 @@ Repository Verify
 → governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
 
 Code Health
-→ strict Svelte/TypeScript checking + bridge no-any/source contracts
+→ strict Svelte/TypeScript checking + bridge/source contracts + deterministic frontend runtime-policy tests
 → production npm vulnerability audit
-→ Linux Python compile + E4/E7/E9/full-F static gate + contract/unit tests
-→ hosted Windows Python compile + E4/E7/E9/full-F static gate + contract/unit tests
+→ Linux Python compile + Ruff E4/E7/E9/F/I static gate + Ruff format check + contract/unit tests
+→ hosted Windows Python compile + Ruff E4/E7/E9/F/I static gate + Ruff format check + contract/unit tests
 → Linux Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests
 → hosted Windows Rust compiler/dead-code checks + Clippy correctness gate + Rust unit tests for Windows-compiled source
 
@@ -41,7 +41,7 @@ Checks are path-targeted where appropriate. A broader source claim requires the 
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that Windows-selected Rust source compiles, Rust Clippy correctness runs, Rust unit tests execute, and the Python WorkerRuntime passes its compile/static/contract test suite on GitHub's hosted Windows runner. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
+Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that Windows-selected Rust source compiles, Rust Clippy correctness runs, Rust unit tests execute, and the Python WorkerRuntime passes its compile/static/format/contract test suite on GitHub's hosted Windows runner. Frontend runtime-policy tests can establish deterministic policy behavior such as safe-close precedence, but not rendered/native behavior. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
 
 ### LOCAL_CODE
 
@@ -54,6 +54,8 @@ Required for claims that depend on the user's real Windows hardware/install/audi
 ## Target Windows
 
 Current target-Windows claims remain scenario-specific. Do not infer them from old run notes, hosted CI, or source presence. When target proof is requested, execute only the owning scenario(s) from `docs/foundation/03-acceptance-scenarios.md` and record evidence outside tracked user-private data.
+
+Large ownership-preserving refactors of the realtime Meeting/audio coordinators should wait until the first target-Windows baseline exists unless a source-health failure makes a smaller correction necessary. The baseline is the behavior reference for later decomposition.
 
 ## Evidence rule
 

@@ -27,6 +27,15 @@ test("blocks close while My Voice is recording", () => {
   });
 });
 
+test("My Voice recording takes precedence over downstream availability", () => {
+  assert.equal(
+    verdict({ recordingLineId: 2, buildUnavailable: true, meetingUnavailable: true }).kind,
+    "dialog",
+  );
+  const result = verdict({ recordingLineId: 2, buildUnavailable: true, meetingUnavailable: true });
+  assert.equal(result.kind === "dialog" ? result.title : "", "Voice recording is still running");
+});
+
 test("blocks close while a take is pending review", () => {
   assert.equal(verdict({ pendingReview: true }).kind, "dialog");
 });
