@@ -36,16 +36,15 @@ export type HelperBridgeStatus = {
   functional_outbound_verified_unix_ms: number | null;
   degraded_mode: boolean;
   active_task: string | null;
-  active_request_id?: string | null;
-  active_meeting_generation?: number | null;
-  active_meeting_session_id?: string | null;
-  active_meeting_lane?: string | null;
+  active_request_id: string | null;
+  active_meeting_generation: number | null;
+  active_meeting_session_id: string | null;
+  active_meeting_lane: string | null;
   generation_token: number;
   last_error: string | null;
-  stderr_log_path?: string | null;
+  stderr_log_path: string | null;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type HelperBridgeActionResult = {
@@ -54,18 +53,18 @@ export type HelperBridgeActionResult = {
   message: string;
   generation_token: number;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type HelperBridgeWorkerResponse = {
   ok: boolean;
   state: string;
   task: string;
+  request_id: string;
+  scheduler_priority: string;
   message: string;
   generation_token: number;
   runtime_claim: string;
   worker_response_json: string;
-  [key: string]: unknown;
 };
 
 export type AudioDeviceSummary = {

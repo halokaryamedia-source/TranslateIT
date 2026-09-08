@@ -41,11 +41,14 @@ export type VirtualMicRouteContractStatus = {
   selected_input_device: string | null;
   output_device_found: boolean;
   input_device_found: boolean;
+  evidence_path: string | null;
+  route_output_contract_json: string;
+  available_output_devices: string[];
+  available_input_devices: string[];
   blocker: string;
   next_action: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: unknown;
 };
 
 export type TextTranslationCommandResult = {
@@ -72,7 +75,6 @@ export type MeetingSessionPreflightStatus = {
   blockers: string[];
   summary: string;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type MeetingOutboundTiming = {
@@ -97,11 +99,12 @@ export type MeetingOutboundRuntimeStatus = {
   output_active: boolean;
   last_stage_ok: boolean;
   timing: MeetingOutboundTiming | null;
+  overflow_dropped_utterance_count: number;
+  evicted_pending_utterance_count: number;
   blocker: string;
   note: string;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type MeetingIncomingRuntimeStatus = {
@@ -114,7 +117,6 @@ export type MeetingIncomingRuntimeStatus = {
   note: string;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type MeetingSessionStatus = {
@@ -133,7 +135,6 @@ export type MeetingSessionStatus = {
   outbound: MeetingOutboundRuntimeStatus;
   incoming: MeetingIncomingRuntimeStatus;
   runtime_claim: string;
-  [key: string]: unknown;
 };
 
 export type MeetingSessionActionResult = {
@@ -141,7 +142,6 @@ export type MeetingSessionActionResult = {
   state: string;
   message: string;
   status: MeetingSessionStatus;
-  [key: string]: unknown;
 };
 
 export type MeetingCommittedTurn = {
@@ -210,6 +210,8 @@ function helperWorkerFallback(task: string, message: string): HelperBridgeWorker
     ok: false,
     state: "frontend_bridge_error",
     task,
+    request_id: "",
+    scheduler_priority: "diagnostic",
     message,
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
@@ -232,6 +234,10 @@ function bridgeStatusFallback(message: string): HelperBridgeStatus {
     functional_outbound_verified_unix_ms: null,
     degraded_mode: false,
     active_task: null,
+    active_request_id: null,
+    active_meeting_generation: null,
+    active_meeting_session_id: null,
+    active_meeting_lane: null,
     generation_token: 0,
     last_error: "frontend_bridge_unavailable",
     stderr_log_path: null,
@@ -285,7 +291,7 @@ function audioDeviceProbeFallback(message: string): AudioDeviceProbeReport {
   };
 }
 
-function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus {
+function virtualMicRouteFallback(): VirtualMicRouteContractStatus {
   return {
     ok: false,
     route_ready: false,
@@ -294,11 +300,14 @@ function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus
     selected_input_device: null,
     output_device_found: false,
     input_device_found: false,
+    evidence_path: null,
+    route_output_contract_json: "",
+    available_output_devices: [],
+    available_input_devices: [],
     blocker: "frontend_bridge_unavailable",
     next_action: "retry_route_status",
     runtime_claim: "frontend_bridge_unavailable",
     updated_unix_ms: Date.now(),
-    note: message,
   };
 }
 
@@ -379,7 +388,7 @@ export const runtimeApi = {
     return invokeOr<VirtualMicRouteContractStatus>(
       "get_virtual_mic_route_contract_status",
       undefined,
-      virtualMicRouteFallback("Meeting microphone route status is unavailable because the frontend bridge could not call Tauri."),
+      virtualMicRouteFallback(),
     );
   },
 

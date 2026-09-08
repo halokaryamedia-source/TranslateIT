@@ -126,8 +126,8 @@ jobs:
       - run: npm run build:frontend
       - run: npm run test:frontend-runtime
       - run: npm run validate:source-size
-      - run: npm run validate:bridge-types
-      - run: npm run validate:command-parity
+      - run: npm run validate:bridge-contract
+      - run: npm run validate:reachability
       - run: npm run validate:virtual-route
       - name: Audit production npm dependencies
         run: npm audit --omit=dev --audit-level=high

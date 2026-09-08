@@ -13,11 +13,9 @@ const defaultBudgets = {
   ".ts": 20_000,
 };
 
-// Existing coordinators above the default budget are explicit debt, not a template for new files.
-// Budgets intentionally sit just above the current source size so these files cannot silently grow.
+// Remaining entries are explicit native-runtime decomposition debt. Frontend
+// coordinators must stay inside the normal budget rather than accumulating exemptions.
 const grandfatheredBudgets = new Map([
-  ["src/App.svelte", 22_000],
-  ["src/app/bridge/runtimeProductFacade.ts", 30_000],
   ["src-tauri/src/commands/helper_bridge.rs", 59_000],
   ["src-tauri/src/commands/helper_bridge_runtime.rs", 41_000],
   ["src-tauri/src/commands/meeting_session.rs", 71_000],

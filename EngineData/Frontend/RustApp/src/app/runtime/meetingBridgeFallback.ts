@@ -38,6 +38,8 @@ export function meetingSessionStatusFallback(message: string) {
       output_active: false,
       last_stage_ok: false,
       timing: null,
+      overflow_dropped_utterance_count: 0,
+      evicted_pending_utterance_count: 0,
       blocker: "frontend_bridge_unavailable",
       note: message,
       updated_unix_ms: updatedUnixMs,

@@ -1,0 +1,82 @@
+import type { MeetingSessionStatus } from "./runtimeApi";
+import type {
+  HelperBridgeStatus,
+  HelperBridgeWorkerResponse,
+  InputPreparationStatus,
+  RuntimeSettings,
+} from "../shared/types";
+
+export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking" | "unavailable";
+
+export type ProductReadiness = {
+  level: ProductReadinessLevel;
+  textReady: boolean;
+  helperReady: boolean;
+  providerReady: boolean;
+  microphoneReady: boolean;
+  modelsReady: boolean;
+  functionalOutboundReady: boolean;
+  asrReady: boolean;
+  translationIdEnReady: boolean;
+  translationEnIdReady: boolean;
+  ttsReady: boolean;
+  voiceReady: boolean;
+  meetingRouteReady: boolean;
+  meetingReady: boolean;
+  approvedVoiceReady: boolean | null;
+  canTranslateText: boolean;
+  canRecordVoice: boolean;
+  recording: boolean;
+  nextAction: string;
+  blockers: string[];
+  summary: string;
+  textStatus: string;
+  helperStatus: string;
+  modelStatus: string;
+  microphoneStatus: string;
+  voiceStatus: string;
+  meetingStatus: string;
+  runtimeStatus: string;
+};
+
+export type ProductMeetingState = {
+  lifecycle: string;
+  hasSession: boolean;
+  applicationOwned: boolean;
+  authorityActive: boolean;
+  captureActive: boolean;
+  live: boolean;
+  busy: boolean;
+  canStart: boolean;
+  canStop: boolean;
+  sessionId: string | null;
+  generation: number | null;
+  outboundStage: string;
+  label: string;
+  message: string;
+  blocker: string;
+};
+
+export type ProductRuntimeSnapshot = {
+  settings: RuntimeSettings;
+  readiness: ProductReadiness;
+  meeting: ProductMeetingState;
+  meetingSession: MeetingSessionStatus | null;
+  helper: HelperBridgeStatus | null;
+  workerStatus: HelperBridgeWorkerResponse | null;
+  inputStatus: InputPreparationStatus | null;
+};
+
+export type WorkerCapabilitySnapshot = {
+  responseAvailable: boolean;
+  asrReady: boolean;
+  translationIdEnReady: boolean;
+  translationEnIdReady: boolean;
+  ttsReady: boolean;
+  blocker: string;
+  note: string;
+  asrDisplay: string;
+  translationDisplay: string;
+  voiceDisplay: string;
+  executionDisplay: string;
+};

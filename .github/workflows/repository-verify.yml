@@ -21,8 +21,10 @@ on:
       - "docs/knowledge/**"
       - "EngineData/Frontend/RustApp/package.json"
       - "EngineData/Frontend/RustApp/scripts/tests/**"
+      - "EngineData/Frontend/RustApp/scripts/validate_bridge_contract.mjs"
+      - "EngineData/Frontend/RustApp/scripts/validate_frontend_reachability.mjs"
+      - "EngineData/Frontend/RustApp/scripts/validate_source_size_budget.mjs"
       - "tools/verify_repository.py"
-      - "tools/verify_frontend_runtime_policy_tests.py"
       - ".github/workflows/**"
   pull_request:
     branches:
@@ -44,8 +46,10 @@ on:
       - "docs/knowledge/**"
       - "EngineData/Frontend/RustApp/package.json"
       - "EngineData/Frontend/RustApp/scripts/tests/**"
+      - "EngineData/Frontend/RustApp/scripts/validate_bridge_contract.mjs"
+      - "EngineData/Frontend/RustApp/scripts/validate_frontend_reachability.mjs"
+      - "EngineData/Frontend/RustApp/scripts/validate_source_size_budget.mjs"
       - "tools/verify_repository.py"
-      - "tools/verify_frontend_runtime_policy_tests.py"
       - ".github/workflows/**"
   workflow_dispatch:
 
@@ -70,7 +74,5 @@ jobs:
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: "3.12.10"
-      - name: Verify repository governance
+      - name: Verify repository governance and source-validation routing
         run: python tools/verify_repository.py
-      - name: Verify frontend policy test registration
-        run: python tools/verify_frontend_runtime_policy_tests.py

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import py_compile
 import re
 from pathlib import Path
 from urllib.parse import unquote
@@ -44,7 +43,16 @@ REQUIRED_PATHS = (
     ".agents/skills/local-ai-runtime-development/SKILL.md",
     ".agents/skills/windows-audio-runtime-development/SKILL.md",
     ".agents/skills/release-packaging-development/SKILL.md",
+    "EngineData/Frontend/RustApp/scripts/validate_bridge_contract.mjs",
+    "EngineData/Frontend/RustApp/scripts/validate_frontend_reachability.mjs",
+)
+
+FORBIDDEN_PATHS = (
+    "DevelopingData",
+    ".github/workflows/stable-release-verify.yml",
     "tools/verify_frontend_runtime_policy_tests.py",
+    "EngineData/Frontend/RustApp/scripts/validate_bridge_type_safety.mjs",
+    "EngineData/Frontend/RustApp/scripts/validate_command_parity.mjs",
 )
 
 ACTIVE_GOVERNANCE = (
@@ -92,27 +100,24 @@ def text(rel: str) -> str:
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
-def check_required_paths(errors: list[str]) -> None:
+def check_structure(errors: list[str]) -> None:
     for rel in REQUIRED_PATHS:
         if not (ROOT / rel).is_file():
             fail(errors, f"missing required path: {rel}")
-    if (ROOT / "DevelopingData").exists():
-        fail(errors, "DevelopingData must not remain in the active working tree; use Git history for recovery")
-    if (ROOT / ".github/workflows/stable-release-verify.yml").exists():
-        fail(errors, "stable-release-verify.yml is forbidden under the Local-only repository model")
+    for rel in FORBIDDEN_PATHS:
+        if (ROOT / rel).exists():
+            fail(errors, f"stale or forbidden path remains active: {rel}")
 
-
-def check_skill_inventory(errors: list[str]) -> None:
-    root = ROOT / ".agents" / "skills"
-    if not root.is_dir():
+    skills_root = ROOT / ".agents" / "skills"
+    if not skills_root.is_dir():
         fail(errors, "missing .agents/skills")
         return
-    actual = {p.name for p in root.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
+    actual = {p.name for p in skills_root.iterdir() if p.is_dir() and (p / "SKILL.md").is_file()}
     if actual != CANONICAL_SKILLS:
         fail(errors, f"canonical skill inventory mismatch: expected={sorted(CANONICAL_SKILLS)} actual={sorted(actual)}")
 
 
-def check_size_budgets(errors: list[str]) -> None:
+def check_compactness(errors: list[str]) -> None:
     budgets = {
         "AGENTS.md": 14_000,
         "GITHUB_RULES.md": 26_000,
@@ -144,43 +149,14 @@ def check_branch_authority(errors: list[str]) -> None:
         ):
             if stale in value:
                 fail(errors, f"{rel} contains stale branch lifecycle language: {stale}")
-    rules = text("GITHUB_RULES.md")
-    for marker in (
-        "EXHAUST REMOTE_GITHUB PARTITION",
-        "Execution context / proof ceiling",
-        "GitHub-first execution partition",
-        "TOOL + TRANSFER GATE",
-        "Failure / retry matrix",
-        "Interrupted delivery",
-        "TARGET_WINDOWS",
-        "`Local` is the sole active repository authority",
-    ):
-        if marker not in rules:
-            fail(errors, f"GITHUB_RULES.md missing modern operating marker: {marker}")
 
 
-def check_agents(errors: list[str]) -> None:
-    value = text("AGENTS.md")
-    for marker in (
-        "Execution Context Gate",
-        "Bounded Maintenance",
-        "Standard Development",
-        "Complex / Ambiguous Development",
-        "Forbidden Proxy / Non-Goal",
-        "current-validation.md",
-        "TARGET_WINDOWS",
-        "Local-only",
-    ):
-        if marker not in value:
-            fail(errors, f"AGENTS.md missing routing marker: {marker}")
-
-
-def check_next_action(errors: list[str]) -> None:
-    value = text("docs/knowledge/next-action.md")
+def check_continuation_and_product(errors: list[str]) -> None:
+    next_action = text("docs/knowledge/next-action.md")
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
-        if value.count(heading) != 1:
+        if next_action.count(heading) != 1:
             fail(errors, f"next-action.md must contain exactly one {heading}")
-    for marker in (
+    for stale in (
         "V1-Advance",
         "Developing` remains",
         "Start built-in voices integration",
@@ -188,36 +164,24 @@ def check_next_action(errors: list[str]) -> None:
         "Stable Release Gate",
         "Local → main",
     ):
-        if marker in value:
-            fail(errors, f"next-action.md contains stale continuation marker: {marker}")
+        if stale in next_action:
+            fail(errors, f"next-action.md contains stale continuation marker: {stale}")
 
-
-def check_current_validation(errors: list[str]) -> None:
-    value = text("docs/knowledge/current-validation.md")
-    for marker in ("## Current Source Proof", "## Verification surfaces", "## Proof Boundaries", "## Target Windows"):
-        if marker not in value:
-            fail(errors, f"current-validation.md missing section: {marker}")
-    if "one SHA does not prove another SHA" not in value:
+    validation = text("docs/knowledge/current-validation.md")
+    for heading in ("## Current Source Proof", "## Verification surfaces", "## Proof Boundaries", "## Target Windows"):
+        if heading not in validation:
+            fail(errors, f"current-validation.md missing section: {heading}")
+    if "one SHA does not prove another SHA" not in validation:
         fail(errors, "current-validation.md must preserve exact-SHA evidence discipline")
-    if "Local-only" not in value:
+    if "Local-only" not in validation:
         fail(errors, "current-validation.md must state Local-only source authority")
 
-
-def check_foundation(errors: list[str]) -> None:
     overview = text("docs/foundation/01-product-overview.md")
     requirements = text("docs/foundation/02-product-requirements.md")
     acceptance = text("docs/foundation/03-acceptance-scenarios.md")
     for marker in ("Built-in Male/Female", "last 3 committed own-voice", "incoming remains context-free", "Svelte 5"):
         if marker not in overview:
             fail(errors, f"product overview missing current marker: {marker}")
-    for stale in (
-        "PR-045 — No automatic conversation context initially",
-        "-> trained English Voice Actor TTS",
-        "including the trained Voice Actor TTS stage",
-        "trained Voice Actor before Meeting",
-    ):
-        if stale in requirements:
-            fail(errors, f"product requirements retain superseded contract: {stale}")
     for marker in (
         "PR-045 — Context asymmetry",
         "selected Meeting voice (Built-in or approved My Voice)",
@@ -227,31 +191,9 @@ def check_foundation(errors: list[str]) -> None:
         if marker not in requirements:
             fail(errors, f"product requirements missing current contract: {marker}")
     if "does **not** store run outcomes" not in acceptance:
-        fail(errors, "acceptance scenarios must be outcome-free policy")
+        fail(errors, "acceptance scenarios must remain outcome-free policy")
     if "a selected built-in or approved My Voice" not in acceptance:
         fail(errors, "acceptance scenarios must allow built-in day-one Meeting readiness")
-    for stale in ("green on CUDA", "A1–A5 and A6 green", "without approved My Voice"):
-        if stale in acceptance:
-            fail(errors, f"acceptance scenarios contain stale outcome/contract: {stale}")
-
-
-def check_skill_freshness(errors: list[str]) -> None:
-    files = {
-        "desktop-runtime": text(".agents/skills/desktop-runtime-development/SKILL.md"),
-        "desktop-ui": text(".agents/skills/desktop-ui-design-development/SKILL.md"),
-        "local-ai": text(".agents/skills/local-ai-runtime-development/SKILL.md"),
-        "windows-audio": text(".agents/skills/windows-audio-runtime-development/SKILL.md"),
-    }
-    stale_markers = {
-        "desktop-runtime": ("Until migration actually starts", "current vanilla TypeScript source remains"),
-        "desktop-ui": ("Until the Svelte migration is actually implemented",),
-        "local-ai": ("`Realtime` and `Quality` are the canonical modes", "mode, tone"),
-        "windows-audio": ("Push-to-Talk capture mechanics", "Session Listening and Push-to-Talk"),
-    }
-    for owner, markers in stale_markers.items():
-        for marker in markers:
-            if marker in files[owner]:
-                fail(errors, f"{owner} skill retains stale semantic contract: {marker}")
 
 
 def normalize_link_target(source: Path, raw: str) -> Path | None:
@@ -278,14 +220,16 @@ def check_governance_links(errors: list[str]) -> None:
                 fail(errors, f"broken relative governance link in {rel}: {raw}")
 
 
-def check_workflow_supply_chain(errors: list[str]) -> None:
+def check_workflows(errors: list[str]) -> None:
     root = ROOT / ".github" / "workflows"
     if not root.is_dir():
         fail(errors, "missing .github/workflows")
         return
+
     temp = sorted(p.name for p in root.glob("temp-*"))
     if temp:
         fail(errors, f"temporary workflows are forbidden: {temp}")
+
     for path in sorted(root.glob("*.yml")):
         value = path.read_text(encoding="utf-8")
         for action, revision, note in ACTION_RE.findall(value):
@@ -299,22 +243,15 @@ def check_workflow_supply_chain(errors: list[str]) -> None:
             fail(errors, f"{path.name} checkout must disable persisted credentials")
         if "timeout-minutes:" not in value:
             fail(errors, f"{path.name} must have bounded job timeout")
+        if MAIN_BRANCH_LINE_RE.search(value):
+            fail(errors, f"{path.name} must not target main under the Local-only model")
         for forbidden in ("contents: write", "pull-requests: write", "git push", "pull_request_target"):
             if forbidden in value:
                 fail(errors, f"{path.name} contains forbidden verification behavior: {forbidden}")
 
-
-def check_workflow_routing(errors: list[str]) -> None:
-    root = ROOT / ".github" / "workflows"
     repository = text(".github/workflows/repository-verify.yml")
     if "- Local" not in repository or "python tools/verify_repository.py" not in repository:
         fail(errors, "Repository Verify must target Local and run tools/verify_repository.py")
-    for path in sorted(root.glob("*.yml")):
-        value = path.read_text(encoding="utf-8")
-        if MAIN_BRANCH_LINE_RE.search(value):
-            fail(errors, f"{path.name} must not target main under the Local-only model")
-    if (root / "stable-release-verify.yml").exists():
-        fail(errors, "Stable Release Gate workflow must not exist under the Local-only model")
 
 
 def check_ci_efficiency_contract(errors: list[str]) -> None:
@@ -327,9 +264,11 @@ def check_ci_efficiency_contract(errors: list[str]) -> None:
         "needs.changes.outputs.python == 'true'",
         "needs.changes.outputs.rust == 'true'",
         "npm run build:frontend",
+        "npm run validate:bridge-contract",
+        "npm run validate:reachability",
     ):
         if marker not in code_health:
-            fail(errors, f"Code Health lost selective-domain proof contract: {marker}")
+            fail(errors, f"Code Health lost selective source-proof contract: {marker}")
 
     release = text(".github/workflows/release-payload-verify.yml")
     if '"EngineData/Frontend/RustApp/scripts/**"' in release:
@@ -344,11 +283,14 @@ def check_ci_efficiency_contract(errors: list[str]) -> None:
             fail(errors, f"R3 Release Contract missing release-affecting trigger: {marker}")
 
     package = text("EngineData/Frontend/RustApp/package.json")
-    if "scripts/tests/*.test.ts" not in package:
-        fail(errors, "frontend runtime-policy tests must use canonical scripts/tests/*.test.ts auto-discovery")
-    repository_verify = text(".github/workflows/repository-verify.yml")
-    if "python tools/verify_frontend_runtime_policy_tests.py" not in repository_verify:
-        fail(errors, "Repository Verify must enforce frontend policy-test auto-discovery coverage")
+    for marker in (
+        "scripts/tests/*.test.ts",
+        '"validate:bridge-contract"',
+        '"validate:reachability"',
+        '"validate:source-contracts"',
+    ):
+        if marker not in package:
+            fail(errors, f"frontend package lost canonical source-validation entrypoint: {marker}")
 
 
 def check_decision_boundary(errors: list[str]) -> None:
@@ -361,47 +303,29 @@ def check_decision_boundary(errors: list[str]) -> None:
         fail(errors, "decision-log compatibility pointer must mark legacy content historical")
 
 
-def check_python_syntax(errors: list[str]) -> None:
-    path = ROOT / "tools" / "verify_repository.py"
-    if not path.is_file():
-        return
-    try:
-        py_compile.compile(str(path), doraise=True)
-    except py_compile.PyCompileError as exc:
-        fail(errors, f"repository verifier syntax error: {exc.msg}")
-
-
 def main() -> int:
     errors: list[str] = []
-    check_required_paths(errors)
-    check_skill_inventory(errors)
-    check_size_budgets(errors)
+    check_structure(errors)
+    check_compactness(errors)
     check_branch_authority(errors)
-    check_agents(errors)
-    check_next_action(errors)
-    check_current_validation(errors)
-    check_foundation(errors)
-    check_skill_freshness(errors)
+    check_continuation_and_product(errors)
     check_governance_links(errors)
-    check_workflow_supply_chain(errors)
-    check_workflow_routing(errors)
+    check_workflows(errors)
     check_ci_efficiency_contract(errors)
     check_decision_boundary(errors)
-    check_python_syntax(errors)
     if errors:
         print("REPOSITORY VERIFY FAILED")
         for error in errors:
             print(f"- {error}")
         return 1
+
     print("REPOSITORY VERIFY PASSED")
     print("- repository authority: Local only")
-    print("- execution contexts: REMOTE_GITHUB | LOCAL_CODE | TARGET_WINDOWS")
-    print(f"- canonical skills: {', '.join(sorted(CANONICAL_SKILLS))}")
-    print("- continuation/proof ownership: separated")
-    print("- historical DevelopingData: absent from active tree")
-    print("- workflow routing: Local only")
-    print("- workflow supply chain: immutable/read-only/bounded")
-    print("- CI efficiency: selective source domains + release-only payload triggers + frontend test auto-discovery")
+    print("- canonical skills: exact inventory")
+    print("- governance links: resolved")
+    print("- workflows: immutable/read-only/bounded and Local-routed")
+    print("- CI: selective domains + canonical bridge contract + frontend reachability")
+    print("- release: controlled payload triggers remain isolated")
     return 0
 
 

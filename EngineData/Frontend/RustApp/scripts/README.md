@@ -1,4 +1,4 @@
-﻿# RustApp Scripts
+# RustApp Scripts
 
 This directory contains TranslateIT's source validators and Windows release entrypoints. Acceptance is scenario-based per `docs/foundation/03-acceptance-scenarios.md`; the former all-in-one target-PC harness was retired (decision D-031).
 
@@ -6,16 +6,23 @@ This directory contains TranslateIT's source validators and Windows release entr
 
 ```text
 validate:source-contracts
-├─ command parity (registry.rs <-> frontend bridge, 1:1)
-├─ Meeting route checks
+├─ bridge contract
+│  ├─ Tauri command registry ↔ frontend invocation parity
+│  ├─ selected Rust response struct ↔ TypeScript field parity
+│  └─ no explicit `any` escape at bridge boundaries
+├─ frontend source reachability from src/main.ts
+├─ source-size ownership budget
+├─ Meeting virtual-route contract
 ├─ Rust/Tauri manifest preflight
 └─ R3 Tauri/package source checks
 
 validate:quick
-└─ source checks + TypeScript typecheck
+└─ source checks + TypeScript/Svelte typecheck + frontend runtime-policy tests
 ```
 
-Functional behavior coverage lives where it belongs: GPU worker smoke (`WorkerRuntime/run_realtime_worker_smoke.ps1`), Rust unit tests for session/audio decisions, and pytest contract tests. The former prose-marker validators (startup-readiness, frontend-build-preflight) were retired because they checked code shape instead of function and rotted silently.
+The bridge contract is intentionally one owner. Do not add a second validator that separately re-checks command parity or bridge type escape rules. Frontend reachability catches orphan `.ts`/`.svelte` modules that normal unused-local checks cannot see.
+
+Functional behavior coverage remains with the owning runtime: GPU worker smoke (`WorkerRuntime/run_realtime_worker_smoke.ps1`), Rust unit tests for session/audio decisions, and pytest contract tests. Static source checks do not claim target-Windows runtime behavior.
 
 `check:tauri-rust-local` is explicit local compile verification and is not run merely to validate documentation/source routing.
 
@@ -25,8 +32,8 @@ User-facing release shape:
 
 ```text
 src-tauri/target/translateit-release/
-â”œâ”€ TranslateIT-Setup.exe
-â””â”€ TranslateIT-Payload.7z
+├─ TranslateIT-Setup.exe
+└─ TranslateIT-Payload.7z
 ```
 
 `build_release.ps1` is the controlled Windows release entry. It requires a committed tracked working tree, records the exact Git source commit, validates staged inputs, applies the reviewed release optimizer, regenerates third-party notices, builds the external payload, renders the NSIS hook, builds Tauri/NSIS, and requires the user-facing release directory to contain exactly Setup + Payload. Build evidence under ignored `src-tauri/target/` records the source commit, both SHA-256 values, and the app/payload identity.
@@ -61,7 +68,7 @@ Acceptance runs one scenario at a time per `docs/foundation/03-acceptance-scenar
 - canonical MiLMMT validation also preserves the release staging model-acquisition contract;
 - there is no manual-dispatch path for the current branch model.
 
-The former overlapping release profiling workflows are retired. Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow.
+Worker dependency-lock consistency is owned separately by the read-only WorkerRuntime lock workflow. Do not create overlapping release or proof workflows.
 
 ## Proof boundary
 

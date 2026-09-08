@@ -1,23 +1,22 @@
 <script lang="ts">
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { Dialog } from "bits-ui";
   import { onMount } from "svelte";
   import { runtimeApi, type MeetingCommittedTurnsSnapshot, type MeetingSessionStatus } from "./app/bridge/runtimeApi";
   import {
     mapProductMeetingState,
     mapProductReadiness,
-    meetingBridgeUnavailable,
     runtimeProductFacade,
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
-  import { myVoiceApi } from "./app/bridge/myVoiceApi";
-  import { myVoiceBuildApi } from "./app/bridge/myVoiceBuildApi";
+  import { type CloseDialogAction, type CloseVerdict } from "./app/runtime/closePolicy";
+  import { readMeetingPoll } from "./app/runtime/meetingPoll";
   import {
-    resolveClosePolicy,
-    type CloseDialogAction,
-    type CloseVerdict,
-  } from "./app/runtime/closePolicy";
+    destroyNativeWindow,
+    installNativeCloseGuard,
+    resolveNativeCloseVerdict,
+    stopAndResolveNativeClose,
+  } from "./app/runtime/nativeCloseRuntime";
   import { cloneSettings, compact, defaultSettings } from "./app/shared/state";
   import type {
     AppRoute,
@@ -58,7 +57,7 @@
   let closeDialogMessage = $state("");
   let closeDialogAction = $state<CloseDialogAction>(null);
   let stopAndCloseBusy = $state(false);
-  let closeAfterExistingStop = $state(false);
+  let closeAfterExistingStop = false;
   let meetingPollInFlight = false;
   let closeCheckInFlight = false;
   let lastTranscriptStatusKey = "";
@@ -100,15 +99,6 @@
   const closePrimaryLabel = $derived(
     closeDialogAction === "retry" ? "Try Again" : stopAndCloseBusy ? "Stopping..." : "Stop & Close",
   );
-
-  function transcriptStatusKey(status: MeetingSessionStatus): string {
-    return [
-      status.session_id ?? "none",
-      status.outbound.updated_unix_ms,
-      status.incoming.updated_unix_ms,
-      status.outbound.utterance_sequence,
-    ].join(":");
-  }
 
   function setNotice(message: string): void {
     notice = compact(message, "Status unavailable.", 220);
@@ -208,10 +198,7 @@
           ? "Translation couldn't start. Check Setup or Diagnostics and try again."
           : "Translation couldn't stop safely. Try again or check Diagnostics.";
       applyMeetingStatus(result.status, resultNotice);
-      if (!result.status.has_session) {
-        meetingTurns = null;
-        lastTranscriptStatusKey = "";
-      } else if (action === "start") {
+      if (!result.status.has_session || action === "start") {
         meetingTurns = null;
         lastTranscriptStatusKey = "";
       }
@@ -269,12 +256,20 @@
     const wasRecording = snapshot.readiness.recording || micTestOwnsRuntime;
     try {
       const result = wasRecording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
-      await refreshSnapshot(result.ok ? (wasRecording ? "Mic Test stopped." : "Mic Test started.") : "Mic Test couldn't be completed. Try again or check Diagnostics.");
+      await refreshSnapshot(result.ok
+        ? (wasRecording ? "Mic Test stopped." : "Mic Test started.")
+        : "Mic Test couldn't be completed. Try again or check Diagnostics.");
     } catch {
       setNotice("Mic Test couldn't be completed. Try again or check Diagnostics.");
     } finally {
       micTestBusy = false;
     }
+  }
+
+  async function closeNativeWindow(): Promise<void> {
+    closeAfterExistingStop = false;
+    closeDialogOpen = false;
+    await destroyNativeWindow();
   }
 
   async function pollMeeting(): Promise<void> {
@@ -283,34 +278,16 @@
 
     meetingPollInFlight = true;
     try {
-      const status = await runtimeApi.getMeetingSessionStatus();
-      applyMeetingStatus(status);
-
-      if (meetingBridgeUnavailable(status)) {
-        meetingTurns = null;
-        lastTranscriptStatusKey = "";
+      const result = await readMeetingPoll(meetingTurns, lastTranscriptStatusKey);
+      if (!result) return;
+      applyMeetingStatus(result.status);
+      meetingTurns = result.turns;
+      lastTranscriptStatusKey = result.transcriptStatusKey;
+      if (result.unavailable) {
         setNotice("Meeting translation is temporarily unavailable.");
-        return;
+      } else if (!result.status.has_session && closeAfterExistingStop) {
+        await closeNativeWindow();
       }
-
-      if (status.has_session) {
-        const statusKey = transcriptStatusKey(status);
-        if (statusKey !== lastTranscriptStatusKey) {
-          const nextTurns = await runtimeApi.getMeetingCommittedTurns();
-          if (nextTurns.ok && nextTurns.has_session && nextTurns.session_id === status.session_id) {
-            meetingTurns = nextTurns;
-            lastTranscriptStatusKey = statusKey;
-          } else if (!meetingTurns) {
-            meetingTurns = nextTurns;
-          }
-        }
-      } else {
-        meetingTurns = null;
-        lastTranscriptStatusKey = "";
-        if (closeAfterExistingStop) await destroyNativeWindow();
-      }
-    } catch {
-      // A thrown poll failure provides no authoritative replacement state.
     } finally {
       meetingPollInFlight = false;
     }
@@ -330,33 +307,9 @@
     closeDialogOpen = false;
   }
 
-  async function destroyNativeWindow(): Promise<void> {
-    closeAfterExistingStop = false;
-    closeDialogOpen = false;
-    await getCurrentWindow().destroy();
-  }
-
-  async function resolveCloseVerdict(): Promise<CloseVerdict> {
-    const myVoice = await myVoiceApi.getState();
-    const build = await myVoiceBuildApi.getStatus();
-    const status = await runtimeApi.getMeetingSessionStatus();
-    const meeting = mapProductMeetingState(status);
-
-    return resolveClosePolicy({
-      recordingLineId: myVoice.recording_line_id,
-      pendingReview: myVoice.pending_review !== null,
-      buildUnavailable: build.phase === "unavailable",
-      buildActive: build.active,
-      meetingUnavailable: meetingBridgeUnavailable(status),
-      hasMeetingSession: status.has_session,
-      meetingApplicationOwned: meeting.applicationOwned,
-      meetingLifecycle: meeting.lifecycle,
-    });
-  }
-
   function applyCloseVerdict(verdict: CloseVerdict): void {
     if (verdict.kind === "destroy") {
-      void destroyNativeWindow();
+      void closeNativeWindow();
       return;
     }
     if (verdict.kind === "stop-and-close") {
@@ -379,7 +332,13 @@
     if (closeCheckInFlight || stopAndCloseBusy) return;
     closeCheckInFlight = true;
     try {
-      applyCloseVerdict(await resolveCloseVerdict());
+      applyCloseVerdict(await resolveNativeCloseVerdict());
+    } catch {
+      showCloseDialog(
+        "Couldn't close TranslateIT",
+        "TranslateIT couldn't confirm that it is safe to close. Keep the app open and try again.",
+        "retry",
+      );
     } finally {
       closeCheckInFlight = false;
     }
@@ -389,37 +348,13 @@
     if (stopAndCloseBusy) return;
     stopAndCloseBusy = true;
     try {
-      const verdict = await resolveCloseVerdict();
-      if (verdict.kind !== "stop-and-close") {
-        applyCloseVerdict(verdict);
-        return;
-      }
-
-      const result = await runtimeProductFacade.runProductMeetingAction("stop");
-      if (!result.ok) {
-        showCloseDialog("Couldn't stop translation", "TranslateIT will stay open. Try Stop again or check Diagnostics.", "stop");
-        return;
-      }
-
-      const verified = await runtimeApi.getMeetingSessionStatus();
-      if (meetingBridgeUnavailable(verified)) {
-        showCloseDialog("Couldn't confirm Stop", "TranslateIT couldn't confirm that Meeting translation ended, so the app will stay open.", "retry");
-        return;
-      }
-      if (!verified.has_session) {
-        await destroyNativeWindow();
-        return;
-      }
-
-      const verifiedMeeting = mapProductMeetingState(verified);
-      if (verifiedMeeting.applicationOwned && verifiedMeeting.lifecycle === "stopping") {
-        closeAfterExistingStop = true;
-        showCloseDialog("Translation is stopping", "TranslateIT will close after translation finishes stopping.", null);
-        return;
-      }
-      showCloseDialog("Translation is still active", "TranslateIT hasn't confirmed that Meeting translation ended, so the app will stay open.", verifiedMeeting.applicationOwned ? "stop" : null);
+      applyCloseVerdict(await stopAndResolveNativeClose());
     } catch {
-      showCloseDialog("Couldn't close TranslateIT", "The app will stay open. Try again or check Diagnostics.", "retry");
+      showCloseDialog(
+        "Couldn't close TranslateIT",
+        "The app will stay open. Try again or check Diagnostics.",
+        "retry",
+      );
     } finally {
       stopAndCloseBusy = false;
     }
@@ -455,10 +390,7 @@
 
     const installCloseGuard = async () => {
       try {
-        unlistenClose = await getCurrentWindow().onCloseRequested(async (event) => {
-          event.preventDefault();
-          await inspectNativeCloseRequest();
-        });
+        unlistenClose = await installNativeCloseGuard(inspectNativeCloseRequest);
       } catch {
         // Browser-only frontend preview has no native close event. No close success is fabricated.
       }
