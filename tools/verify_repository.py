@@ -316,6 +316,43 @@ def check_workflow_routing(errors: list[str]) -> None:
         fail(errors, "Stable Release Gate workflow must not exist under the Local-only model")
 
 
+def check_ci_efficiency_contract(errors: list[str]) -> None:
+    code_health = text(".github/workflows/code-health.yml")
+    for marker in (
+        "Detect changed source domains",
+        "fetch-depth: 0",
+        "git diff --name-only",
+        "needs.changes.outputs.frontend == 'true'",
+        "needs.changes.outputs.python == 'true'",
+        "needs.changes.outputs.rust == 'true'",
+        "npm run build:frontend",
+    ):
+        if marker not in code_health:
+            fail(errors, f"Code Health lost selective-domain proof contract: {marker}")
+
+    release = text(".github/workflows/release-payload-verify.yml")
+    if '"EngineData/Frontend/RustApp/scripts/**"' in release:
+        fail(errors, "R3 Release Contract must not rebuild payloads for every frontend script change")
+    for marker in (
+        '"EngineData/Frontend/RustApp/package.json"',
+        '"EngineData/Frontend/RustApp/scripts/build_r3_external_payload.py"',
+        '"EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs"',
+        '"EngineData/Frontend/RustApp/src-tauri/windows/**"',
+    ):
+        if marker not in release:
+            fail(errors, f"R3 Release Contract missing release-affecting trigger: {marker}")
+
+    package = text("EngineData/Frontend/RustApp/package.json")
+    for marker in (
+        "scripts/tests/close_policy.test.ts",
+        "scripts/tests/setup_flow.test.ts",
+        "scripts/tests/readiness_policy.test.ts",
+        "scripts/tests/diagnostic_privacy.test.ts",
+    ):
+        if marker not in package:
+            fail(errors, f"frontend runtime-policy test is no longer registered: {marker}")
+
+
 def check_decision_boundary(errors: list[str]) -> None:
     current = text("docs/knowledge/decisions/README.md")
     legacy = text("docs/knowledge/decision-log.md")
@@ -350,6 +387,7 @@ def main() -> int:
     check_governance_links(errors)
     check_workflow_supply_chain(errors)
     check_workflow_routing(errors)
+    check_ci_efficiency_contract(errors)
     check_decision_boundary(errors)
     check_python_syntax(errors)
     if errors:
@@ -365,6 +403,7 @@ def main() -> int:
     print("- historical DevelopingData: absent from active tree")
     print("- workflow routing: Local only")
     print("- workflow supply chain: immutable/read-only/bounded")
+    print("- CI efficiency: selective source domains + release-only payload triggers")
     return 0
 
 
