@@ -64,12 +64,22 @@ impl Default for RuntimeSettings {
 
 impl RuntimeSettings {
     pub fn load_or_default(path: &Path) -> Self {
-        match fs::read_to_string(path) {
-            Ok(raw) => serde_json::from_str::<Self>(&raw)
-                .map(|settings| settings.sanitized())
-                .unwrap_or_default(),
-            Err(_) => Self::default(),
+        if let Some(settings) = read_settings_file(path) {
+            return settings;
         }
+
+        let backup_path = path.with_extension("json.bak");
+        if let Some(settings) = read_settings_file(&backup_path) {
+            // `write_atomic` keeps the previous committed file here until the new
+            // settings rename succeeds. If startup lands in that crash window, use
+            // the last committed settings instead of silently resetting to defaults.
+            if restore_settings_backup(path, &backup_path).is_ok() {
+                let _ = fs::remove_file(path.with_extension("json.tmp"));
+            }
+            return settings;
+        }
+
+        Self::default()
     }
 
     pub fn save_pretty(&self, path: &Path) -> io::Result<()> {
@@ -93,6 +103,22 @@ impl RuntimeSettings {
             sanitize_optional_runtime_text(self.audio.output_device_id.take());
         self
     }
+}
+
+fn read_settings_file(path: &Path) -> Option<RuntimeSettings> {
+    let raw = fs::read_to_string(path).ok()?;
+    serde_json::from_str::<RuntimeSettings>(&raw)
+        .ok()
+        .map(RuntimeSettings::sanitized)
+}
+
+fn restore_settings_backup(path: &Path, backup_path: &Path) -> io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::copy(backup_path, path)?;
+    let _ = fs::remove_file(backup_path);
+    Ok(())
 }
 
 fn write_atomic(path: &Path, body: &str) -> io::Result<()> {
@@ -186,6 +212,55 @@ mod tests {
         assert_eq!(settings.meeting_setup_checkpoint, 1);
         assert!(settings.audio.input_device_id.is_none());
         assert!(settings.audio.output_device_id.is_none());
+    }
+
+    #[test]
+    fn crash_window_recovers_last_committed_settings_from_backup() {
+        let path = std::env::temp_dir().join(format!(
+            "translateit_settings_recovery_{}.json",
+            std::process::id()
+        ));
+        let backup = path.with_extension("json.bak");
+        let temp = path.with_extension("json.tmp");
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&backup);
+        let _ = fs::remove_file(&temp);
+
+        let mut committed = RuntimeSettings::default();
+        committed.source_language = "en".to_string();
+        committed.target_language = "id".to_string();
+        committed.meeting_setup_state = "completed".to_string();
+        committed.meeting_setup_checkpoint = 4;
+        committed.audio.input_device_id = Some("Committed Microphone".to_string());
+        committed
+            .save_pretty(&path)
+            .expect("committed settings should save");
+
+        fs::copy(&path, &backup).expect("last committed settings backup should exist");
+        fs::write(&temp, r#"{"source_language":"id","target_language":"en"}"#)
+            .expect("new uncommitted temp settings should exist");
+        fs::remove_file(&path).expect("simulate crash after destination removal");
+
+        let recovered = RuntimeSettings::load_or_default(&path);
+        assert_eq!(recovered.source_language, "en");
+        assert_eq!(recovered.target_language, "id");
+        assert_eq!(recovered.meeting_setup_state, "completed");
+        assert_eq!(recovered.meeting_setup_checkpoint, 4);
+        assert_eq!(
+            recovered.audio.input_device_id.as_deref(),
+            Some("Committed Microphone")
+        );
+        assert!(path.is_file(), "backup recovery should restore the main settings file");
+        assert!(!backup.exists(), "restored backup should not remain stale");
+        assert!(!temp.exists(), "uncommitted temp settings should be discarded");
+
+        let reloaded = RuntimeSettings::load_or_default(&path);
+        assert_eq!(reloaded.source_language, "en");
+        assert_eq!(reloaded.target_language, "id");
+
+        let _ = fs::remove_file(&path);
+        let _ = fs::remove_file(&backup);
+        let _ = fs::remove_file(&temp);
     }
 
     #[test]
