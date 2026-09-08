@@ -81,6 +81,20 @@ Outbound translation may use the last three committed own-voice translation pair
 
 Built-in references are LibriSpeech/OpenSLR-derived CC-BY-4.0 material with exact source/utterance/hash metadata. They are **not** described as public-domain material.
 
+### D-036 — Stability-first realtime latency architecture
+
+**Context:** current outbound correctness is strong, but synchronous playback can make later utterances wait behind earlier audio, repeated native output setup may add jitter, repeated Start proof may cost warm-start time, and GPT-SoVITS supports fragment return that could reduce first-audio delay.
+
+**Decision:** keep one canonical worker and one Meeting lifecycle owner. Optimize in isolated, evidence-gated phases: (A) one-ahead bounded AI→playback decoupling while retaining full-WAV delivery, (B) persistent per-generation native output stream only if delivery remains material, (C) functional AI proof rebinding only under exact runtime/model/actor identity plus invalidation epoch, and (D) GPT-SoVITS `return_fragment=True` only after safer phases when TTS remains dominant and target quality parity is proven. `docs/foundation/04-realtime-latency-architecture.md` owns the detailed architecture contract.
+
+**Why:** this removes avoidable waiting while keeping translation/TTS quality, output ordering, at-most-once delivery, bounded memory, Stop semantics, and truthful readiness intact.
+
+**Tradeoffs / not chosen:** reject unbounded pipelines, parallel TTS engines, a second worker, automatic uncertain replay, broad mid-session output recovery, `streaming_mode=True`, lower-quality fixed chunks, user-facing Realtime/Quality modes, and weakening Start checks to file presence.
+
+**Evidence / proof boundary:** REMOTE_GITHUB can prove source bounds/order/identity/cleanup contracts. TARGET_WINDOWS is still required for real latency, native callback/device stability, meeting-app reception, resource pressure, and voice-quality claims.
+
+**Follow-up owner:** `meeting_session.rs` for lifecycle/handoff, `engine/audio/meeting_output.rs` for playback/output ownership, `helper_bridge.rs` for proof identity/rebinding, and the canonical WorkerRuntime voice owner only if fragment delivery becomes evidence-justified.
+
 ## Recording policy
 
 Record a durable decision only when architecture/workflow/reasoning must survive sessions, multiple owners depend on it, a meaningful tradeoff exists, or an old method is explicitly superseded.
