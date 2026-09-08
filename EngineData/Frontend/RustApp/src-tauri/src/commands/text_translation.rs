@@ -130,8 +130,15 @@ fn worker_failure_message(response: &Value) -> &'static str {
     ) {
         return "This text couldn't be translated completely. Shorten the longest paragraph and try again.";
     }
-    if blocker == "worker:request_deadline_expired" {
+    if blocker == "worker:request_deadline_expired"
+        || blocker.contains("worker:response_deadline_exceeded:")
+    {
         return "Translation took too long to complete. Try shorter text and translate again.";
+    }
+    if blocker.starts_with("helper_scheduler:wait_deadline_exceeded:text")
+        || blocker.starts_with("helper_scheduler:admission_capacity_exceeded:text")
+    {
+        return "Text translation is busy with higher-priority Meeting work right now. Try again after the current Meeting phrase finishes.";
     }
     "Translation isn't available for this language direction right now. Check Setup or Diagnostics and try again."
 }
@@ -261,6 +268,28 @@ mod tests {
         assert_eq!(
             worker_failure_message(&response),
             "This text couldn't be translated completely. Shorten the longest paragraph and try again."
+        );
+    }
+
+    #[test]
+    fn transport_deadline_has_timeout_recovery_copy() {
+        let response = json!({
+            "blocker": "helper_bridge:translate_read_failed:worker:response_deadline_exceeded:180000ms"
+        });
+        assert_eq!(
+            worker_failure_message(&response),
+            "Translation took too long to complete. Try shorter text and translate again."
+        );
+    }
+
+    #[test]
+    fn text_scheduler_wait_has_busy_recovery_copy() {
+        let response = json!({
+            "blocker": "helper_scheduler:wait_deadline_exceeded:text:15000ms"
+        });
+        assert_eq!(
+            worker_failure_message(&response),
+            "Text translation is busy with higher-priority Meeting work right now. Try again after the current Meeting phrase finishes."
         );
     }
 }
