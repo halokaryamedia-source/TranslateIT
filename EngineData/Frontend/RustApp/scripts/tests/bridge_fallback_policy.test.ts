@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { meetingSessionStatusFallback } from "../../src/app/bridge/runtimeApi.ts";
+import { meetingSessionStatusFallback } from "../../src/app/runtime/meetingBridgeFallback.ts";
 
 test("unavailable Meeting bridge keeps ownership fail closed", () => {
   const status = meetingSessionStatusFallback("bridge unavailable");
