@@ -15,7 +15,8 @@
     "preflight:tauri-package": "node scripts/validate_tauri_package_preflight.mjs && node scripts/validate_release_package_contract.mjs",
     "validate:bridge-types": "node scripts/validate_bridge_type_safety.mjs",
     "validate:virtual-route": "node scripts/validate_virtual_route_contract.mjs",
-    "validate:source-contracts": "npm run validate:command-parity && npm run validate:bridge-types && npm run validate:virtual-route && npm run check:rust && npm run preflight:tauri-package",
+    "validate:source-size": "node scripts/validate_source_size_budget.mjs",
+    "validate:source-contracts": "npm run validate:command-parity && npm run validate:bridge-types && npm run validate:virtual-route && npm run validate:source-size && npm run check:rust && npm run preflight:tauri-package",
     "validate:quick": "npm run validate:source-contracts && npm run typecheck && npm run test:frontend-runtime",
     "validate:command-parity": "node scripts/validate_command_parity.mjs"
   },
