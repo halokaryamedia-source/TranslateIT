@@ -16,7 +16,7 @@ Current source claims must be supported by completed checks on the exact source-
 Repository Verify
 → governance/routing/Local-only authority/skills/workflow/supply-chain static contracts
 → selective Code Health + release-only R3 trigger anti-regression
-→ every scripts/tests/*.test.ts must be registered in the frontend runtime-policy suite
+→ frontend policy tests must remain covered by canonical scripts/tests/*.test.ts auto-discovery
 
 Code Health
 → changed-source classifier selects only relevant frontend, Python, and/or Rust domains
@@ -37,20 +37,18 @@ R3 Release Contract
 → exact builder/installer payload-root closure
 → BuiltInVoices transactional install/uninstall ownership
 → symlink/junction payload-source rejection
-→ pinned and integrity-bound FFmpeg/model/runtime staging
+→ pinned FFmpeg/model/runtime staging with exact source identity and integrity checks
 ```
 
 Checks are path-targeted where appropriate. Skipped unrelated jobs are intentional and are not evidence for those domains.
 
-Rust/settings identity `9d586f07932b2cd1e6386c067615e9b0cc0a4edf` completed frontend, Linux Rust, and hosted-Windows Rust Code Health including compiler/dead-code, Clippy, and unit tests; unchanged Python jobs were skipped. Its Rust tree includes last-good settings backup recovery, stale `.bak/.tmp` retirement once a valid primary is authoritative, generic-settings audio ownership locking during Meeting/Mic Test, actionable Text timeout/scheduler-busy failure mapping, and Meeting-voice-neutral outbound failure copy.
+Rust operational identity `9d586f07932b2cd1e6386c067615e9b0cc0a4edf` completed frontend, Linux Rust, and hosted-Windows Rust Code Health including compiler/dead-code, Clippy, and unit tests. Its Rust tree includes settings backup recovery after interrupted atomic replacement, cleanup of stale `.bak/.tmp` artifacts when the primary settings file is valid, generic-settings audio ownership locking during Meeting/Mic Test, actionable Text timeout/scheduler-busy failure mapping, and Meeting-voice-neutral outbound failure copy.
 
-Frontend bridge identity `78cb55a99f522b34143a8edbe118ae95323048d9` completed the full frontend Code Health surface. Unknown Meeting ownership after a Tauri bridge failure is represented fail-closed as potentially active until an authoritative probe proves idle; the policy is a pure tested module wired into `runtimeApi`.
+Frontend bridge identity `78cb55a99f522b34143a8edbe118ae95323048d9` completed the full frontend Code Health surface. Unknown Meeting ownership after a Tauri bridge failure is represented fail-closed as potentially active until a later authoritative probe proves idle; the policy lives in a pure tested module wired into `runtimeApi`.
 
-Previously completed release identity `29eebb61df5e9105c44822e2eb4d2674a1e86444` passed the full R3 source + Controlled Windows payload proof.
+Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` completed R3 source contract and Controlled Windows payload proof: pinned FFmpeg staging, validation/optimization, bounded 7z evidence generation, and evidence upload all passed for that exact release source. FFmpeg staging no longer depends on the moving BtbN `/releases/latest` identity; the exact dated release asset and SHA-256 are source-bound and guarded against regression.
 
-Current release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` removes the moving BtbN `/releases/latest` dependency and pins FFmpeg release tag `autobuild-2026-09-07-15-39`, exact LGPL static asset, and SHA-256. Its Code Health and R3 source contract passed; Controlled Windows staging and payload validation/optimization also passed. At the last recorded observation, bounded payload evidence generation in run `34232508392` was still in progress, so full R3 PASS is **not** claimed yet for this SHA.
-
-Repository-governance identity `788aeb623607f29586fde370ca6c302b96abd06f` completed Repository Verify including the generic frontend runtime-policy test registration check.
+Repository-governance identity `2c1006a3a49ea3a10278f868629b694d5a5de7d0` completed Repository Verify. Frontend runtime-policy registration is canonical glob auto-discovery (`scripts/tests/*.test.ts`) rather than a growing manual test list.
 
 ## Proof Boundaries
 
@@ -58,11 +56,11 @@ Repository-governance identity `788aeb623607f29586fde370ca6c302b96abd06f` comple
 
 Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health establishes Windows-selected Rust/Python source behavior only when those domains change. Frontend policy tests establish deterministic orchestration/privacy/fallback policy, not rendered/native or physical-device behavior.
 
-Meeting Voice changes refresh the App-owned snapshot after successful built-in selection or My Voice approval. Diagnostic surfaces share bounded redaction. Built-in voice replacement uses staged atomic swap/rollback. Runtime settings recover a previous-good backup after the atomic-write crash window, retire stale write artifacts after a committed primary is verified, and prevent generic settings writes from bypassing active audio ownership.
+Meeting Voice changes refresh the App-owned snapshot after successful built-in selection or My Voice approval. Diagnostic surfaces share bounded redaction. Built-in voice replacement uses staged atomic swap/rollback. Runtime settings recover a previous-good backup after the atomic-write crash window, discard stale write artifacts once a valid primary exists, and audio preference mutation cannot bypass active runtime ownership through the generic settings command.
 
 Text translation distinguishes worker transport timeout and lower-priority scheduler contention from model/language failure. Meeting voice failure copy is valid for both built-in and My Voice actors. A temporarily unavailable Meeting bridge no longer fabricates idle ownership.
 
-Release source contracts keep builder/installer payload roots aligned, install/remove BuiltInVoices symmetrically, reject source-tree filesystem indirection, and forbid moving FFmpeg release discovery. The current FFmpeg source identity is tag + asset + SHA-256 bound; hosted staging has already validated that exact archive's n8.1/LGPL build profile on `42f6591b47d5d66ec796cd0cc8421dcc817849a4`. Full R3 proof still requires the same SHA's bounded payload evidence job to complete successfully.
+Release source contracts keep builder/installer payload roots aligned, install/remove BuiltInVoices symmetrically, reject source-tree filesystem indirection, and bind FFmpeg to a dated BtbN release asset plus exact SHA-256 instead of moving latest-release metadata. Hosted controlled payload proof for `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains bounded to the runner work that executed.
 
 No hosted surface establishes physical microphone capture, target GPU practicality, VB-CABLE delivery/reception, meeting-app reception, speaker fidelity, real end-to-end latency, installed-runtime success, or clean-machine success.
 
