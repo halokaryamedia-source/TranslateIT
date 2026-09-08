@@ -18,6 +18,7 @@ Repository Verify
 
 Code Health
 → strict Svelte/TypeScript checking + bridge/source contracts + deterministic frontend runtime-policy tests
+→ source-size budget: new TS/Svelte/Rust files stay within normal ownership bounds; explicitly grandfathered large coordinators cannot silently grow
 → production npm vulnerability audit
 → Linux Python compile + Ruff E4/E7/E9/F/I static gate + Ruff format check + contract/unit tests
 → hosted Windows Python compile + Ruff E4/E7/E9/F/I static gate + Ruff format check + contract/unit tests
@@ -41,7 +42,7 @@ Checks are path-targeted where appropriate. A broader source claim requires the 
 
 ### REMOTE_GITHUB
 
-Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that Windows-selected Rust source compiles, Rust Clippy correctness runs, Rust unit tests execute, and the Python WorkerRuntime passes its compile/static/format/contract test suite on GitHub's hosted Windows runner. Frontend runtime-policy tests can establish deterministic policy behavior such as safe-close precedence, but not rendered/native behavior. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
+Can establish repository/source/static/unit/CI behavior that actually ran against `Local`. Hosted Windows Code Health can establish that Windows-selected Rust source compiles, Rust Clippy correctness runs, Rust unit tests execute, and the Python WorkerRuntime passes its compile/static/format/contract test suite on GitHub's hosted Windows runner. Frontend runtime-policy tests can establish deterministic policy behavior such as safe-close precedence, but not rendered/native behavior. The source-size budget prevents known oversized coordinators from accumulating more responsibility before they can be decomposed against a measured baseline. Hosted Windows payload staging can establish only the controlled payload work that runner executed. Neither hosted surface establishes physical microphone capture, real target GPU practicality, Windows device delivery, meeting-app reception, installed runtime behavior on the user's machine, speaker fidelity, real end-to-end latency, or clean-machine success.
 
 ### LOCAL_CODE
 
