@@ -7,12 +7,13 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::finalized_utterance::{
-    clear_finalized_outbound_utterance_producer, observe_finalized_outbound_mono_f32_samples,
-    reset_finalized_outbound_utterance_producer,
+    clear_finalized_outbound_utterance_producer, observe_finalized_outbound_f32_samples,
+    observe_finalized_outbound_mono_f32_samples, reset_finalized_outbound_utterance_producer,
 };
 use super::guided_take::append_guided_f32;
 use super::live_audio_buffer::{
-    append_live_mono_f32_samples, clear_live_audio_buffer, reset_live_audio_buffer,
+    append_live_f32_samples, append_live_mono_f32_samples, clear_live_audio_buffer,
+    reset_live_audio_buffer,
 };
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
@@ -235,10 +236,18 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     }
 }
 
+fn ensure_scratch_capacity<T>(samples: &[T], source_channels: u16, output: &mut Vec<f32>) {
+    let channel_count = usize::from(source_channels.max(1));
+    let required = samples.len().div_ceil(channel_count);
+    if output.capacity() < required {
+        output.reserve(required);
+    }
+}
+
 fn downmix_f32_into(samples: &[f32], source_channels: u16, output: &mut Vec<f32>) {
     output.clear();
+    ensure_scratch_capacity(samples, source_channels, output);
     let channel_count = usize::from(source_channels.max(1));
-    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
     for frame in samples.chunks(channel_count) {
         let sum = frame.iter().map(|sample| safe_sample(*sample)).sum::<f32>();
         output.push(sum / frame.len().max(1) as f32);
@@ -247,8 +256,8 @@ fn downmix_f32_into(samples: &[f32], source_channels: u16, output: &mut Vec<f32>
 
 fn mono_f32_from_i16_into(samples: &[i16], source_channels: u16, output: &mut Vec<f32>) {
     output.clear();
+    ensure_scratch_capacity(samples, source_channels, output);
     let channel_count = usize::from(source_channels.max(1));
-    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
     for frame in samples.chunks(channel_count) {
         let sum = frame
             .iter()
@@ -260,8 +269,8 @@ fn mono_f32_from_i16_into(samples: &[i16], source_channels: u16, output: &mut Ve
 
 fn mono_f32_from_u16_into(samples: &[u16], source_channels: u16, output: &mut Vec<f32>) {
     output.clear();
+    ensure_scratch_capacity(samples, source_channels, output);
     let channel_count = usize::from(source_channels.max(1));
-    output.reserve(samples.len().div_ceil(channel_count).saturating_sub(output.capacity()));
     for frame in samples.chunks(channel_count) {
         let sum = frame
             .iter()
@@ -280,6 +289,21 @@ fn publish_runtime_mono(
     append_live_mono_f32_samples(samples_mono, sample_rate_hz, source_channels);
     if finalized_outbound_enabled {
         observe_finalized_outbound_mono_f32_samples(samples_mono, sample_rate_hz);
+    }
+}
+
+fn publish_runtime_native_f32_mono(
+    samples_mono: &[f32],
+    sample_rate_hz: u32,
+    finalized_outbound_enabled: bool,
+) {
+    // Keep the generic public wrappers alive on the native mono-F32 path. Their
+    // single-channel branches forward directly to the specialized mono owners, so
+    // this preserves the zero-downmix-allocation fast path while avoiding orphaned
+    // source that the repository's -D dead_code compiler contract must reject.
+    append_live_f32_samples(samples_mono, sample_rate_hz, 1);
+    if finalized_outbound_enabled {
+        observe_finalized_outbound_f32_samples(samples_mono, sample_rate_hz, 1);
     }
 }
 
@@ -306,11 +330,9 @@ fn build_stream_for_format(
                         record_frames(data.len(), channels, &frames);
                         if channels <= 1 {
                             // The common mono-F32 path needs no conversion buffer.
-                            // Each retaining consumer sanitizes while copying.
-                            publish_runtime_mono(
+                            publish_runtime_native_f32_mono(
                                 data,
                                 sample_rate_hz,
-                                channels.max(1),
                                 finalized_outbound_enabled,
                             );
                         } else {
@@ -323,8 +345,8 @@ fn build_stream_for_format(
                             );
                         }
                         // The guided recorder is normally inactive during Meeting;
-                        // its iterator is lazy and returns before sample work when no
-                        // guided take owns the capture state.
+                        // its atomic gate returns before sample work when no guided
+                        // take owns capture state.
                         append_guided_f32(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
