@@ -27,6 +27,7 @@ $PayloadRoots=@(
     'EngineData\Backend\LocalWorker\PythonRuntime',
     'EngineData\Backend\RuntimeAssets\ASR\ModelData',
     'EngineData\Backend\RuntimeAssets\Translation\ModelData',
+    'EngineData\Backend\RuntimeAssets\Voice\BuiltInVoices',
     'EngineData\Backend\RuntimeAssets\Voice\GPTSoVITS',
     'EngineData\Backend\RuntimeAssets\AudioProvider\VBCABLE\Package'
 )
@@ -59,6 +60,9 @@ function Assert-Runtime([string]$Root){
     NeedFile (Join-Path $backend 'LocalWorker\PythonRuntime\python.exe') 50 'Python runtime'
     NeedMarker (Join-Path $backend 'RuntimeAssets\ASR\ModelData\faster-whisper-large-v3-turbo\.translateit_model_revision') $AsrRevision 51 'ASR revision'
     NeedMarker (Join-Path $backend 'RuntimeAssets\Translation\ModelData\xiaomi-research--MiLMMT-46-1B-v1.0\.translateit_model_revision') $MiLMMTRevision 52 'MiLMMT revision'
+    NeedFile (Join-Path $backend 'RuntimeAssets\Voice\BuiltInVoices\MaleVoice\reference.wav') 53 'Built-in Male reference'
+    NeedFile (Join-Path $backend 'RuntimeAssets\Voice\BuiltInVoices\FemaleVoice\reference.wav') 53 'Built-in Female reference'
+    NeedFile (Join-Path $backend 'RuntimeAssets\Voice\BuiltInVoices\SOURCES.json') 53 'Built-in voice source manifest'
     NeedMarker (Join-Path $backend 'RuntimeAssets\Voice\GPTSoVITS\Source\TRANSLATEIT_GPTSOVITS_REVISION.txt') $GptRevision 53 'GPT-SoVITS revision'
     NeedFile (Join-Path $backend 'RuntimeAssets\AudioProvider\VBCABLE\Package\VBCABLE_Setup_x64.exe') 54 'VB-CABLE x64 installer'
     NeedFile (Join-Path $backend 'RuntimeAssets\AudioProvider\VBCABLE\Package\VBCABLE_Setup.exe') 54 'VB-CABLE x86 installer'
