@@ -3,23 +3,24 @@
 ## Current Status
 
 - `Local` remains the sole active authority for development, governance, CI, proof, continuation, and release-source validation.
-- REMOTE_GITHUB latency hardening is complete at source head `d246f9bba69966780c346e0e31938b9d4ca69c73`, with Rust/audio-preparation proof owned by unchanged parent blob identity `417302f5365978d1822bacf4c0d01383ebff73b3`.
-- Realtime capture hardening remains intact: bounded/preallocated rolling audio, reusable callback scratch, mono-F32 fast path, allocation-reduced finalized/VAD evidence, and inactive My Voice fast rejection.
-- Finalized ASR WAV preparation now batches PCM16 bytes into one bounded write instead of per-sample file writes.
-- MiLMMT deterministic inference explicitly enables KV cache; the pinned model, prompt, last-3 context policy, generation budget, and sampling policy are unchanged.
-- Faster-Whisper text-only inference now skips unused timestamp-token decoding while keeping explicit language, beam=1 and VAD filtering.
-- Warm My Voice synthesis avoids a duplicate actor-package validation while retaining cold-load and expected-token change detection.
-- Code Health on `417302f...` passed frontend, Python and Rust selected gates on Linux and hosted Windows. Code Health on `d246f9b...` passed final Python gates on Linux and hosted Windows; MiLMMT Repository Contract also passed.
-- GPT-SoVITS remains full-WAV/non-streaming and the full Meeting Start functional probe remains intact.
+- REMOTE_GITHUB latency hardening is complete at source identity `a098b81e23f3cc2496259085be4f19c3d7cb72cf`; Rust/audio-preparation proof remains owned by `417302f5365978d1822bacf4c0d01383ebff73b3`.
+- Realtime capture, finalized-ASR WAV batching, Faster-Whisper text-only decoding, MiLMMT KV cache, deterministic decoding and last-3 outbound context remain intact.
+- Warm Meeting TTS now skips repeated actor-package disk validation when the exact resident actor token matches the Meeting binding.
+- GPT-SoVITS V2ProPlus now caches the static reference speaker embedding once per actor runtime and only reuses it for the exact same upstream reference-audio object; other references fall back to normal computation.
+- MiLMMT no longer requests an unused result wrapper; model/prompt/context/generation quality settings are unchanged.
+- Code Health run `34262942632` passed Python compile/static/format/pytest on Linux and hosted Windows. MiLMMT Repository Contract run `34262942664` passed.
+- The full generation-bound Start functional probe remains intact; GPT-SoVITS remains full-WAV/non-streaming.
 
 ## Active Boundary
 
-REMOTE_GITHUB work for this latency pass is complete.
+REMOTE_GITHUB work for safe, behavior-preserving per-inference latency reduction is complete.
 
-Physical mic/driver scheduling, real CUDA throughput, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, Start → Live time, speaker quality, and actual end-of-speech → first translated playback remain **TARGET WINDOWS PROOF REQUIRED**.
+Physical mic/driver scheduling, real CUDA throughput, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, Start → Live time, speaker quality and actual end-of-speech → first translated playback remain **TARGET WINDOWS PROOF REQUIRED**.
 
-Do not introduce streaming TTS, weaken Start verification, or alter model quality settings before target stage timing identifies the measured owner.
+Do not weaken model/beam/context/VAD/voice quality settings. Do not add broad realtime architecture before target stage timing identifies the measured owner.
 
 ## Next Step
 
-Run `docs/knowledge/operations/target-windows-performance.md` on TARGET_WINDOWS using the built-in voice outbound-only baseline first. Judge perceived latency as `speech_boundary_ms + outbound_latency_ms`. Return the measured first bottleneck; if `tts_ms` dominates, streaming TTS becomes the next focused optimization candidate.
+Run `docs/knowledge/operations/target-windows-performance.md` on TARGET_WINDOWS using the built-in voice outbound-only baseline first. Judge perceived latency as `speech_boundary_ms + outbound_latency_ms`.
+
+Route the next optimization by evidence: dominant `tts_ms` → quality-preserving GPT-SoVITS `return_fragment=True` transport; continuous-speech queue/delivery growth → persistent output stream + bounded serialized playback queue; dominant Start → strengthen identity/invalidation proof and reuse it rather than weakening readiness.

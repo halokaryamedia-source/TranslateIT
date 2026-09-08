@@ -10,21 +10,23 @@ Repository: `halokaryamedia-source/TranslateIT`
 
 Current source claims require completed checks on the exact source-changing `Local` SHA being discussed: **one SHA does not prove another SHA**. A later documentation-only SHA may record proof without changing the validated source identity.
 
-Current latency-hardening head: `d246f9bba69966780c346e0e31938b9d4ca69c73`.
+Current latency-hardening source identity: `a098b81e23f3cc2496259085be4f19c3d7cb72cf`.
 
-Rust/audio-preparation identity `417302f5365978d1822bacf4c0d01383ebff73b3` changed finalized-ASR WAV preparation plus the first Python TTS-validation optimization. Code Health run `34259551481` passed frontend source health, Python compile/static/format/pytest on Linux and hosted Windows, and Rust compiler/dead-code, Clippy and unit tests on Linux and hosted Windows.
+Rust/audio-preparation identity `417302f5365978d1822bacf4c0d01383ebff73b3` passed frontend, Python and Rust selected gates on Linux and hosted Windows in Code Health run `34259551481`.
 
-Python latency identity `d246f9bba69966780c346e0e31938b9d4ca69c73` retains that Rust blob and adds the final Python inference changes. Code Health run `34260288389` passed Python compile/static/format/pytest on Linux and hosted Windows; unrelated Rust/frontend jobs were intentionally skipped. MiLMMT Repository Contract run `34260288382` passed for the same head.
+Current Python identity `a098b81...` retains that Rust source and adds the final inference-side latency reductions. Code Health run `34262942632` passed compile, Ruff/static correctness, formatting and pytest on Linux and hosted Windows. MiLMMT Repository Contract run `34262942664` also passed.
 
 Current source proof establishes:
-- realtime capture uses bounded/preallocated rolling storage, reusable downmix/conversion scratch, a native mono-F32 fast path, allocation-reduced finalized/VAD evidence, and an inactive My Voice atomic fast gate;
-- finalized ASR PCM16 WAV bytes are assembled in bounded memory and written once instead of issuing a tiny file write per sample, while atomic temp-file promotion and cleanup remain intact;
-- warm My Voice synthesis reuses one already-validated actor package snapshot when resolving the resident runtime, while cold-load post-validation still detects an actor changing during load;
-- deterministic MiLMMT generation explicitly enables KV cache without changing the pinned model, prompt/context policy, generation budget, or `do_sample=False` contract;
-- Faster-Whisper text-only transcription disables unused timestamp-token decoding while preserving beam=1, explicit language, VAD filtering, and the same transcript consumer contract;
-- existing bounded queue/drop, generation authority, cancellation, and fail-closed Meeting semantics remain unchanged.
+- realtime capture uses bounded/preallocated rolling storage, reusable callback scratch, mono-F32 fast path and allocation-reduced finalized/VAD evidence;
+- finalized ASR PCM16 WAV preparation uses one bounded byte write instead of tiny per-sample file writes;
+- Faster-Whisper text-only transcription keeps explicit language, beam=1 and VAD while skipping unused timestamp-token decoding;
+- MiLMMT keeps the pinned model, prompt, last-3 outbound context, generation budget and deterministic `do_sample=False`, explicitly enables KV cache, and consumes the direct generated sequence without an unused result wrapper;
+- warm Meeting TTS reuses the resident actor when its exact bound actor token matches, avoiding repeated package reads/hashing while cold-load and token-mismatch validation remain fail-closed;
+- GPT-SoVITS V2ProPlus computes the static reference speaker embedding once per actor runtime and reuses it only for the exact same upstream reference-audio object; any different reference object falls back to normal computation;
+- no model, voice seed, translation context, beam, VAD, or TTS quality mode was reduced;
+- bounded queue/drop, generation authority, cancellation and at-most-once output contracts remain unchanged.
 
-Older identity `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf` remains valid for the preceding realtime-callback hardening it proved. Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains the controlled-payload proof; this latency pass did not change controlled payload inputs.
+Older identity `d246f9bba69966780c346e0e31938b9d4ca69c73` remains valid for the preceding ASR/MiLMMT latency proof. Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` remains the controlled-payload proof; this pass did not change controlled payload inputs.
 
 ## Verification surfaces
 
@@ -53,11 +55,13 @@ Checks are path-targeted. Skipped unrelated jobs are intentional and are not evi
 
 ### REMOTE_GITHUB
 
-REMOTE_GITHUB is complete for the current behavior-preserving latency hardening. It proves the changed source satisfies its selected repository contracts and preserves the existing safety/correctness boundaries.
+REMOTE_GITHUB is complete for the current behavior-preserving latency pass. It proves the selected source contracts and the new cache/fallback rules; it does not prove target-device timing.
 
-It does **not** establish physical microphone scheduling, real CUDA performance, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, Start → Live time, speaker fidelity, or real end-of-speech → first translated playback latency on TARGET_WINDOWS.
+It does **not** establish physical microphone scheduling, real CUDA throughput, CPU/RAM/GPU/VRAM pressure, Meeting Microphone reception, Start → Live time, speaker fidelity, or actual end-of-speech → first translated playback latency on TARGET_WINDOWS.
 
-The full generation-bound Meeting Start functional check and resident AI-model policy remain unchanged. GPT-SoVITS also remains full-WAV/non-streaming; streaming TTS must not be introduced unless target timing shows `tts_ms` is the material first bottleneck because that change affects output/cancellation ownership.
+The full generation-bound Meeting Start functional probe remains intact because the present cache alone is not sufficient proof for a new Meeting generation. GPT-SoVITS also remains full-WAV/non-streaming.
+
+The next larger candidates are intentionally measurement-gated: (1) Start-proof rebinding with stronger identity/invalidation contracts, (2) persistent Meeting output stream plus bounded serialized playback queue so next-turn AI preparation can overlap prior playback, and (3) quality-preserving GPT-SoVITS fragment delivery using upstream `return_fragment=True`. None should be introduced until target timing identifies its owner.
 
 ### LOCAL_CODE
 
@@ -69,9 +73,9 @@ Required for claims that depend on the user's real Windows hardware/install/audi
 
 ## Target Windows
 
-Use `docs/knowledge/operations/target-windows-performance.md`. For perceived latency, evaluate `speech_boundary_ms + outbound_latency_ms`: the internal `outbound_latency_ms` starts only after finalization.
+Use `docs/knowledge/operations/target-windows-performance.md`. Judge perceived latency as `speech_boundary_ms + outbound_latency_ms`; the internal `outbound_latency_ms` starts only after finalization.
 
-Run outbound-only with a built-in voice first, record stage timing and hardware pressure, then isolate optional incoming, Stop, and repeated-session behavior. Return only the measured first bottleneck; consider streaming TTS only when `tts_ms` is demonstrably dominant.
+Run outbound-only first, record stage timing and hardware pressure, then return the measured first bottleneck. If `tts_ms` dominates, quality-preserving fragment delivery is the next focused candidate; if queue/delivery dominates during continuous speech, persistent output/playback separation owns the next change; if Start dominates, strengthen and reuse functional proof rather than weakening readiness.
 
 ## Evidence Rule
 
