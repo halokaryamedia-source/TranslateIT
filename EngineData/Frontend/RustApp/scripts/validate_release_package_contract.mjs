@@ -34,6 +34,7 @@ const paths = {
   base: join(workerRoot, "realtime_local_worker_base.py"),
   provider: join(workerRoot, "milmmt_translation_provider.py"),
   build: join(scriptDir, "build_release.ps1"),
+  stage: join(scriptDir, "stage_release_inputs_impl.ps1"),
   builder: join(scriptDir, "build_r3_external_payload.py"),
   hook: join(tauriRoot, "windows", "r3_payload_hooks.template.nsh"),
   helper: join(tauriRoot, "windows", "r3_payload_installer.ps1"),
@@ -51,6 +52,7 @@ const entrypoint = readText(paths.entrypoint);
 const base = readText(paths.base);
 const provider = readText(paths.provider);
 const build = readText(paths.build);
+const stage = readText(paths.stage);
 const builder = readText(paths.builder);
 const hook = readText(paths.hook);
 const helper = readText(paths.helper);
@@ -115,6 +117,21 @@ if (nsis.installMode !== "perMachine") fail("R3 NSIS installMode must be perMach
 if (nsis.installerHooks !== "./target/translateit-r3-payload-hooks.generated.nsh") fail("R3 NSIS must use the generated payload hook.");
 if (existsSync(join(tauriRoot, "target", "translateit-r3-payload-hooks.generated.nsh"))) fail("Generated R3 hook must stay out of source.");
 
+requireMarkers(stage, "release staging", [
+  "$ffmpegReleaseTag = 'autobuild-2026-09-07-15-39'",
+  "$ffmpegAssetName = 'ffmpeg-n8.1.2-51-g7ba069f4f1-win64-lgpl-8.1.zip'",
+  "$ffmpegArchiveSha = '232464b6f9f1d55fa42c1b0e7ae1c9ca5a19272ba61229e8b32a93751055e135'",
+  "releases/download/$ffmpegReleaseTag/$ffmpegAssetName",
+  "Assert-Hash $ffmpegArchive $ffmpegArchiveSha 'FFmpeg pinned archive'",
+  "integrity_source=pinned_release_asset_sha256",
+  "--enable-version3",
+]);
+forbidMarkers(stage, "release staging moving FFmpeg source", [
+  "BtbN/FFmpeg-Builds/releases/latest",
+  "ffmpeg-n8.1-latest-win64-lgpl-8.1.zip",
+  "$ffmpegRelease = Invoke-RestMethod",
+]);
+
 requireMarkers(builder, "payload builder", [
   'PAYLOAD_SCHEMA = "translateit.r3.external_payload.v1"',
   'INSTALLED_RUNTIME_SCHEMA = "translateit.installed_runtime.v1"',
@@ -171,4 +188,4 @@ if (errors.length) {
   for (const error of errors) console.error(`[release-package] ${error}`);
   process.exit(1);
 }
-console.log("[release-package] R3 source contract PASS: exact builder/installer payload-root closure, version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, symmetric uninstall cleanup, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, user-data and system-driver preservation policy, and small Tauri resource closure are aligned.");
+console.log("[release-package] R3 source contract PASS: pinned FFmpeg release asset identity, exact builder/installer payload-root closure, version/hash-bound external payload, no filesystem-indirection payload roots, transactional runtime replacement including built-in Meeting voice references, symmetric uninstall cleanup, explicit non-exec WorkerRuntime composition, Setup-owned VB-CABLE install/restart, user-data and system-driver preservation policy, and small Tauri resource closure are aligned.");
