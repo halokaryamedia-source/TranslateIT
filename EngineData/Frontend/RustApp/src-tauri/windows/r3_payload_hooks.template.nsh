@@ -48,6 +48,7 @@
   RMDir /r "$INSTDIR\EngineData\Backend\LocalWorker\PythonRuntime"
   RMDir /r "$INSTDIR\EngineData\Backend\RuntimeAssets\ASR\ModelData"
   RMDir /r "$INSTDIR\EngineData\Backend\RuntimeAssets\Translation\ModelData"
+  RMDir /r "$INSTDIR\EngineData\Backend\RuntimeAssets\Voice\BuiltInVoices"
   RMDir /r "$INSTDIR\EngineData\Backend\RuntimeAssets\Voice\GPTSoVITS"
   RMDir /r "$INSTDIR\EngineData\Backend\RuntimeAssets\AudioProvider\VBCABLE\Package"
   Delete "$INSTDIR\EngineData\Backend\TRANSLATEIT_INSTALLED_RUNTIME.json"
