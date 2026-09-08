@@ -48,7 +48,7 @@ Frontend bridge identity `78cb55a99f522b34143a8edbe118ae95323048d9` completed th
 
 Release identity `42f6591b47d5d66ec796cd0cc8421dcc817849a4` completed R3 source contract and Controlled Windows payload proof: pinned FFmpeg staging, validation/optimization, bounded 7z evidence generation, and evidence upload all passed for that exact release source. FFmpeg staging no longer depends on the moving BtbN `/releases/latest` identity; the exact dated release asset and SHA-256 are source-bound and guarded against regression.
 
-Repository-governance identity `2c1006a3a49ea3a10278f868629b694d5a5de7d0` completed Repository Verify. Frontend runtime-policy registration is canonical glob auto-discovery (`scripts/tests/*.test.ts`) rather than a growing manual test list.
+Repository-governance identity `ebc1c14355784e8841904e889d146aaa5d019603` completed Repository Verify. The main verifier and the dedicated frontend policy-test verifier now agree on canonical glob auto-discovery (`scripts/tests/*.test.ts`) instead of maintaining a stale manual test list.
 
 ## Proof Boundaries
 
