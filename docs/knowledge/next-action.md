@@ -3,23 +3,22 @@
 ## Current Status
 
 - `Local` remains the sole active authority for development, governance, CI, proof, continuation, and release-source validation.
-- The user-requested REMOTE_GITHUB performance-hardening pass is complete at validated source identity `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf`.
-- Architecture remains Tauri 2 + Svelte 5 + Rust + one canonical persistent Python worker; required outbound remains fail-closed and optional incoming remains degradable.
-- Realtime microphone source work removed avoidable callback cost without changing product speech semantics: rolling preview storage is bounded/preallocated, normal callback conversion/downmix reuses scratch storage, native mono-F32 keeps a no-downmix-allocation fast path, finalized-utterance observation avoids per-chunk sanitization copies, audio evidence avoids temporary normalized/frame-energy vectors, and inactive My Voice recording no longer requires a mutex acquisition on every Meeting callback.
-- Code Health on exact source identity `a6431b2...` is green: frontend source health, Linux Rust compiler/dead-code + Clippy + unit tests, and hosted-Windows Rust compiler/dead-code + Clippy + unit tests all passed. Python jobs were correctly skipped because WorkerRuntime Python source/lock did not change.
-- Repository Verify is green for the preceding governance/documentation-changing performance delivery `cc667607a35297d23bcce3e70d8cf52c0f2a690e`; the corrective child changed only Rust capture source and did not alter governance/workflow owners.
-- Existing Meeting timing ownership remains authoritative: speech boundary, finalization, queue, audio preparation, ASR, translation, TTS, delivery, and finalized-to-first-playback latency are already separated in runtime status.
-- The full generation-bound Meeting Start functional check is intentionally retained until TARGET_WINDOWS timing proves it is a material repeat cost. Worker/model residency and temporary-WAV transport are likewise unchanged until real RAM/VRAM/stage timing identifies them as first bottlenecks.
-- `docs/knowledge/operations/target-windows-performance.md` is the canonical repeatable baseline procedure for the remaining hardware-only decisions.
+- REMOTE_GITHUB performance hardening is complete at validated source identity `a6431b2b6d13e0c71a34283adc5bbb1f2dc83fdf`.
+- Architecture remains Tauri 2 + Svelte 5 + Rust + one persistent Python worker; required outbound stays fail-closed and optional incoming stays degradable.
+- Realtime capture now uses bounded/preallocated rolling storage, reusable conversion/downmix scratch, a native mono-F32 fast path, allocation-reduced finalized/VAD evidence, and an atomic inactive My Voice recording gate.
+- Code Health on `a6431b2...` passed frontend source health plus Linux and hosted-Windows Rust compiler/dead-code, Clippy and unit tests. Python jobs were skipped because WorkerRuntime Python source/lock did not change.
+- Repository Verify passed on preceding governance/documentation-changing delivery `cc667607a35297d23bcce3e70d8cf52c0f2a690e`; the corrective child changed only Rust capture source.
+- The full generation-bound Start functional check, model residency, and temporary-WAV transport remain unchanged until TARGET_WINDOWS measures them.
+- `docs/knowledge/operations/target-windows-performance.md` owns the remaining baseline.
 
 ## Active Boundary
 
-REMOTE_GITHUB work for the current performance pass is complete.
+REMOTE_GITHUB work for this performance pass is complete.
 
-Physical microphone stability, real callback scheduling under the target audio driver, CPU/RAM/GPU/VRAM pressure, CUDA practicality, VB-CABLE/Meeting Microphone reception, actual Start → Live time, end-to-end latency, speaker quality, installed-runtime behavior, and repeated-session hardware behavior remain **TARGET WINDOWS PROOF REQUIRED**.
+Physical microphone/driver behavior, real CPU/RAM/GPU/VRAM pressure, CUDA practicality, Meeting Microphone reception, actual Start → Live time, end-to-end latency, speaker quality, installed-runtime behavior, and repeated-session behavior remain **TARGET WINDOWS PROOF REQUIRED**.
 
-Do not reopen broad source optimization before the target baseline identifies the first measured owner. In particular, do not replace the full Start functional check with file/status presence, introduce adaptive model unloading, or replace WAV transport merely because those paths are theoretically expensive.
+Do not reopen broad source optimization before target evidence identifies the first measured owner.
 
 ## Next Step
 
-Run `docs/knowledge/operations/target-windows-performance.md` on TARGET_WINDOWS using the built-in voice outbound-only baseline first, then return the measured first bottleneck (or evidence that no material bottleneck remains) to development.
+Run `docs/knowledge/operations/target-windows-performance.md` on TARGET_WINDOWS with the built-in voice outbound-only baseline first, then return the measured first bottleneck (or evidence that no material bottleneck remains) to development.
